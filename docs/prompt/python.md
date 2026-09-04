@@ -18,7 +18,9 @@ Read the index, then the sections that apply. Do not ingest the rest.
 Private Python web services live in `/private/app/<bundle_id>/`.
 
 This is where an app's backend goes. Swift is for BOSS subsystems — see
-[`process.md`](process.md) § One app, one backend. An app served by both is
+[`process.md`](process.md) § One app, one backend. User records the app does
+not own are asked for on `POST /private/users` — see
+[`process.md`](process.md) § The private Swift bridge. An app served by both is
 not something the authorization system supports: each registration rebuilds
 the other's roles, and neither is told.
 

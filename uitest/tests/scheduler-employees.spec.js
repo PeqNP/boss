@@ -14,15 +14,16 @@
  */
 
 import { test, expect } from "@playwright/test";
-import { signInAsAdmin, signInAsOperator, ensureOperator, bootBOSS,
-         openApplication, openController, windowByTitle, settled,
-         docAction, action, selectPopupOption, closeAll } from "../lib/boss.js";
+import { signInAsAdmin, signInAsOperator, ensureOperator, ensureAccount,
+         account, bootBOSS, openApplication, openController, windowByTitle,
+         settled, docAction, action, selectPopupOption, closeAll } from "../lib/boss.js";
 import { resetDatabase } from "../lib/seed.js";
 
 const API = "/api/io.bithead.scheduler";
 
 test.describe("scheduler employees", () => {
   let businessId;
+  const worker = account("staff-employee");
 
   // A window left open outlives its test — see `ui-plan.md`.
   test.afterEach(async ({ page }) => {
@@ -33,6 +34,7 @@ test.describe("scheduler employees", () => {
     await signInAsAdmin(page);
     await resetDatabase(page);
     await ensureOperator(page);
+    await ensureAccount(page, worker);
     await signInAsOperator(page);
     const response = await page.request.post(`${API}/signup`, {
       data: { name: "Dana's Salon", timezone: "America/Los_Angeles" }
@@ -251,5 +253,26 @@ test.describe("scheduler employees", () => {
     expect((await staff(page)).length,
            "leaving the window left the draft employee behind")
       .toBe(before);
+  });
+
+  test("link a BOSS account", async ({ page }) => {
+    const { win, employeeId } = await openSaved(page, "Rosa");
+
+    const listed = await page.request.get(
+      `${API}/business/${businessId}/users?email=${encodeURIComponent(worker.email)}`);
+    expect(listed.ok(), `lookup failed: ${await listed.text()}`).toBe(true);
+    const found = (await listed.json()).users || [];
+    expect(found.map((u) => u.name), "the operator could not look up the account")
+      .toContain(worker.email);
+
+    await win.locator(".ui-search-menu-input").fill(worker.email);
+    const option = page.locator(".ui-search-menu-option", { hasText: worker.email });
+    await expect(option).toBeVisible();
+    await option.dispatchEvent("mousedown");
+
+    await expect
+      .poll(async () => (await employee(page, employeeId)).userId,
+            { message: "the account never reached the employee" })
+      .not.toBeNull();
   });
 });

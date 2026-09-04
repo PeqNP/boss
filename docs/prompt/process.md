@@ -7,7 +7,7 @@ Read the index, then the sections that apply. Do not ingest the rest.
 | Size, kind, what to load | [Classify the work](#classify-the-work) |
 | Interview and spec | [Phase 0](#phase-0--design-interview) |
 | `plan.md` | [Phase 1](#phase-1--write-the-plan) |
-| Layers, Python vs Swift, where a rule lives | [System Layers](#system-layers) |
+| Layers, Python vs Swift, localhost bridge | [System Layers](#system-layers) |
 | Domain vs network models | [Network and Domain Models](#network-and-domain-models) |
 | Private tests vs UI tests | [When to Write Tests](#when-to-write-tests) |
 | The eight stages | [Development Order](#development-order) |
@@ -312,6 +312,19 @@ has, and nothing reports the loss.
 
 If an app needs something only Swift can reach, that thing belongs in a BOSS
 subsystem the Python service calls. The app still has one backend.
+
+### The private Swift bridge
+
+`/private/` is a localhost pipe from Python to Swift. nginx allows `127.0.0.1`
+and denies everyone else; Swift does not ask who is calling. The browser never
+calls it.
+
+An installed private app is high trust: it shares the box with BOSS, it can
+hit `/private/`, and it can read the BOSS database. We do not put user records
+on a public route to make up for that. A public `/account/` call answers only
+the signed-in user, or everyone if they are the super admin. An app that needs
+another account — to show a name, to link an employee — asks Swift on
+`POST /private/users` and offers the result through its own ACL.
 
 ### The tactile surface decides nothing
 

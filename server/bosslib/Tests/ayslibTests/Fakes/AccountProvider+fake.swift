@@ -6,6 +6,7 @@ import Foundation
 
 class FakeAccountProvider: AccountProvider {
     var _users: (Database.Session, AuthenticatedUser) async throws -> [User] = { _, _ in fatalError("AccountProvider.users") }
+    var _lookupUsers: (Database.Session, [User.ID], [String]) async throws -> [User] = { _, _, _ in fatalError("AccountProvider.lookupUsers") }
     var _createUser: (Database.Session, AuthenticatedUser, String?, String?, String?, Bool) async throws -> (User, SystemEmail) = { _, _, _, _, _, _ in fatalError("AccountProvider.createAccount") }
     var _createPublicUser: (Database.Session, String?) async throws -> SystemEmail = { _, _ in fatalError("AccountProvider.createPublicUser") }
     var _saveUser: (Database.Session, AuthenticatedUser, User.ID?, String?, String?, String?, Bool, Bool) async throws -> User = { _, _, _, _, _, _, _, _ in fatalError("AccountProvider.saveUser") }
@@ -31,6 +32,10 @@ class FakeAccountProvider: AccountProvider {
 
     func users(session: bosslib.Database.Session, user: bosslib.AuthenticatedUser) async throws -> [bosslib.User] {
         try await _users(session, user)
+    }
+
+    func lookupUsers(session: bosslib.Database.Session, ids: [User.ID], emails: [String]) async throws -> [bosslib.User] {
+        try await _lookupUsers(session, ids, emails)
     }
     
     func createUser(session: bosslib.Database.Session, admin: bosslib.AuthenticatedUser, email: String?, password: String?, fullName: String?, verified: Bool) async throws -> (bosslib.User, bosslib.SystemEmail?) {

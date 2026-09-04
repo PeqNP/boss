@@ -20,7 +20,6 @@
       // The BOSS account tied to this record. `null` until one is linked.
       let linkedUserId = null;
       let linkedOption = null;
-      let accounts = null;
 
       const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -78,7 +77,7 @@
         }
         win.input("first-name").value = response.firstName;
         win.input("last-name").value = response.lastName;
-        await showLinkedAccount(response.userId);
+        await showLinkedAccount(response.userId, response.account);
         // A draft is left out of the schedule so an unnamed employee cannot be
         // assigned work. The box still reads on, because saving is what says
         // the operator wants them — and the first save sends this.
@@ -154,53 +153,43 @@
       }
 
       /**
-       * Returns the BOSS accounts matching a search term.
+       * Returns the BOSS account whose email is `term`.
        *
-       * @param {string} term - Search term. Empty returns every account.
+       * @param {string} term - Email to look up. Empty returns nothing.
        * @returns {[{id: string, name: string}]} Choices for the search menu
        */
       async function loadAccounts(term) {
-        if (isEmpty(accounts)) {
-          let listed;
-          try {
-            listed = await os.network.get("/account/users");
-          }
-          catch {
-            os.ui.showError("Failed to load accounts. Please try again later.");
-            return [];
-          }
-          accounts = listed.users;
-        }
         if (isEmpty(term)) {
-          return accounts;
+          return [];
         }
-        const needle = term.toLowerCase();
-        return accounts.filter(function(u) {
-          return u.name.toLowerCase().indexOf(needle) !== -1;
-        });
+        let listed;
+        try {
+          listed = await os.network.get(
+            `/api/io.bithead.scheduler/business/${businessId}/users?email=${encodeURIComponent(term)}`
+          );
+        }
+        catch {
+          os.ui.showError("Failed to load accounts. Please try again later.");
+          return [];
+        }
+        return listed.users;
       }
 
       /**
        * Shows the account already tied to this employee.
        *
        * @param {number|null} userId - Linked account, or `null`
+       * @param {{id: string, name: string}|null} account - Picker row from the employee GET
        */
-      async function showLinkedAccount(userId) {
+      async function showLinkedAccount(userId, account) {
         linkedUserId = userId;
         linkedOption = null;
-        if (isEmpty(userId)) {
+        if (isEmpty(userId) || isEmpty(account)) {
           win.select("account").ui.clearSelectedValue();
           return;
         }
-        const users = await loadAccounts("");
-        const found = users.find(function(u) {
-          return parseInt(u.id) === userId;
-        });
-        if (isEmpty(found)) {
-          return;
-        }
-        linkedOption = found;
-        win.select("account").ui.selectOption(found);
+        linkedOption = account;
+        win.select("account").ui.selectOption(account);
       }
 
       /**
@@ -490,7 +479,7 @@
         <div class="ui-search-menu" style="width: 100%;">
           <label>BOSS account</label>
           <select name="account">
-            <option>Search accounts…</option>
+            <option>Search by email…</option>
           </select>
         </div>
         <div class="text-field">

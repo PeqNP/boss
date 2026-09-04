@@ -9,6 +9,7 @@ extension api {
 
 protocol AccountProvider {
     func users(session: Database.Session, user: AuthenticatedUser) async throws -> [User]
+    func lookupUsers(session: Database.Session, ids: [User.ID], emails: [String]) async throws -> [User]
     func createUser(session: Database.Session, email: String?) async throws -> SystemEmail
     func createUser(session: Database.Session, admin: AuthenticatedUser, email: String?, password: String?, fullName: String?, verified: Bool) async throws -> (User, SystemEmail?)
     func verifyUser(session: Database.Session, code: String?, password: String?, fullName: String?) async throws -> User
@@ -95,14 +96,24 @@ final public class AccountAPI {
     
     /// Returns all users in BOSS system.
     ///
-    /// - Parameter session:
-    /// - Parameter user:
-    /// - Returns: All users, if user is admin. Otherwise, returns the current user only.
+    /// All users, if the caller is admin. Otherwise, the current user only.
     public func users(
         session: Database.Session = Database.session(),
         user: AuthenticatedUser
     ) async throws -> [User] {
         try await p.users(session: session, user: user)
+    }
+
+    /// Accounts matching the given ids or emails.
+    ///
+    /// A miss is omitted. For private services on localhost, not a signed-in
+    /// caller on `/account/users`.
+    public func lookupUsers(
+        session: Database.Session = Database.session(),
+        ids: [User.ID] = [],
+        emails: [String] = []
+    ) async throws -> [User] {
+        try await p.lookupUsers(session: session, ids: ids, emails: emails)
     }
 
     /// Begin the process of creating a new user.

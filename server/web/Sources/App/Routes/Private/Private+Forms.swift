@@ -46,6 +46,12 @@ enum PrivateForm {
         let bundleId: String
         let feature: String?
     }
+
+    /// Accounts a private service wants named, by id or email.
+    struct LookupUsers: Content {
+        var ids: [Int] = []
+        var emails: [String] = []
+    }
     
     struct SendNotifications: Content {
         struct Notification: Content {

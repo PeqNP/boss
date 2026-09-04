@@ -18,8 +18,8 @@ from lib.model import User
 
 import debug
 
-from lib.server import (get_user, grant_license, grant_role, require_acl,
-                        require_admin, require_user, revoke_role,
+from lib.server import (get_user, grant_license, grant_role, lookup_users,
+                        require_acl, require_admin, require_user, revoke_role,
                         send_message, ADMIN_USER_ID)
 
 from . import lib
@@ -1303,7 +1303,8 @@ async def get_employee(
         )
     return EmployeeDetail(
         id=e.id,
-        userId=None,
+        userId=e.userId,
+        account=await _account_option(e.userId),
         firstName=e.firstName,
         lastName=e.lastName,
         includeInSchedule=e.includeInSchedule,
@@ -1313,6 +1314,30 @@ async def get_employee(
         jobTypes=[EmployeeJobType(id=j.id, name=j.name)
         for j in lib.get_employee_job_types(business_id, employee_id)]
     )
+
+
+@router.get(
+    "/business/{business_id}/users",
+    response_model=Accounts
+)
+@require_acl("employee.w", roles=[Role.OPERATOR])
+@handled
+async def lookup_accounts(
+    business_id: int,
+    boss_user: User,
+    request: Request,
+    email: str = ""
+):
+    """The BOSS account whose email was typed, for the Employee picker."""
+    _working_for(business_id, boss_user)
+    address = (email or "").strip()
+    if not address:
+        return Accounts(users=[])
+    found = await lookup_users(emails=[address])
+    return Accounts(users=[
+        AccountOption(id=str(row["id"]), name=row["name"])
+        for row in found
+    ])
 
 
 @router.post("/business/{business_id}/employee", response_model=Employee)
@@ -2281,6 +2306,17 @@ def _working_for(business_id: int, user: User) -> User:
             detail="You do not work for this business."
         )
     return user
+
+
+async def _account_option(user_id: Optional[int]) -> Optional[AccountOption]:
+    """Picker row for a linked BOSS account, when BOSS still has that user."""
+    if user_id is None:
+        return None
+    found = await lookup_users(ids=[user_id])
+    if not found:
+        return None
+    row = found[0]
+    return AccountOption(id=str(row["id"]), name=row["name"])
 
 
 def _operator_user(request: Request) -> int:

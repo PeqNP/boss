@@ -845,6 +845,48 @@ final class accountTests: XCTestCase {
             service.error.RecordNotFound()
         )
     }
+
+    func test_users() async throws {
+        try await boss.start(storage: .memory)
+
+        let (staff, _) = try await api.account.createUser(
+            admin: superUser(),
+            email: "staff@example.com",
+            password: "Password1!",
+            fullName: "Staff",
+            verified: true
+        )
+        let (operatorUser, _) = try await api.account.createUser(
+            admin: superUser(),
+            email: "op@example.com",
+            password: "Password1!",
+            fullName: "Op",
+            verified: true
+        )
+        let session = try await api.account.makeUserSession(user: operatorUser)
+        let auth = AuthenticatedUser(user: operatorUser, session: session, peer: "localhost")
+
+        // describe: list without a query
+        // when: the caller is not an admin
+        // it: answers only themselves
+        let listed = try await api.account.users(user: auth)
+        XCTAssertEqual(listed.map(\.id), [operatorUser.id])
+
+        // describe: look up by email
+        // it: answers that account
+        let found = try await api.account.lookupUsers(emails: ["staff@example.com"])
+        XCTAssertEqual(found.map(\.id), [staff.id])
+
+        // when: the email matches nobody
+        // it: answers an empty list
+        let missing = try await api.account.lookupUsers(emails: ["nobody@example.com"])
+        XCTAssertEqual(missing, [])
+
+        // describe: look up by id
+        // it: answers that account
+        let byId = try await api.account.lookupUsers(ids: [staff.id])
+        XCTAssertEqual(byId.map(\.id), [staff.id])
+    }
 }
 
 private extension bosslib.UserSession {

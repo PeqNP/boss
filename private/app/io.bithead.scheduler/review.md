@@ -28,7 +28,6 @@ The four stubbed handlers are the only ones in the service that reach no rule.
 
 | | What exists | What is missing |
 |---|---|---|
-| Linking a BOSS account to an employee | `PUT /business/{id}/employee/{id}/account`, wired and tested; the Employee screen has the search | An operator calling `/account/users` sees only themselves, so they cannot pick a staff account |
 | Writing off a balance | `lib.write_off_payment`, written and tested | A route, and a control. Nothing calls it, so `payment_status` never becomes `written_off` and the Financial Report's Write-Offs figure can only read $0.00 |
 
 ## Waiting on nothing

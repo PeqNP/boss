@@ -29,6 +29,33 @@ struct AccountService: AccountProvider {
         let user = try await service.user.user(conn: conn, id: user.user.id)
         return [user]
     }
+
+    func lookupUsers(
+        session: Database.Session,
+        ids: [User.ID],
+        emails: [String]
+    ) async throws -> [User] {
+        let conn = try await session.conn()
+        var seen = Set<User.ID>()
+        var found: [User] = []
+        for id in ids {
+            guard let user = try? await service.user.user(conn: conn, id: id),
+                  seen.insert(user.id).inserted else {
+                continue
+            }
+            found.append(user)
+        }
+        for email in emails {
+            let address = email.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !address.isEmpty,
+                  let user = try? await service.user.user(conn: conn, email: address),
+                  seen.insert(user.id).inserted else {
+                continue
+            }
+            found.append(user)
+        }
+        return found
+    }
     
     func createUser(session: Database.Session, email: String?) async throws -> SystemEmail {
         let email = try validateEmail(email)

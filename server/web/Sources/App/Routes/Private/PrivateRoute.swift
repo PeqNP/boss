@@ -76,6 +76,21 @@ public func registerPrivate(_ app: Application) {
             )
         }
         
+        group.post("users") { req in
+            let form = try req.content.decode(PrivateForm.LookupUsers.self)
+            let users = try await api.account.lookupUsers(ids: form.ids, emails: form.emails)
+            return Fragment.GetUsers(
+                users: users.map { Fragment.Option(id: $0.id, name: $0.email) }
+            )
+        }.openAPI(
+            summary: "Look up BOSS accounts by id or email",
+            description: "A miss is omitted. * Only available to private services.",
+            body: .type(PrivateForm.LookupUsers.self),
+            contentType: .application(.json),
+            response: .type(Fragment.GetUsers.self),
+            responseContentType: .application(.json)
+        )
+
         group.group("send") { notification in
             notification.post("notifications") { req in
                 try await sendNotifications(request: req)

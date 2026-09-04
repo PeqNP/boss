@@ -343,7 +343,7 @@ def calling_bundle(module: Optional[str] = None) -> Optional[str]:
     return None
 
 
-async def _post_to_boss(path: str, body: dict) -> None:
+async def _post_to_boss(path: str, body: dict) -> dict:
     """Send one private request to BOSS, raising what it answers."""
     async with httpx.AsyncClient() as client:
         try:
@@ -355,6 +355,28 @@ async def _post_to_boss(path: str, body: dict) -> None:
                                 detail=e.response.text)
         except httpx.RequestError as e:
             raise HTTPException(status_code=500, detail=str(e))
+    if not response.content:
+        return {}
+    try:
+        data = response.json()
+    except ValueError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+async def lookup_users(
+    ids: Optional[List[int]] = None,
+    emails: Optional[List[str]] = None
+) -> List[dict]:
+    """Picker rows for BOSS accounts, by id or email.
+
+    Hits `/private/users` on localhost. A miss is omitted. See process.md
+    § The private Swift bridge.
+    """
+    body = await _post_to_boss("/private/users",
+                               {"ids": list(ids or []),
+                                "emails": list(emails or [])})
+    return body.get("users") or []
 
 
 def _bundle_of_caller() -> str:

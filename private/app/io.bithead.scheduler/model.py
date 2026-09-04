@@ -95,6 +95,16 @@ class JobTypeSize(Model):
     sortOrder: int
 
 
+class AccountOption(Model):
+    """A BOSS account as a picker row: `id` and email as `name`."""
+    id: str
+    name: str
+
+
+class Accounts(Model):
+    users: List[AccountOption]
+
+
 class Employee(Model):
     id: int
     businessId: int
@@ -314,6 +324,9 @@ class EmployeeDetail(Model):
     id: int
     # `null` until they are invited to BOSS.
     userId: Optional[int] = None
+    # Picker row for the linked account, when `userId` is set and BOSS still
+    # has that user.
+    account: Optional[AccountOption] = None
     firstName: str
     lastName: str
     includeInSchedule: bool
