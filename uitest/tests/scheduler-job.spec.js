@@ -118,6 +118,45 @@ test.describe("scheduler job", () => {
       .toBe("cancelled");
   });
 
+  test("reassign a job", async ({ page }) => {
+    // A second person to hand it to. `readyToBook` leaves one, Alice Kim.
+    const added = await page.request.post(
+      `${API}/business/${businessId}/employee`,
+      { data: { firstName: "Rosa", lastName: "Alvarez" } });
+    expect(added.ok(), `could not add an employee: ${await added.text()}`)
+      .toBe(true);
+    const rosaId = (await added.json()).id;
+    await page.request.put(
+      `${API}/business/${businessId}/employee/${rosaId}`,
+      { data: { firstName: "Rosa", lastName: "Alvarez", includeInSchedule: true,
+                jobTypeIds: [what.jobTypeId] } });
+
+    const win = await openJob(page);
+
+    await win.locator(".ui-token-menu-input").click();
+    await win.locator(".ui-token-menu-option", { hasText: "Rosa" }).click();
+    await expect(win.locator(".ui-token", { hasText: "Rosa" })).toBeVisible();
+    await docAction(win, "save").click();
+
+    await expect
+      .poll(async () => (await job(page)).employees.map((e) => e.firstName).sort(),
+            { message: "the crew never reached the server" })
+      .toEqual(["Alice", "Rosa"]);
+  });
+
+  test("complete a job", async ({ page }) => {
+    const win = await openJob(page);
+
+    await action(win, "markComplete").click();
+    await page.locator(".ui-modal", { hasText: "Mark this job as completed?" })
+      .locator("button", { hasText: "OK" }).click();
+
+    await expect
+      .poll(async () => (await job(page)).status,
+            { message: "the completion never reached the server" })
+      .toBe("completed");
+  });
+
   test("reject empty payment", async ({ page }) => {
     const win = await openJob(page);
 
