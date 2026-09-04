@@ -38,7 +38,6 @@ recorded against the flow it belongs to in `ui-plan.md`.
 
 | Flow | Uncovered |
 |---|---|
-| 12 | Working days and time off edited from the portal |
 | 13 | Holidays, and editing a vendor |
 
 The rules behind each are settled in `private/tests/test_scheduler.py`. What is

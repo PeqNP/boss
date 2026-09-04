@@ -15,7 +15,7 @@
 import { test, expect } from "@playwright/test";
 import { signInAsAdmin, signInAsOperator, ensureOperator, ensureAccount,
          account, signInAs, bootBOSS, openApplication, windowByTitle, settled,
-         action, docAction, closeAll } from "../lib/boss.js";
+         action, docAction, selectPopupOption, closeAll } from "../lib/boss.js";
 import { resetDatabase } from "../lib/seed.js";
 import { readyToBook, book } from "../lib/scheduler.js";
 
@@ -175,6 +175,71 @@ test.describe("scheduler employee portal", () => {
                           .json()).jobTypes.length,
             { message: "the profile never reached the server" })
       .toBe(0);
+  });
+
+  /** The employee's own record, as the server holds it. */
+  async function profile(page) {
+    const response = await page.request.get(`${API}/my/profile`);
+    expect(response.ok(), `could not read the profile: ${await response.text()}`)
+      .toBe(true);
+    return response.json();
+  }
+
+  async function openProfile(page) {
+    await action(await openDashboard(page), "manageProfile").click();
+    const win = windowByTitle(page, "My Profile");
+    await expect(win).toBeVisible();
+    await settled(win);
+    return win;
+  }
+
+  test("save a working day from the portal", async ({ page }) => {
+    const win = await openProfile(page);
+
+    // Rosa already works every day, so this changes one rather than adding a
+    // day she has — a test that added one would assert a Saturday exists,
+    // which was true before it ran.
+    await win.locator(".ui-list-box .option", { hasText: "Sat" }).first().click();
+    await action(win, "editScheduleDay").click();
+    const modal = windowByTitle(page, "Working Day");
+    await expect(modal).toBeVisible();
+    await modal.locator("input[name='start-time']").fill("10:00");
+    await modal.locator("input[name='end-time']").fill("14:00");
+    await action(modal, "save").click();
+
+    // Written through the routes the operator uses, which the service
+    // authorises rather than duplicates — so the employee's own edit lands on
+    // the same record the operator reads.
+    await expect
+      .poll(async () => {
+        const day = (await profile(page)).scheduleTemplate
+          .find((d) => d.dayOfWeek === 6);
+        return day && [day.startTime, day.endTime];
+      }, { message: "the hours never reached the server" })
+      .toEqual(["10:00", "14:00"]);
+
+    // The rest of her week is untouched.
+    const monday = (await profile(page)).scheduleTemplate
+      .find((d) => d.dayOfWeek === 1);
+    expect([monday.startTime, monday.endTime], "another day moved")
+      .toEqual(["08:00", "18:00"]);
+  });
+
+  test("save time off from the portal", async ({ page }) => {
+    const win = await openProfile(page);
+
+    await action(win, "addTimeOff").click();
+    const modal = windowByTitle(page, "Time Off");
+    await expect(modal).toBeVisible();
+    await modal.locator("input[name='date']").fill("2026-12-24");
+    await modal.locator("input[name='start-time']").fill("08:00");
+    await modal.locator("input[name='end-time']").fill("12:00");
+    await action(modal, "save").click();
+
+    await expect
+      .poll(async () => (await profile(page)).timeOff.map((w) => w.date),
+            { message: "the time off never reached the server" })
+      .toEqual(["2026-12-24"]);
   });
 
   test("refuse a colleague's job", async ({ page }) => {
