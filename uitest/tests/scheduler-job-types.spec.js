@@ -179,6 +179,38 @@ test.describe("scheduler job types", () => {
       .toEqual(["Phone", "First Name"]);
   });
 
+  test("delete job type size", async ({ page }) => {
+    const { win, jobTypeId } = await openSaved(page);
+
+    await action(win, "addSize").click();
+    let modal = windowByTitle(page, "Size");
+    await modal.locator("input[name='size-name']").fill("Long hair");
+    await modal.locator("input[name='duration-minutes']").fill("90");
+    await modal.locator("input[name='cost']").fill("65");
+    await action(modal, "save").click();
+    await expect.poll(async () => (await detail(page, jobTypeId)).sizes.length,
+                      { message: "the size never saved" })
+      .toBe(1);
+
+    await win.locator(".ui-list-box .option", { hasText: "Long hair" }).click();
+    await action(win, "editSize").click();
+    modal = windowByTitle(page, "Size");
+    await expect(modal).toBeVisible();
+    await action(modal, "delete").click();
+    await page.locator(".ui-modal", { hasText: "Delete this size?" })
+      .locator("button", { hasText: "OK" }).click();
+
+    await expect
+      .poll(async () => (await detail(page, jobTypeId)).sizes.length,
+            { message: "the deletion never reached the server" })
+      .toBe(0);
+
+    // Gone from the kiosk too, which is where a size is chosen.
+    const offering = (await offered(page)).find((j) => j.id === jobTypeId);
+    expect((offering?.sizes || []).length, "a customer is still offered it")
+      .toBe(0);
+  });
+
   test("save job type", async ({ page }) => {
     await openController(page, "io.bithead.scheduler", "JobType");
     const win = windowByTitle(page, "Job Type");

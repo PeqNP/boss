@@ -166,6 +166,34 @@ test.describe("scheduler employees", () => {
       .toEqual(["Haircut"]);
   });
 
+  test("delete a working day", async ({ page }) => {
+    const { win, employeeId } = await openSaved(page);
+
+    await action(win, "addScheduleDay").click();
+    let modal = windowByTitle(page, "Working Day");
+    await selectPopupOption(modal, "day-of-week", "Tuesday");
+    await modal.locator("input[name='start-time']").fill("09:00");
+    await modal.locator("input[name='end-time']").fill("17:00");
+    await action(modal, "save").click();
+    await expect
+      .poll(async () => (await employee(page, employeeId)).scheduleTemplate.length,
+            { message: "the working day never saved" })
+      .toBe(1);
+
+    await win.locator(".ui-list-box .option", { hasText: "Tue" }).first().click();
+    await action(win, "editScheduleDay").click();
+    modal = windowByTitle(page, "Working Day");
+    await expect(modal).toBeVisible();
+    await action(modal, "delete").click();
+    await page.locator(".ui-modal", { hasText: "Remove this working day?" })
+      .locator("button", { hasText: "OK" }).click();
+
+    await expect
+      .poll(async () => (await employee(page, employeeId)).scheduleTemplate.length,
+            { message: "the deletion never reached the server" })
+      .toBe(0);
+  });
+
   test("save canManageOwnSchedule",
        async ({ page }) => {
     const win = await openEditor(page);
