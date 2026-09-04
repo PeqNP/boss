@@ -110,10 +110,12 @@ def handled(func):
         except tuple(kind for kind, _ in REFUSALS) as refused:
             for kind, status in REFUSALS:
                 if isinstance(refused, kind):
-                    raise HTTPException(
-                        status_code=status,
-                        detail={"reason": str(refused)}
-                    )
+                    # A refusal may carry more than a sentence. The lookup
+                    # screen has a step for a locked appointment and another
+                    # for a blocked caller, and picks between them on these.
+                    detail = {"reason": str(refused)}
+                    detail.update(getattr(refused, "detail", None) or {})
+                    raise HTTPException(status_code=status, detail=detail)
             raise
     return wrapper
 

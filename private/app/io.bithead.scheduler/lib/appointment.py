@@ -441,9 +441,11 @@ ACCESS_ATTEMPT_WINDOW_SECONDS = 60
 
 def _refuse_if_locked(job) -> None:
     if db.get_job_locked_date(job.id) is not None:
+        business = db.get_business_config(job.business_id)
         raise AppointmentLocked(
             "This appointment is locked. Please contact the business to make"
-            " a change."
+            " a change.",
+            business_phone=business.phone if business else None
         )
 
 

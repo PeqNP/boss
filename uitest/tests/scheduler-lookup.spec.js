@@ -145,6 +145,44 @@ test.describe("scheduler appointment lookup", () => {
     expect(job.status, "the appointment did not survive").toBe("confirmed");
   });
 
+  test("lock the appointment after too many wrong codes", async ({ page }) => {
+    // A number to call. The locked step exists to carry it, so a business
+    // without one proves only that the step drew.
+    const configured = await page.request.put(
+      `${API}/business/${businessId}/config`,
+      { data: { phone: "555-0199" } });
+    expect(configured.ok(), `could not set the phone: ${await configured.text()}`)
+      .toBe(true);
+
+    // Six wrong codes inside a minute. Driven through the API because the
+    // screen sends the customer back to the job code after five, so a
+    // customer cannot reach the sixth without asking for another code — the
+    // count that locks it is the server's, kept against the appointment.
+    for (let i = 0; i < 6; i++) {
+      const asked = await page.request.post(`${API}/appointment/lookup`,
+                                            { data: { jobCode } });
+      expect(asked.ok(), `could not ask for a code: ${await asked.text()}`)
+        .toBe(true);
+      await page.request.post(`${API}/appointment/lookup/verify`,
+                              { data: { jobCode, code: "000000" } });
+    }
+
+    const held = await (await page.request.get(
+      `${API}/business/${businessId}/job/${jobId}`)).json();
+    expect(held.locked, "six wrong codes did not lock the appointment").toBe(true);
+
+    // Asking again is refused before any code is sent, and the screen says who
+    // to call. The lock is never cleared — the operator still changes the
+    // appointment from the admin screens.
+    const win = await openLookup(page);
+    await win.locator("input[name='job-code']").fill(jobCode);
+    await win.locator("button", { hasText: "Continue" }).click();
+
+    await expect(win.locator("[name='step-locked']")).toBeVisible();
+    await expect(win.locator("[name='locked-phone']")).toContainText("555-0199");
+    await expect(win.locator("[name='step-verify']")).toBeHidden();
+  });
+
   test("reject unknown job code", async ({ page }) => {
     const win = await openLookup(page);
 

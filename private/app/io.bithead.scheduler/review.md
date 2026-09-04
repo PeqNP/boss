@@ -40,7 +40,6 @@ recorded against the flow it belongs to in `ui-plan.md`.
 | 4 | Deleting a size, an attribute, or a contact field |
 | 5 | Deleting a working day or a time-off window |
 | 6 | The OTP step, a deposit, and choosing an employee |
-| 7 | The lockout after six wrong codes |
 | 8 | Assigning a week |
 | 10 | A customer with a BOSS account, whose details are read-only |
 | 12 | Working days and time off edited from the portal |

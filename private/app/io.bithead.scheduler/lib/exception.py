@@ -64,11 +64,27 @@ class CodeExpired(Exception):
 
 
 class AppointmentLocked(Exception):
-    """Too many wrong codes. The customer's door is shut, the operator's is not."""
+    """Too many wrong codes. The customer's door is shut, the operator's is not.
+
+    `detail` reaches the client beside the reason. The lookup screen has a step
+    for this, carrying the number to call, and it needs to tell this refusal
+    from every other one without reading the sentence.
+    """
+
+    def __init__(self, message: str, business_phone: str = None):
+        super().__init__(message)
+        self.detail = {"locked": True, "businessPhone": business_phone}
 
 
 class CallerBlocked(Exception):
-    """Too many unknown job codes. This caller may not submit another for a day."""
+    """Too many unknown job codes. This caller may not submit another for a day.
+
+    Carries `detail` for the same reason `AppointmentLocked` does.
+    """
+
+    def __init__(self, message: str):
+        super().__init__(message)
+        self.detail = {"blocked": True}
 
 
 class InvalidDateRange(Exception):
