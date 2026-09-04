@@ -17,6 +17,11 @@
       // What an employee is called before anyone names them.
       const DRAFT_FIRST_NAME = "Untitled";
 
+      // The BOSS account tied to this record. `null` until one is linked.
+      let linkedUserId = null;
+      let linkedOption = null;
+      let accounts = null;
+
       const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
       // A document: the window owns Cancel, Delete and Save, asks before
@@ -73,6 +78,7 @@
         }
         win.input("first-name").value = response.firstName;
         win.input("last-name").value = response.lastName;
+        await showLinkedAccount(response.userId);
         // A draft is left out of the schedule so an unnamed employee cannot be
         // assigned work. The box still reads on, because saving is what says
         // the operator wants them — and the first save sends this.
@@ -145,6 +151,116 @@
         return response.jobTypes.map(function(jt) {
           return { id: String(jt.id), name: jt.name };
         });
+      }
+
+      /**
+       * Returns the BOSS accounts matching a search term.
+       *
+       * @param {string} term - Search term. Empty returns every account.
+       * @returns {[{id: string, name: string}]} Choices for the search menu
+       */
+      async function loadAccounts(term) {
+        if (isEmpty(accounts)) {
+          let listed;
+          try {
+            listed = await os.network.get("/account/users");
+          }
+          catch {
+            os.ui.showError("Failed to load accounts. Please try again later.");
+            return [];
+          }
+          accounts = listed.users;
+        }
+        if (isEmpty(term)) {
+          return accounts;
+        }
+        const needle = term.toLowerCase();
+        return accounts.filter(function(u) {
+          return u.name.toLowerCase().indexOf(needle) !== -1;
+        });
+      }
+
+      /**
+       * Shows the account already tied to this employee.
+       *
+       * @param {number|null} userId - Linked account, or `null`
+       */
+      async function showLinkedAccount(userId) {
+        linkedUserId = userId;
+        linkedOption = null;
+        if (isEmpty(userId)) {
+          win.select("account").ui.clearSelectedValue();
+          return;
+        }
+        const users = await loadAccounts("");
+        const found = users.find(function(u) {
+          return parseInt(u.id) === userId;
+        });
+        if (isEmpty(found)) {
+          return;
+        }
+        linkedOption = found;
+        win.select("account").ui.selectOption(found);
+      }
+
+      /**
+       * Ties a BOSS account to this employee, or takes the tie away.
+       *
+       * @param {number|null} userId - Account to tie, or `null` to unlink
+       * @param {number|null} previousUserId - Account whose role to revoke
+       * @returns {boolean} `true` when the write succeeded
+       */
+      async function saveAccount(userId, previousUserId) {
+        const body = { userId };
+        if (!isEmpty(previousUserId)) {
+          body.previousUserId = previousUserId;
+        }
+        let response;
+        try {
+          response = await os.network.put(
+            `/api/io.bithead.scheduler/business/${businessId}/employee/${employeeId}/account`,
+            body
+          );
+        }
+        catch (error) {
+          win.showMessage(error.message, { error: true });
+          return false;
+        }
+        linkedUserId = response.userId;
+        win.showMessage("Saved");
+        return true;
+      }
+
+      async function didFocusAccount(initialize) {
+        if (!initialize) {
+          return null;
+        }
+        return await loadAccounts("");
+      }
+
+      async function didSearchAccounts(term) {
+        return await loadAccounts(term);
+      }
+
+      async function didSelectAccount(option) {
+        if (!await saveAccount(parseInt(option.value), null)) {
+          win.select("account").ui.clearSelectedValue();
+          return;
+        }
+        linkedOption = { id: option.value, name: option.text };
+      }
+
+      async function didDeselectAccount() {
+        if (isEmpty(linkedUserId)) {
+          return;
+        }
+        if (!await saveAccount(null, linkedUserId)) {
+          if (!isEmpty(linkedOption)) {
+            win.select("account").ui.selectOption(linkedOption);
+          }
+          return;
+        }
+        linkedOption = null;
       }
 
       // --- Controller functions ---
@@ -309,6 +425,7 @@
         // days after `create` and `viewDidLoad` does not run again.
         win.select("schedule").ui.setDefaultAction(editScheduleDay);
         win.select("time-off").ui.setDefaultAction(editTimeOff);
+        wireAccount();
         wireJobTypes();
 
         if (isEmpty(employeeId)) {
@@ -323,6 +440,18 @@
         win.input("first-name").focus();
       }
       this.viewDidAppear = viewDidAppear;
+
+      /**
+       * Wires the account menu to `/account/users`.
+       */
+      function wireAccount() {
+        win.select("account").ui.delegate = {
+          didFocusSearchMenu: didFocusAccount,
+          didSearchForTerm: didSearchAccounts,
+          didSelectOption: didSelectAccount,
+          didDeselectOption: didDeselectAccount
+        };
+      }
 
       /**
        * Wires the job types menu to the server's job type list.
@@ -358,6 +487,12 @@
     <fieldset>
       <legend>Personal Info</legend>
       <div class="vbox gap-10">
+        <div class="ui-search-menu" style="width: 100%;">
+          <label>BOSS account</label>
+          <select name="account">
+            <option>Search accounts…</option>
+          </select>
+        </div>
         <div class="text-field">
           <label for="first-name">First Name</label>
           <input type="text" name="first-name" autocomplete="new-password">

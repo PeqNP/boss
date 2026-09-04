@@ -490,6 +490,12 @@ def check_response_fields(bundle, report):
     if not fields:
         return
 
+    service = os.path.join(PRIVATE_DIR, bundle, "__init__.py")
+    prefix = ""
+    if os.path.exists(service):
+        prefix_match = re.search(r'APIRouter\(prefix="([^"]+)"', open(service).read())
+        prefix = prefix_match.group(1) if prefix_match is not None else ""
+
     controller_dir = os.path.join(APP_DIR, bundle, "controller")
     if not os.path.isdir(controller_dir):
         return
@@ -501,7 +507,14 @@ def check_response_fields(bundle, report):
 
         # The variable a response lands in, plus anything iterating over it —
         # `for (const job of response)`, `response.map(function(line) {`.
-        holders = set(re.findall(r"(\w+)\s*=\s*await\s+os\.network\.", src))
+        # A URL that does not contain this app's prefix is not this app's model.
+        holders = set()
+        for match in re.finditer(
+                r"""(\w+)\s*=\s*await\s+os\.network\.\w+\(\s*[`"']([^`"']+)""", src):
+            holder, url = match.group(1), match.group(2)
+            if prefix and prefix not in url:
+                continue
+            holders.add(holder)
         for holder in list(holders):
             holders |= set(re.findall(rf"for\s*\(\s*const\s+(\w+)\s+of\s+{holder}\b", src))
             holders |= set(re.findall(rf"{holder}\.map\(\s*function\s*\(\s*(\w+)", src))

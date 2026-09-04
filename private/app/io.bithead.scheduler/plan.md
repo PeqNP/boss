@@ -848,6 +848,7 @@ Created as a draft on open, so the child lists work before anyone is named.
 - `GET /api/io.bithead.scheduler/employee/{id}` → detail, including `scheduleTemplate`, `timeOff`, `jobTypes`
 - `POST /api/io.bithead.scheduler/employee` → create the draft; `{ id }`
 - `PUT /api/io.bithead.scheduler/employee/{id}` → update, including `jobTypeIds`
+- `PUT /api/io.bithead.scheduler/business/{id}/employee/{id}/account` → tie a BOSS account, or take it away
 - `DELETE /api/io.bithead.scheduler/employee/{id}` → delete
 - `POST /api/io.bithead.scheduler/employee/{id}/schedule` → add a working day
 - `PUT /api/io.bithead.scheduler/employee-schedule/{id}` → update a working day
