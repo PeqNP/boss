@@ -211,6 +211,64 @@ test.describe("scheduler job types", () => {
       .toBe(0);
   });
 
+  test("delete job type attribute", async ({ page }) => {
+    const { win, jobTypeId } = await openSaved(page);
+
+    await action(win, "addAttribute").click();
+    let modal = windowByTitle(page, "Attribute");
+    await modal.locator("input[name='attribute-name']").fill("Gate code");
+    await selectPopupOption(modal, "attribute-type", "Text");
+    await action(modal, "save").click();
+    await expect
+      .poll(async () => (await detail(page, jobTypeId)).attributes.length,
+            { message: "the question never saved" })
+      .toBe(1);
+
+    await win.locator(".ui-list-box .option", { hasText: "Gate code" }).click();
+    await action(win, "editAttribute").click();
+    modal = windowByTitle(page, "Attribute");
+    await expect(modal).toBeVisible();
+    await action(modal, "delete").click();
+    await page.locator(".ui-modal", { hasText: "Delete this attribute?" })
+      .locator("button", { hasText: "OK" }).click();
+
+    await expect
+      .poll(async () => (await detail(page, jobTypeId)).attributes.length,
+            { message: "the deletion never reached the server" })
+      .toBe(0);
+  });
+
+  test("delete job type contact field", async ({ page }) => {
+    const { win, jobTypeId } = await openSaved(page);
+
+    await action(win, "addContactField").click();
+    let modal = windowByTitle(page, "Contact Field");
+    await selectPopupOption(modal, "field-type", "Phone");
+    await action(modal, "save").click();
+    await expect
+      .poll(async () => (await detail(page, jobTypeId)).contactFields.length,
+            { message: "the contact field never saved" })
+      .toBe(1);
+
+    await win.locator(".ui-list-box .option", { hasText: "Phone" }).click();
+    await action(win, "editContactField").click();
+    modal = windowByTitle(page, "Contact Field");
+    await expect(modal).toBeVisible();
+    await action(modal, "delete").click();
+    await page.locator(".ui-modal", { hasText: "Stop asking for this contact field?" })
+      .locator("button", { hasText: "OK" }).click();
+
+    await expect
+      .poll(async () => (await detail(page, jobTypeId)).contactFields.length,
+            { message: "the deletion never reached the server" })
+      .toBe(0);
+
+    // A customer is no longer asked for it, which is the point of removing it.
+    const offering = (await offered(page)).find((j) => j.id === jobTypeId);
+    expect((offering?.contactFields || []).length, "the kiosk still asks")
+      .toBe(0);
+  });
+
   test("save job type", async ({ page }) => {
     await openController(page, "io.bithead.scheduler", "JobType");
     const win = windowByTitle(page, "Job Type");

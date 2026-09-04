@@ -38,8 +38,6 @@ recorded against the flow it belongs to in `ui-plan.md`.
 
 | Flow | Uncovered |
 |---|---|
-| 4 | Deleting an attribute or a contact field |
-| 5 | Deleting a time-off window |
 | 12 | Working days and time off edited from the portal |
 | 13 | Holidays, and editing a vendor |
 

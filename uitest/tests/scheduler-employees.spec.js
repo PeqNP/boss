@@ -194,6 +194,35 @@ test.describe("scheduler employees", () => {
       .toBe(0);
   });
 
+  test("delete a time-off window", async ({ page }) => {
+    const { win, employeeId } = await openSaved(page);
+
+    await action(win, "addTimeOff").click();
+    let modal = windowByTitle(page, "Time Off");
+    await modal.locator("input[name='date']").fill("2026-12-24");
+    await modal.locator("input[name='start-time']").fill("08:00");
+    await modal.locator("input[name='end-time']").fill("12:00");
+    await action(modal, "save").click();
+    await expect
+      .poll(async () => (await employee(page, employeeId)).timeOff.length,
+            { message: "the time off never saved" })
+      .toBe(1);
+
+    await win.locator(".ui-list-box .option", { hasText: "2026-12-24" })
+      .first().click();
+    await action(win, "editTimeOff").click();
+    modal = windowByTitle(page, "Time Off");
+    await expect(modal).toBeVisible();
+    await action(modal, "delete").click();
+    await page.locator(".ui-modal", { hasText: "Remove this time off?" })
+      .locator("button", { hasText: "OK" }).click();
+
+    await expect
+      .poll(async () => (await employee(page, employeeId)).timeOff.length,
+            { message: "the deletion never reached the server" })
+      .toBe(0);
+  });
+
   test("save canManageOwnSchedule",
        async ({ page }) => {
     const win = await openEditor(page);
