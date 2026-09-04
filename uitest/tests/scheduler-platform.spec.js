@@ -176,6 +176,31 @@ test.describe("scheduler platform", () => {
     }
   });
 
+  // Holidays are not covered: `system_holidays` is only written by
+  // `close_on_holiday`, which no route exposes, and
+  // `POST /system-holidays/refresh` reports the count already there rather
+  // than fetching a year. The screen has nothing to draw until a provider is
+  // connected — see `review.md`.
+
+  test("save a vendor choice", async ({ page }) => {
+    const win = await open(page, "Vendors", "Vendor Integrations");
+
+    const before = await (await page.request.get(`${API}/vendors`)).json();
+    const email = before.vendors.find((v) => v.type === "email");
+    expect(email, "the platform offers no email vendor").toBeTruthy();
+    expect(email.currentVendor, "one is chosen already").toBeFalsy();
+
+    await selectPopupOption(win, "vendor-select-email",
+                            email.registeredVendors[0]);
+    await docAction(win, "save").click();
+
+    await expect
+      .poll(async () => (await (await page.request.get(`${API}/vendors`)).json())
+              .vendors.find((v) => v.type === "email").currentVendor,
+            { message: "the choice never reached the server" })
+      .toBe(email.registeredVendors[0]);
+  });
+
   test("platform scoping", async ({ page }) => {
     await signInAsOperator(page);
 

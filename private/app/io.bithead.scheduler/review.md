@@ -18,7 +18,7 @@ An account, a credential, or a decision that is not the code's to make.
 | Stripe Connect | `GET .../config/stripe/connect` and `.../callback`, answering `?stub=true` and `acct_stub_001` | The same account |
 | A payment link on a job | `GET .../job/{id}/payment-link`, answering `https://buy.stripe.com/test_stub_link` | The same account |
 | The Stripe webhook | Nothing | `plan.md` Open Decision 4: whether it lands on the Python service through a public proxy rule, or on the Swift server which then calls Python |
-| Holidays for a year | `POST /system-holidays/refresh`, reporting the count already seeded | `plan.md` Open Decision 1: which provider |
+| Holidays for a year | `POST /system-holidays/refresh`, reporting the count already there, and the Holidays screen | `plan.md` Open Decision 1: which provider. `system_holidays` is written only by `close_on_holiday`, which no route exposes, so the table is empty and the screen has nothing to draw |
 | The kiosk's OTP step | The whole flow, and `lib/notify.py` recording what would have been sent | An SMS or email vendor. `get_setup` adds "Connect a way to send codes" for a job type that verifies a contact detail, so until one is registered `configured` is false and the kiosk draws `step-not-configured` rather than taking a booking |
 | The kiosk's deposit step | The whole flow, and `step-deposit` | A Stripe account. `get_setup` adds "Connect Stripe" for a job type that takes a payment, with the same consequence |
 
@@ -33,16 +33,9 @@ The four stubbed handlers are the only ones in the service that reach no rule.
 
 ## Waiting on nothing
 
-Behaviour with no spec covering it. Every one is reachable today, and each is
-recorded against the flow it belongs to in `ui-plan.md`.
+Nothing. Every flow in `ui-plan.md` is covered, and what each one leaves out is
+waiting on something above.
 
-| Flow | Uncovered |
-|---|---|
-| 13 | Holidays, and editing a vendor |
-
-The rules behind each are settled in `private/tests/test_scheduler.py`. What is
-missing is the screen: that the control reaches the route, and that what comes
-back is drawn.
 
 ## Carried from the build
 
