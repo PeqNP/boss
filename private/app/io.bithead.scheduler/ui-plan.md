@@ -34,7 +34,7 @@ Dependency first, then how often a break there would go unnoticed.
 | 7 | Appointment lookup | `scheduler-lookup.spec.js` | A job code and a verification code let a customer back in; a wrong code refuses; six wrong codes lock it and the operator can still change it | **Done** — 5 specs |
 | 8 | Operator calendar | `scheduler-calendar.spec.js` | Month, week and day draw what was booked; a day opens; a job opens from it; assigning a week puts somebody on each | **Done** — 4 specs |
 | 9 | Job detail and payment | `scheduler-job.spec.js` | Reschedule, reassign, complete, take payment, cancel — each reads back | **Done** — 7 specs. Writing off is unbuilt, see Findings |
-| 10 | Customers | `scheduler-customers.spec.js` | List, search, detail, notes, and the appointments a customer holds | **Done** — 10 specs. A customer with a BOSS account, whose details are read-only, still to cover |
+| 10 | Customers | `scheduler-customers.spec.js` | List, search, detail, notes, and the appointments a customer holds | **Done** — 11 specs |
 | 11 | Financial report | `scheduler-report.spec.js` | The figures match what was booked and paid over a period, and the CSV downloads | **Done** — 5 specs, no defects found |
 | 12 | Employee portal | `scheduler-portal.spec.js` | The dashboard shows today's work, the calendar shows their own jobs and no colleague's, the profile saves | **Done** — 5 specs, no defects found. Working days and time off from the portal still to cover |
 | 13 | Platform screens | `scheduler-platform.spec.js` | Businesses, contact fields, holidays, timeout, vendors, templates — each list and its editor | **Done** — 8 specs, no defects found. Holidays and editing a vendor still to cover |

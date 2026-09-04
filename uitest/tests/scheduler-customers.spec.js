@@ -266,6 +266,45 @@ test.describe("scheduler customers", () => {
       .toBe(0);
   });
 
+  test("show a customer who has a BOSS account", async ({ page }) => {
+    // Booked while signed in, so the booking attaches that account to the
+    // record. The other bookings in this spec are made from a browser with no
+    // session, which is what leaves them editable.
+    const holder = account(`account-holder-${Date.now()}`);
+    await signInAsAdmin(page);
+    await ensureAccount(page, holder);
+    await signInAs(page, holder);
+    await book(page, businessId, what, tomorrow(), "15:00",
+               { "First Name": "Ada", "Last Name": "Byron",
+                 "Phone": "555-0303" });
+
+    await signInAsOperator(page);
+    const ada = (await customers(page)).find((c) => c.lastName === "Byron");
+    expect(ada, "the booking recorded no customer").toBeTruthy();
+    expect(ada.hasBossAccount, "the account was not attached").toBe(true);
+
+    await bootBOSS(page);
+    await openApplication(page, "io.bithead.scheduler");
+    await expect(page.locator(".ui-window")).toBeVisible();
+    const win = await openCustomer(page, "Ada Byron");
+
+    // Their details are theirs. The operator is shown them and not offered a
+    // way to write over somebody's own record of themselves.
+    await expect(win.locator("[name='boss-account-notice']")).toBeVisible();
+    await expect(win.locator("button[name='save-btn']")).toBeHidden();
+    await expect(win.locator("input[name='first-name']"))
+      .toHaveAttribute("readonly", "");
+
+    // Refused on the server as well, so the hidden button is not the rule.
+    const written = await page.request.put(
+      `${API}/business/${businessId}/customer/${ada.id}`,
+      { data: { firstName: "Someone", lastName: "Else" } });
+    expect(written.ok(), "an operator wrote over an account holder's details")
+      .toBe(false);
+    expect((await detail(page, ada.id)).firstName, "the details changed")
+      .toBe("Ada");
+  });
+
   test("note scoping", async ({ page }) => {
     const id = await customerId(page, "Doe");
     const added = await page.request.post(
