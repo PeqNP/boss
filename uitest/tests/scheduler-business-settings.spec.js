@@ -124,6 +124,70 @@ test.describe("scheduler business settings", () => {
       .toHaveText("Pet Services");
   });
 
+  test("save operating hours", async ({ page }) => {
+    const win = await openSettings(page, "Schedule");
+
+    // Tuesday, which is row 2 of the week the table draws.
+    await win.locator("input[name='hours-open-2']").fill("07:30");
+    await win.locator("input[name='hours-close-2']").fill("19:00");
+    // Clicked away from, because the panel saves a field when it is left and
+    // `Tab` inside a `time` input moves between its hour and minute rather
+    // than out of the field.
+    await win.locator("input[name='cutoff-days']").click();
+
+    await expect
+      .poll(async () => {
+        const day = (await config(page, businessId)).operatingHours
+          .find((h) => h.dayOfWeek === 2);
+        return day && [day.openTime, day.closeTime];
+      }, { message: "the hours never reached the server" })
+      .toEqual(["07:30", "19:00"]);
+
+    // The rest of the week is untouched. The whole table is sent on every
+    // save, so one day's edit writing over another is what this refuses.
+    const monday = (await config(page, businessId)).operatingHours
+      .find((h) => h.dayOfWeek === 1);
+    expect([monday.openTime, monday.closeTime], "another day moved")
+      .toEqual(["09:00", "17:00"]);
+  });
+
+  test("close a day", async ({ page }) => {
+    const win = await openSettings(page, "Schedule");
+
+    await win.locator("input[name='hours-closed-0']").check();
+
+    await expect
+      .poll(async () => (await config(page, businessId)).operatingHours
+              .find((h) => h.dayOfWeek === 0).isClosed,
+            { message: "the closed day never reached the server" })
+      .toBe(true);
+
+    // A day the business is shut offers nothing, which is the point of the
+    // flag rather than of the hours beside it.
+    const slots = await (await page.request.get(
+      `${API}/kiosk/${businessId}/calendar?year=2026&month=12`)).json();
+    const sundays = (slots.days || []).filter((d) => d.date.endsWith("-06"));
+    for (const day of sundays) {
+      expect(day.available, `${day.date} is offered on a closed day`)
+        .toBe(false);
+    }
+  });
+
+  test("save slot mode", async ({ page }) => {
+    const win = await openSettings(page, "Schedule");
+
+    await win.locator("input[name='slot-mode'][value='unlimited']").check();
+
+    await expect
+      .poll(async () => (await config(page, businessId)).slotMode,
+            { message: "the slot mode never reached the server" })
+      .toBe("unlimited");
+
+    // The note beneath says what hours mean in this mode: under `unlimited`
+    // every increment the business is open is offered and nobody is allocated.
+    await expect(win.locator("[name='hours-note']")).not.toBeEmpty();
+  });
+
   test("save reminder enabled", async ({ page }) => {
     // Reminders live under Schedule, beside the times they are reckoned from,
     // rather than under Notifications.

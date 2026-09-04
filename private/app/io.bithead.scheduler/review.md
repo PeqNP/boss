@@ -36,7 +36,6 @@ recorded against the flow it belongs to in `ui-plan.md`.
 | Flow | Uncovered |
 |---|---|
 | 2 | The Setup Assistant's own listing |
-| 3 | Operating hours, and slot mode |
 | 4 | Deleting a size, an attribute, or a contact field |
 | 5 | Deleting a working day or a time-off window |
 | 6 | The OTP step, a deposit, and choosing an employee |
