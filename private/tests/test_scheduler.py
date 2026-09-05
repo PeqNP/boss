@@ -25,13 +25,14 @@ import pytest
 
 from datetime import datetime, timedelta
 
-from lib import configure_logging, media
+from lib import Environment, configure_logging, media
 from libtest import *
 
 get_app_module("io.bithead.scheduler")
 from io.bithead.scheduler import db
 from io.bithead.scheduler import lib
 from io.bithead.scheduler.lib import *
+from io.bithead.scheduler.lib import vendor as vendor_lib
 
 # A Monday, far enough out that no notice or cutoff rule reaches it unless a
 # test asks for one. Dates are fixed rather than relative so a failure reads
@@ -4705,7 +4706,7 @@ def test_kiosk_close_permission():
     assert is_operator_of(mine, 99) is False, "it: nor is owning none"
 
 
-def test_vendor_catalog():
+def test_vendor_catalog(monkeypatch):
     """The catalog is code: SMTP, Mailtrap, Twilio, Stripe, mock."""
     fresh_database()
 
@@ -4730,6 +4731,21 @@ def test_vendor_catalog():
     # describe: a channel the platform has none of
     with pytest.raises(ValidationError):
         get_vendor("carrier-pigeon")
+
+    # describe: production
+    class Production:
+        env = Environment.PROD
+
+    monkeypatch.setattr(vendor_lib, "get_config", lambda: Production())
+    production = {v.channel: v for v in get_vendors()}
+    assert [o.id for o in production["email"].vendors] == ["smtp", "mailtrap"], \
+        "it: does not offer mock"
+    assert [o.id for o in production["sms"].vendors] == ["twilio"], \
+        "it: does not offer mock"
+    assert [o.id for o in production["payment"].vendors] == ["stripe"], \
+        "it: does not offer mock"
+    with pytest.raises(ValidationError):
+        set_vendor("email", "mock", {})
 
     # describe: secrets
     chosen = set_vendor("email", "mailtrap",

@@ -206,6 +206,7 @@ from them. Callers never pass a Stripe-shaped dict.
 
 - `describe: email` → offers `smtp` and `mailtrap`; in development, `mock`
 - `describe: payment` → offers `stripe`; in development, `mock`
+- `describe: production` → no `mock`; choosing it is refused
 - `describe: a channel the platform has none of` → refused
 - `describe: secrets` → `GET` names keys and never values
 

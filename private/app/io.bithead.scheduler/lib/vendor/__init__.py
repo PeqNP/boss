@@ -10,7 +10,7 @@ import json
 
 from typing import List, Optional
 
-import debug
+from lib import Environment, get_config
 
 from ... import db
 from ...model import ChannelVendors, PaymentProduct, VendorField, VendorOffer
@@ -114,7 +114,7 @@ EMAIL_SUBJECT = "Your appointment"
 
 def _offers(channel: str) -> List[VendorOffer]:
     offers = list(OFFERS.get(channel) or [])
-    if debug.is_enabled():
+    if get_config().env == Environment.DEV:
         offers.append(MOCK_OFFER)
     return offers
 

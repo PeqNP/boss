@@ -1,6 +1,6 @@
 # Session Memory — Scheduler
 
-Every stage of `plan.md` is finished. Vendors moved into this app — see [`plan-vendors.md`](../../../../private/app/io.bithead.scheduler/plan-vendors.md). Leftovers are in [`review.md`](../../../../private/app/io.bithead.scheduler/review.md). Holidays still wait on a provider.
+Every stage of `plan.md` is finished. [`plan-vendors.md`](../../../../private/app/io.bithead.scheduler/plan-vendors.md) is implemented through Stage 8. Mock vendors are offered only when `env` is `dev`. Leftovers are in [`review.md`](../../../../private/app/io.bithead.scheduler/review.md): holidays wait on a provider; live Stripe/Twilio keys wait on whoever runs the platform.
 
 ## Watch out for
 
