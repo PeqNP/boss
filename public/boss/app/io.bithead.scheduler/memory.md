@@ -8,7 +8,3 @@ Every stage of `plan.md` is finished. Mock vendors are offered only when `env` i
 - Write-off is `POST .../job/{id}/write-off`. The button sits with Record Payment and asks before it sends.
 - Appointment mail, SMS, and card charges go through `lib/vendor/`. The catalog is code; the choice and credentials are stored in `vendor_configs`. SMTP hands mail to `POST /private/smtp/send`.
 - Development records messages for `/debug/last-message`. A mock payment is `GET /debug/pay/{jobId}`.
-
-## Open
-
-- Live Stripe and Twilio keys on Vendors, and a connected Stripe account per business. Mock covers OTP and deposit in development. SMTP uses the BOSS account.

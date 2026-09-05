@@ -87,6 +87,21 @@ In order for cerbot to determine if you own the domain, you must temporarily ope
 - `Add rule`
 - Add HTTP port 80 w/ CIDR 0.0.0.0/0
 
+### Disk encryption
+
+Encrypt the disk before installing. That protects a stolen drive, an
+unencrypted EBS snapshot, or a copy of the volume taken from storage. It does
+not protect a running instance: once the disk is unlocked, a login as `ubuntu`
+can read `~/.boss` the same as the services do.
+
+**AWS.** When launching the instance, encrypt the root EBS volume (Account
+attributes → EBS encryption → encrypt by default, or the volume checkbox on
+the launch wizard). Existing unencrypted volumes need a snapshot copied with
+encryption, then a new volume from that snapshot.
+
+**A physical box.** Choose LUKS (Ubuntu's "Encrypt the new Ubuntu installation
+for security") at install time.
+
 ### Installation
 
 You can easily run BOSS on a `t4g.small` instance - 24.04 Ubuntu w/ 8GiB disk, arm64 2 CPUs

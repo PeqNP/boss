@@ -81,6 +81,15 @@ Production Stripe and Twilio keys on Vendors. `plan.md` is finished; that
 leftover is in `memory.md`.
 ```
 
+When `memory.md` has no Open items, and no stage is open, the section is
+exactly:
+
+```markdown
+## Next
+
+There are no open items.
+```
+
 A skill or docs change still names the next step of the app in play, when
 there is one.
 
