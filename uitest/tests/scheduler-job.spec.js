@@ -171,6 +171,20 @@ test.describe("scheduler job", () => {
     expect((await job(page)).transactions.length).toBe(0);
   });
 
+  test("write off a balance", async ({ page }) => {
+    const win = await openJob(page);
+
+    await action(win, "writeOff").click();
+    await page.locator(".ui-modal", { hasText: "Stop chasing the balance" })
+      .locator("button", { hasText: "OK" }).click();
+
+    await expect
+      .poll(async () => (await job(page)).paymentStatus,
+            { message: "the write-off never reached the server" })
+      .toBe("written_off");
+    await expect(win.locator("[name='payment-status']")).toHaveText("written_off");
+  });
+
   test("reject payment without method", async ({ page }) => {
     const win = await openJob(page);
 

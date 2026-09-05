@@ -796,6 +796,22 @@ async def add_payment(
     )
 
 
+@router.post(
+    "/business/{business_id}/job/{job_id}/write-off",
+    response_model=PaymentResult
+)
+@require_acl("job.w", roles=[Role.OPERATOR, Role.EMPLOYEE])
+@handled
+async def write_off_job(
+    business_id: int,
+    job_id: int,
+    boss_user: User,
+    request: Request
+):
+    _working_for(business_id, boss_user)
+    return lib.write_off_payment(business_id, job_id)
+
+
 @router.get(
     "/business/{business_id}/job/{job_id}/payment-link",
     response_model=JobPaymentLink

@@ -26,9 +26,7 @@ The four stubbed handlers are the only ones in the service that reach no rule.
 
 ## Built on the server, missing from a screen
 
-| | What exists | What is missing |
-|---|---|---|
-| Writing off a balance | `lib.write_off_payment`, written and tested | A route, and a control. Nothing calls it, so `payment_status` never becomes `written_off` and the Financial Report's Write-Offs figure can only read $0.00 |
+Nothing. Write-off has a route and a control on Job.
 
 ## Waiting on nothing
 

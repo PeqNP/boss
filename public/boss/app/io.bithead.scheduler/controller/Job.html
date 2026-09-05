@@ -148,6 +148,27 @@
       }
       this.addPayment = addPayment;
 
+      /**
+       * Stops chasing the balance.
+       */
+      async function writeOff() {
+        os.ui.showConfirmation("Stop chasing the balance on this job?", null, async function() {
+          let response;
+          try {
+            response = await os.network.post(
+              `/api/io.bithead.scheduler/business/${businessId}/job/${jobId}/write-off`
+            );
+          }
+          catch (error) {
+            win.showMessage(error.message, { error: true });
+            return;
+          }
+          win.span("payment-status").textContent = response.paymentStatus;
+          win.button("write-off-btn").disabled = true;
+        });
+      }
+      this.writeOff = os.ui.mutex(writeOff);
+
       // --- Configure ---
 
       function configure(_jobId) {
@@ -197,6 +218,9 @@
           win.div("job-locked-notice").style.display = "";
         }
         win.span("payment-status").textContent = response.paymentStatus;
+        if (response.paymentStatus === "written_off") {
+          win.button("write-off-btn").disabled = true;
+        }
         win.input("scheduled-date").value = response.scheduledDate;
         win.input("scheduled-time").value = response.scheduledTime;
 
@@ -365,6 +389,7 @@
         <div class="vbox gap-10" style="align-self: flex-end;">
           <button class="primary" onclick="$(this.controller).addPayment();">Record Payment</button>
           <button class="primary" onclick="$(this.controller).showQrPayment();">QR Code</button>
+          <button name="write-off-btn" class="primary" onclick="$(this.controller).writeOff();">Write Off</button>
         </div>
       </div>
     </fieldset>

@@ -48,7 +48,8 @@ Two of them are not the plain three:
 
 - **`Job`** adds **Mark Complete**, which is the app's own action rather than
   one of the document's. It keeps its `onclick`, asks for itself, and is
-  wrapped in `os.ui.mutex`.
+  wrapped in `os.ui.mutex`. **Write Off** sits with Record Payment, not in the
+  document row: it stops chasing the balance.
 - **`EmployeeProfile`**'s leaving control reads **Close**, because the working
   days and time off beside it have already saved themselves. It is still
   `doc-action="cancel"`.
@@ -777,6 +778,7 @@ Admin-only actions: mark completed, mark paid (cash), show QR payment code.
 - `PUT /api/io.bithead.scheduler/job/{jobId}` → update job
 - `POST /api/io.bithead.scheduler/job/{jobId}/complete` → mark completed
 - `POST /api/io.bithead.scheduler/job/{jobId}/payment` → add payment transaction
+- `POST /api/io.bithead.scheduler/business/{id}/job/{jobId}/write-off` → stop chasing the balance
 
 ---
 
