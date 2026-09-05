@@ -43,3 +43,12 @@ echo "Restarting Python..."
 source ~/.venv/bin/activate && ./private/restart > /dev/null 2>&1
 
 bin/services
+
+# Python logs as `boss` under `log_path` from `~/.boss/config`. Swift's
+# debug binary writes `/tmp/boss-vapor.log`. nginx writes its error log.
+log_dir=$(awk -F': *' '/^log_path:/{print $2; exit}' ~/.boss/config)
+echo
+echo "To monitor services:"
+[[ -n "$log_dir" ]] && echo "  - python: tail -f ${log_dir}/boss"
+echo "  - swift:  tail -f /tmp/boss-vapor.log"
+echo "  - nginx:  tail -f /var/log/nginx/error.log"
