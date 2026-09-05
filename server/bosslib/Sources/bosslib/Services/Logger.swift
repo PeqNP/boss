@@ -2,6 +2,12 @@
 
 import Foundation
 
+#if os(Linux)
+import Glibc
+#else
+import Darwin
+#endif
+
 public enum LogLevel: Int, Sendable {
     case debug
     case info
@@ -46,38 +52,38 @@ public class Logger {
         guard level < .info else {
             return
         }
-        print(formatMessage(message, level: "DEBUG", file: file, line: line))
+        emit(formatMessage(message, level: "DEBUG", file: file, line: line))
     }
 
     public func i(_ message: String, file: String = #file, line: Int = #line) {
         guard level < .warning else {
             return
         }
-        print(formatMessage(message, level: "INFO", file: file, line: line))
+        emit(formatMessage(message, level: "INFO", file: file, line: line))
     }
 
     public func w(_ message: String, file: String = #file, line: Int = #line) {
         guard level < .error else {
             return
         }
-        print(formatMessage(message, level: "WARNING", file: file, line: line))
+        emit(formatMessage(message, level: "WARNING", file: file, line: line))
     }
 
     public func e(_ message: String, file: String = #file, line: Int = #line) {
         guard level < .critical else {
             return
         }
-        print(formatMessage(message, level: "ERROR", file: file, line: line))
+        emit(formatMessage(message, level: "ERROR", file: file, line: line))
     }
     public func e(_ error: Error, file: String = #file, line: Int = #line) {
         guard level < .critical else {
             return
         }
-        print(formatMessage(error.localizedDescription, level: "ERROR", file: file, line: line))
+        emit(formatMessage(error.localizedDescription, level: "ERROR", file: file, line: line))
     }
 
     public func c(_ message: String, file: String = #file, line: Int = #line) {
-        print(formatMessage(message, level: "CRITICAL", file: file, line: line))
+        emit(formatMessage(message, level: "CRITICAL", file: file, line: line))
     }
 
     public func strongSelf(file: String = #file, line: Int = #line) {
@@ -88,6 +94,11 @@ public class Logger {
         e("\(name) - Could not load nib", file: file, line: line)
     }
     
+    private func emit(_ message: String) {
+        print(message)
+        fflush(stdout)
+    }
+
     private func formatMessage(_ message: String, level: String, file: String, line: Int) -> String {
         format
             .replacingOccurrences(of: "%name", with: name)

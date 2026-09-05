@@ -5,9 +5,18 @@ import Logging
 import NIOCore
 import NIOPosix
 
+#if os(Linux)
+import Glibc
+#else
+import Darwin
+#endif
+
 @main
 enum Entrypoint {
     static func main() async throws {
+        setvbuf(stdout, nil, _IOLBF, 0)
+        setvbuf(stderr, nil, _IONBF, 0)
+
         var env = try Environment.detect()
         try LoggingSystem.bootstrap(from: &env)
         
