@@ -11,12 +11,16 @@ The `report` skill carries the report this message goes at the end of.
 
 ## 1. Read what changed
 
+The message is this changeset: the files this turn changed. A working tree
+that still holds earlier work is not the changeset.
+
 ```bash
-git diff --stat
-git diff | grep "^[-+]def \|^[-+].*CREATE TABLE \|^[-+]@router\."
+git diff --stat -- <paths>
+git diff -- <paths> | grep "^[-+]def \|^[-+].*CREATE TABLE \|^[-+]@router\."
 ```
 
 The second command lists the symbols that moved. Those are the bullets.
+Omit `<paths>` when every uncommitted file is this changeset.
 
 ## 2. Check any claim before making it
 
@@ -55,11 +59,13 @@ leaves out is findable by nobody.
 ## 4. Run it before handing it over
 
 ```bash
-bin/check-commit <message-file>            # against the working tree
-bin/check-commit --cached <message-file>   # against what is staged
+bin/check-commit <message-file> -- <paths>   # this changeset
+bin/check-commit <message-file>              # the working tree, when that is this changeset
+bin/check-commit --cached <message-file>     # what is staged
 ```
 
-It reads the diff and reports removals the message does not name.
+It reads the diff and reports removals the message does not name. Pass the
+same `<paths>` as step 1.
 
 ## What never appears in a commit message
 

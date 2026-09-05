@@ -55,32 +55,46 @@
         }
         await loadYear();
       }
-      this.loadHolidays = loadHolidays;
+      this.loadHolidays = os.ui.mutex(
+        loadHolidays,
+        view.ui.button("load-holidays"),
+        "Fetching holidays..."
+      );
 
       // --- Lifecycle ---
 
       async function viewDidLoad() {
-        // Load available years from the server; fall back to current + next year.
-        let years;
-        try {
-          const resp = await os.network.get("/api/io.bithead.scheduler/system-holidays/years");
-          years = resp.years;
-        }
-        catch {
-          const currentYear = new Date().getFullYear();
-          years = [currentYear, currentYear + 1];
-        }
-        if (isEmpty(years) || years.length === 0) {
-          const currentYear = new Date().getFullYear();
-          years = [currentYear, currentYear + 1];
-        }
-        view.ui.select("year").ui.addNewOptions(
-          years.map(function(y) { return { id: String(y), name: String(y) }; })
+        const progressBar = await os.ui.showProgressBar(
+          "Fetching holidays...",
+          null,
+          true
         );
-        const currentYear = new Date().getFullYear();
-        const selected = years.indexOf(currentYear) >= 0 ? currentYear : years[0];
-        view.ui.select("year").ui.selectValue(String(selected));
-        await loadYear();
+        try {
+          // First open fills this year and next if they are empty.
+          let years;
+          try {
+            const resp = await os.network.get("/api/io.bithead.scheduler/system-holidays/years");
+            years = resp.years;
+          }
+          catch {
+            const currentYear = new Date().getFullYear();
+            years = [currentYear, currentYear + 1];
+          }
+          if (isEmpty(years) || years.length === 0) {
+            const currentYear = new Date().getFullYear();
+            years = [currentYear, currentYear + 1];
+          }
+          view.ui.select("year").ui.addNewOptions(
+            years.map(function(y) { return { id: String(y), name: String(y) }; })
+          );
+          const currentYear = new Date().getFullYear();
+          const selected = years.indexOf(currentYear) >= 0 ? currentYear : years[0];
+          view.ui.select("year").ui.selectValue(String(selected));
+          await loadYear();
+        }
+        finally {
+          progressBar?.ui.close();
+        }
       }
       this.viewDidLoad = viewDidLoad;
     }
@@ -100,7 +114,7 @@
           <option>Select a year</option>
         </select>
       </div>
-      <button class="primary" onclick="$(this.controller).loadHolidays();">Load holidays</button>
+      <button name="load-holidays" class="primary" onclick="$(this.controller).loadHolidays();">Load holidays</button>
     </div>
     <div name="holidays-container" class="vbox gap-10"></div>
   </div>

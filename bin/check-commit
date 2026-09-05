@@ -8,9 +8,10 @@
 # Removals only, which keeps this quiet on a commit that adds.
 #
 # Usage:
-#   bin/check-commit <message-file>      # against the working tree
-#   bin/check-commit --cached <file>     # against what is staged
-#   git diff | bin/check-commit -        # message on stdin
+#   bin/check-commit <message-file>              # against the working tree
+#   bin/check-commit <message-file> -- <paths>   # against those paths
+#   bin/check-commit --cached <file>             # against what is staged
+#   bin/check-commit -                           # message on stdin
 #
 
 import os
@@ -48,8 +49,10 @@ ADDED = [
 ]
 
 
-def diff(cached):
+def diff(cached, paths):
     argv = ["git", "diff"] + (["--cached"] if cached else []) + ["--unified=0"]
+    if paths:
+        argv += ["--"] + paths
     result = subprocess.run(argv, cwd=REPO, capture_output=True, text=True)
     if result.returncode != 0:
         print("  git diff would not run")
@@ -88,12 +91,17 @@ def removals(text):
 def main(argv):
     cached = "--cached" in argv
     argv = [a for a in argv if a != "--cached"]
+    paths = []
+    if "--" in argv:
+        dash = argv.index("--")
+        paths = argv[dash + 1:]
+        argv = argv[:dash]
     if not argv:
         print("  bin/check-commit wants a message file, or `-` for stdin")
         return 2
 
     message = sys.stdin.read() if argv[0] == "-" else open(argv[0]).read()
-    missing = [(kind, name) for kind, name in removals(diff(cached))
+    missing = [(kind, name) for kind, name in removals(diff(cached, paths))
                if name not in message]
 
     if missing:
