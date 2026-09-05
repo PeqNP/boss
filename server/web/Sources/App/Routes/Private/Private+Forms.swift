@@ -32,14 +32,11 @@ enum PrivateForm {
         let revoke: Bool
     }
     
-    /// A message a private service wants delivered.
-    struct SendMessage: Content {
+    /// An email a private service wants sent on BOSS SMTP.
+    struct SendEmail: Content {
         let to: String
-        /// Carried on email and ignored elsewhere.
-        let subject: String?
+        let subject: String
         let body: String
-        /// Which vendor to use. Absent takes whichever is registered first.
-        let vendor: String?
     }
 
     struct VerifyACL: Content {

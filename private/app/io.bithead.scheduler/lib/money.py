@@ -44,6 +44,20 @@ def _deposit_due(cost: db.JobCostRow) -> Optional[float]:
     return cost.deposit_amount
 
 
+def amount_to_charge(job_id: int) -> float:
+    """What a card charge for this appointment is for.
+
+    A deposit, when one is asked; otherwise the quoted cost.
+    """
+    cost = db.get_job_cost(job_id)
+    if cost is None:
+        return 0.0
+    deposit = _deposit_due(cost)
+    if deposit is not None:
+        return deposit
+    return cost.cost or 0.0
+
+
 def _payment_status(job_id: int) -> str:
     """Where the appointment stands, worked out from what has been taken."""
     cost = db.get_job_cost(job_id)

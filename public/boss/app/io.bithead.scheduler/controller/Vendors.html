@@ -2,14 +2,57 @@
   <script type="text/javascript">
     function $(this.id)(view, win) {
 
-      let vendors = [];
+      let channels = [];
 
       // A document: the window owns Save, asks before discarding a choice
-      // nobody saved, and says "Saved". Vendors are registered by the
-      // platform, so there is nothing here to delete.
+      // nobody saved, and says "Saved". The catalog is code, so there is
+      // nothing here to delete.
       this.document = new UIDocument(null, null);
 
       // --- Controller functions ---
+
+      function offerFor(channel, vendorId) {
+        return (channel.vendors || []).find(function(offer) {
+          return offer.id === vendorId;
+        }) || null;
+      }
+
+      function renderFields(channel) {
+        const container = win.div(`vendor-fields-${channel.channel}`);
+        container.innerHTML = "";
+        const menu = win.select(`vendor-select-${channel.channel}`);
+        const vendorId = isEmpty(menu) ? "" : menu.ui.selectedValue();
+        const offer = offerFor(channel, vendorId);
+        if (isEmpty(offer) || isEmpty(offer.fields)) {
+          return;
+        }
+        const configured = new Set(channel.configuredKeys || []);
+        const saved = (channel.chosen === vendorId) ? (channel.config || {}) : {};
+        for (const field of offer.fields) {
+          const input = os.ui.makeTextField(
+            `vendor-field-${channel.channel}-${field.key}`,
+            field.label,
+            {
+              type: field.kind === "password" ? "password"
+                : field.kind === "number" ? "number"
+                : "text",
+              classes: "stacked"
+            }
+          );
+          const control = input.querySelector("input");
+          if (field.secret && configured.has(field.key)) {
+            control.placeholder = "unchanged";
+          }
+          else if (!isEmpty(saved[field.key])) {
+            control.value = saved[field.key];
+          }
+          else if (!isEmpty(field.default)) {
+            control.value = field.default;
+          }
+          container.appendChild(input);
+        }
+      }
+      this.renderFields = renderFields;
 
       /**
        * Write every vendor choice.
@@ -17,27 +60,41 @@
        * @returns {boolean} `true` when all of them were written
        */
       async function save() {
-        for (const v of vendors) {
-          const vendorSel = win.select(`vendor-select-${v.type}`);
-          if (isEmpty(vendorSel)) {
-            continue;
+        for (const channel of channels) {
+          const menu = win.select(`vendor-select-${channel.channel}`);
+          const vendorId = isEmpty(menu) ? "" : menu.ui.selectedValue();
+          const offer = offerFor(channel, vendorId);
+          const config = {};
+          if (!isEmpty(offer)) {
+            for (const field of offer.fields || []) {
+              const control = win.input(
+                `vendor-field-${channel.channel}-${field.key}`
+              );
+              config[field.key] = isEmpty(control) ? "" : control.value;
+            }
           }
-          // Through `.ui`: the raw `value` reports the prompt as a choice.
-          const selectedVendor = vendorSel.ui.selectedValue();
-          const payload = { vendor: selectedVendor, config: {} };
           try {
-            await os.network.put(`/api/io.bithead.scheduler/vendor/${v.type}`, payload);
+            await os.network.put(
+              `/api/io.bithead.scheduler/vendor/${channel.channel}`,
+              { id: isEmpty(vendorId) ? null : vendorId, config }
+            );
           }
           catch (error) {
-            // Named, because several are saved in turn and "it failed" does
-            // not say which one still holds its old vendor.
-            win.showMessage(`${v.type}: ${error.message}`, { error: true });
+            win.showMessage(
+              `${channel.channel}: ${error.message}`,
+              { error: true }
+            );
             return false;
           }
         }
         return true;
       }
       this.save = save;
+
+      function cancel() {
+        win.close();
+      }
+      this.cancel = cancel;
 
       // --- Lifecycle ---
 
@@ -50,39 +107,41 @@
           os.ui.showError("Failed to load vendor config. Please try again.");
           return;
         }
-        vendors = response.vendors;
+        channels = response.vendors;
         const container = win.div("vendors-container");
         container.innerHTML = "";
-        for (const v of vendors) {
+        for (const channel of channels) {
           const section = document.createElement("fieldset");
           const legend = document.createElement("legend");
-          legend.textContent = v.type.charAt(0).toUpperCase() + v.type.slice(1) + " Vendor";
+          legend.textContent = channel.channel.charAt(0).toUpperCase()
+            + channel.channel.slice(1) + " Vendor";
           section.appendChild(legend);
           // Built by the factory rather than by hand: the styling pass that
           // attaches a menu's `ui` interface runs once, when the window
           // renders, so a `select` assembled afterwards stays a bare HTML
           // control. See js.md, "Building components at run-time".
           const menu = os.ui.makePopupMenu(
-            `vendor-select-${v.type}`,
+            `vendor-select-${channel.channel}`,
             "Vendor",
             "No vendor",
-            v.registeredVendors.map(function(name) {
-              return { id: name, name: name };
+            channel.vendors.map(function(offer) {
+              return { id: offer.id, name: offer.name };
             })
           );
           section.appendChild(menu);
-          if (!isEmpty(v.currentVendor)) {
-            menu.querySelector("select").ui.selectValue(v.currentVendor);
-          }
-          if (!isEmpty(v.configKeys)) {
-            const configNote = document.createElement("p");
-            configNote.style.fontSize = "0.85em";
-            // Names, not values: the config holds credentials, and the
-            // service does not send them back.
-            configNote.textContent = `Current config keys: ${v.configKeys.join(", ")}`;
-            section.appendChild(configNote);
-          }
+          const fields = document.createElement("div");
+          fields.setAttribute("name", `vendor-fields-${channel.channel}`);
+          fields.className = "vbox gap-10";
+          section.appendChild(fields);
           container.appendChild(section);
+          const select = menu.querySelector("select");
+          select.onchange = (function(ch) {
+            return function() { renderFields(ch); };
+          })(channel);
+          if (!isEmpty(channel.chosen)) {
+            select.ui.selectValue(channel.chosen);
+          }
+          renderFields(channel);
         }
       }
       this.viewDidLoad = viewDidLoad;
@@ -96,9 +155,10 @@
   </div>
 
   <div class="container vbox gap-20" style="width: 480px;">
-    <p>Configure platform-level vendor integrations for email and SMS delivery.</p>
+    <p>Choose how this platform sends email and SMS, and how it takes card payments.</p>
     <div name="vendors-container" class="vbox gap-20"></div>
     <div class="controls">
+      <button class="primary" doc-action="cancel">Cancel</button>
       <button class="default" doc-action="save">Save</button>
     </div>
   </div>

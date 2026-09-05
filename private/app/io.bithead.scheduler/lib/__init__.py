@@ -32,6 +32,7 @@ from .employee import *
 from .job_type import *
 from .money import *
 from .platform import *
+from .vendor import *
 
 from .customer import *
 from .kiosk import *

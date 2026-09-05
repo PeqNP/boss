@@ -21,15 +21,6 @@ from ..model import *
 from .business import get_business_config, update_business_config
 from .exception import ValidationError
 
-# What each kind of service may be set to. A vendor absent here is one nothing
-# knows how to reach.
-REGISTERED_VENDORS = {
-    "email": ("sendgrid", "mailgun"),
-    "sms": ("twilio",),
-    "payment": ("stripe",),
-}
-
-
 BUNDLE = "io.bithead.scheduler"
 
 
@@ -374,56 +365,6 @@ def get_contact_field_types() -> List[ContactFieldType]:
         )
         for r in db.get_contact_field_types()
     ]
-
-
-def get_vendors() -> List[Vendor]:
-    """Every kind of outbound thing, and which service is chosen for it.
-
-    A kind with nobody chosen is listed too — that is the screen's whole
-    purpose, and a missing row reads as a kind the platform does not have.
-    """
-    chosen = {row.vendor_type: row for row in db.get_vendor_configs()}
-    vendors = []
-    for vendor_type in sorted(REGISTERED_VENDORS):
-        row = chosen.get(vendor_type)
-        config = json.loads(row.config_json) if row else {}
-        vendors.append(Vendor(
-            type=vendor_type,
-            currentVendor=row.vendor_name if row else None,
-            registeredVendors=list(REGISTERED_VENDORS[vendor_type]),
-            configKeys=sorted(config)
-        ))
-    return vendors
-
-
-def set_vendor(
-    vendor_type: str,
-    vendor_name: Optional[str],
-    config: Optional[dict] = None
-) -> Vendor:
-    """Choose the service one kind of thing goes through.
-
-    `vendor_name` of `None` clears the choice, which is how a super admin turns
-    a kind off — the alternative is a row naming a vendor nobody wants used.
-    """
-    if vendor_type not in REGISTERED_VENDORS:
-        raise ValidationError(
-            f"The platform has no {vendor_type} vendors.")
-    if vendor_name is not None and vendor_name not in REGISTERED_VENDORS[vendor_type]:
-        known = ", ".join(REGISTERED_VENDORS[vendor_type])
-        raise ValidationError(
-            f"{vendor_name} is not a {vendor_type} vendor. Choose one of: {known}.")
-
-    # One choice per kind, so the previous one goes before the new one lands.
-    db.clear_vendor_config(vendor_type)
-    if vendor_name is not None:
-        db.insert_vendor_config(
-            vendor_type,
-            vendor_name,
-            json.dumps(config or {})
-        )
-
-    return next(v for v in get_vendors() if v.type == vendor_type)
 
 
 def get_business_templates() -> List[BusinessTemplate]:

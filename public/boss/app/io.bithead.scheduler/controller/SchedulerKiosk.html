@@ -494,9 +494,13 @@
           const otpField = otpFields[0];
           otpFieldType = otpField.fieldType;
           otpAttempts = 0;
+          const given = contactData.find(function(c) {
+            return c.fieldId === otpField.id;
+          });
           try {
             await os.network.post(`/api/io.bithead.scheduler/kiosk/session/${sessionId}/otp/send`,
-              { fieldType: otpFieldType });
+              { fieldType: otpFieldType,
+                destination: isEmpty(given) ? "" : given.value });
           }
           catch {
             showError("Failed to send verification code. Please try again.");

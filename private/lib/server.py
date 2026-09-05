@@ -1,4 +1,3 @@
-import asyncio
 import httpx
 import logging
 import os
@@ -24,7 +23,7 @@ FRIENDS_ENDPOINT = "http://127.0.0.1:8081/friend"
 VERIFY_ENDPOINT = "http://127.0.0.1:8081/private/acl/verify"
 SEND_NOTIFICATIONS_ENDPOINT = "http://127.0.0.1:8081/private/send/notifications"
 SEND_EVENTS_ENDPOINT = "http://127.0.0.1:8081/private/send/events"
-SEND_MESSAGE_ENDPOINT = "http://127.0.0.1:8081/private/vendor/{channel}/send"
+SMTP_SEND_ENDPOINT = f"{BOSS_PRIVATE}/private/smtp/send"
 
 # BOSS's super user, who administers the platform rather than using it.
 ADMIN_USER_ID = 1
@@ -635,41 +634,26 @@ def require_acl(feature: Optional[str]=None, roles: Optional[List[Enum]]=None):
     return decorator
 
 
-def send_message(
-    channel: str,
-    to: str,
-    body: str,
-    subject: Optional[str] = None,
-    vendor: Optional[str] = None
-) -> None:
-    """Hand a message to whichever vendor serves this channel.
+def send_smtp(to: str, body: str, subject: str = "") -> dict:
+    """Hand a message to BOSS SMTP.
 
-    Best effort, and never raises. A confirmation that did not go out is not a
-    booking that did not happen, and a rule that took a booking has already
-    written it by the time this is called.
-
-    Scheduled on the running loop rather than awaited: every caller is a
-    synchronous rule inside an async request, and a rule that waited on a
-    carrier would hold the request open for as long as the carrier took.
+    Returns `{sent, reason}`. Never raises: a confirmation that did not go
+    out is not a booking that did not happen.
     """
-    async def deliver():
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    SEND_MESSAGE_ENDPOINT.format(channel=channel),
-                    json={"to": to, "subject": subject, "body": body,
-                          "vendor": vendor}
-                )
-                response.raise_for_status()
-                answer = response.json()
-                if not answer.get("sent"):
-                    logging.info(
-                        f"Nothing sent on {channel}: {answer.get('reason')}")
-        except Exception as e:
-            logging.warning(f"Failed to send on {channel}: {e}")
-
     try:
-        asyncio.get_running_loop().create_task(deliver())
-    except RuntimeError:
-        # No loop, which is a script or a test rather than a request.
-        asyncio.run(deliver())
+        with httpx.Client() as client:
+            response = client.post(
+                SMTP_SEND_ENDPOINT,
+                json={"to": to, "subject": subject, "body": body},
+                timeout=15.0
+            )
+            response.raise_for_status()
+            answer = response.json()
+            return {
+                "sent": bool(answer.get("sent")),
+                "reason": str(answer.get("reason") or "")
+            }
+    except Exception as error:
+        logging.warning(f"Failed to send SMTP: {error}")
+        return {"sent": False, "reason": str(error)}
+

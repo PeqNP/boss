@@ -13,16 +13,10 @@ An account, a credential, or a decision that is not the code's to make.
 
 | | What exists | What is missing |
 |---|---|---|
-| SMS delivery | `POST /private/vendor/sms/send`, the `Vendor` protocol, and a registry keyed by channel | A carrier account, and a `Vendor` for it. `VendorRegistry.vendors["sms"]` is an empty list |
-| Stripe product link on a job type | `GET /business/{id}/stripe/products`, answering `# TODO` | An account, and `stripe_client.py`, which the plan's file layout names and which does not exist |
-| Stripe Connect | `GET .../config/stripe/connect` and `.../callback`, answering `?stub=true` and `acct_stub_001` | The same account |
-| A payment link on a job | `GET .../job/{id}/payment-link`, answering `https://buy.stripe.com/test_stub_link` | The same account |
-| The Stripe webhook | Nothing | `plan.md` Open Decision 4: whether it lands on the Python service through a public proxy rule, or on the Swift server which then calls Python |
 | Holidays for a year | `POST /system-holidays/refresh`, reporting the count already there, and the Holidays screen | `plan.md` Open Decision 1: which provider. `system_holidays` is written only by `close_on_holiday`, which no route exposes, so the table is empty and the screen has nothing to draw |
-| The kiosk's OTP step | The whole flow, and `lib/notify.py` recording what would have been sent | An SMS or email vendor. `get_setup` adds "Connect a way to send codes" for a job type that verifies a contact detail, so until one is registered `configured` is false and the kiosk draws `step-not-configured` rather than taking a booking |
-| The kiosk's deposit step | The whole flow, and `step-deposit` | A Stripe account. `get_setup` adds "Connect Stripe" for a job type that takes a payment, with the same consequence |
+| A live Stripe / Twilio account | Mock vendors cover OTP and deposit in development. Production adapters are written. SMTP uses the BOSS account. | Platform keys on Vendors, and a connected Stripe account per business |
 
-The four stubbed handlers are the only ones in the service that reach no rule.
+Vendor, Stripe, OTP, and deposit are [`plan-vendors.md`](plan-vendors.md). The four stubbed handlers are gone.
 
 ## Built on the server, missing from a screen
 

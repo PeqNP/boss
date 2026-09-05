@@ -20,9 +20,9 @@ import debug
 
 from lib.server import (get_user, grant_license, grant_role, lookup_users,
                         require_acl, require_admin, require_user, revoke_role,
-                        send_message, ADMIN_USER_ID)
+                        ADMIN_USER_ID)
 
-from . import lib
+from . import db, lib
 from .db import start_database
 from .model import *
 
@@ -335,10 +335,14 @@ async def extend_kiosk_session(session_id: str, request: Request):
 )
 @handled
 async def send_otp(session_id: str, body: OtpSendBody, request: Request):
+    destination = body.destination or lib.contact_value_for(
+        session_id,
+        body.fieldType
+    )
     lib.send_otp(
         session_id,
         lib.channel_for(body.fieldType),
-        lib.contact_value_for(session_id, body.fieldType)
+        destination
     )
     return KioskSessionOtpSend(sent=True)
 
@@ -379,7 +383,7 @@ async def confirm_kiosk_session(
     return KioskSessionConfirm(
         jobId=session.jobId,
         jobCode=session.jobCode,
-        stripePaymentUrl=None,
+        stripePaymentUrl=_payment_url(session.jobId, request),
         # Nothing sent is answered as nothing, rather than as an object saying
         # nothing twice.
         confirmationSentTo=ConfirmationSentTo(
@@ -825,18 +829,17 @@ async def get_payment_link(
     request: Request
 ):
     employee_id = _get_employee_id(business_id, boss_user)
-    # Stripe is still a stub — see the Business Settings routes. The shape is
-    # the contract `stripe_client.create_payment_link` will have to meet.
     job = lib.get_job_detail(business_id, job_id, employee_id=employee_id)
     if job is None:
         raise HTTPException(
             status_code=404,
             detail="That appointment no longer exists."
         )
+    charge = lib.charge_for_job(business_id, job_id, "")
     return JobPaymentLink(
         jobId=job.id,
-        amount=job.size.cost if job.size else 0.0,
-        paymentLinkUrl="https://buy.stripe.com/test_stub_link",
+        amount=charge.amount,
+        paymentLinkUrl=lib.payment_link(charge),
         jobCode=job.jobCode,
     )
 
@@ -951,7 +954,14 @@ async def update_job_type(
         job_type_id,
         body.name,
         body.minEmployees,
-        body.isActive
+        body.isActive,
+        body.iconId,
+        body.paymentRequired,
+        body.depositRequired,
+        body.depositType,
+        body.depositAmount,
+        body.stripeProductId,
+        body.stripePriceId
     )
     return Success(success=True)
 
@@ -1251,7 +1261,7 @@ async def delete_icon(
     return Success(success=True)
 
 
-@router.get("/business/{business_id}/stripe/products")
+@router.get("/business/{business_id}/stripe/products", response_model=Products)
 @require_acl("config.r", roles=[Role.OPERATOR])
 @handled
 async def get_stripe_products(
@@ -1260,17 +1270,7 @@ async def get_stripe_products(
     request: Request
 ):
     _working_for(business_id, boss_user)
-    # TODO: GET /api/io.bithead.scheduler/stripe/products
-    #
-    # Canned. Waiting on the vendor layer — Stripe is reached through it, and
-    # nothing in `lib` can answer this until it exists.
-    return {
-        "products": [
-            {"id": "prod_stub1", "name": "Lawn Mowing — Small", "defaultPrice": {"id": "price_stub1", "unitAmount": 5000, "currency": "usd"}},
-            {"id": "prod_stub2", "name": "Lawn Mowing — Medium", "defaultPrice": {"id": "price_stub2", "unitAmount": 8000, "currency": "usd"}},
-            {"id": "prod_stub3", "name": "Hedge Trimming", "defaultPrice": {"id": "price_stub3", "unitAmount": 6500, "currency": "usd"}}
-        ]
-    }
+    return Products(products=lib.list_products(business_id))
 
 
 @router.get("/contact-fields", response_model=ContactFields)
@@ -1657,10 +1657,6 @@ async def update_config(
     return lib.update_business_config(business_id, settings)
 
 
-# Stripe Connect is still a stub. `stripe_client.py` and the Swift vendor layer
-# it calls are both unwritten, and neither can be until there are credentials to
-# exchange. The shapes below are the contract they will have to meet.
-
 @router.get(
     "/business/{business_id}/config/stripe/connect",
     response_model=ConfigStripeConnect
@@ -1673,11 +1669,13 @@ async def get_stripe_connect_url(
     request: Request
 ):
     _working_for(business_id, boss_user)
-    # TODO: GET /api/io.bithead.scheduler/config/stripe/connect
-    #
-    # Waiting on the vendor layer, as `stripe/products` is.
+    return_url = (
+        f"{request.base_url}api/io.bithead.scheduler"
+        f"/business/{business_id}/config/stripe/callback"
+    )
     return ConfigStripeConnect(
-        connectUrl="https://connect.stripe.com/oauth/authorize?stub=true")
+        connectUrl=lib.connect_url(business_id, return_url)
+    )
 
 
 @router.get(
@@ -1694,17 +1692,8 @@ async def handle_stripe_callback(
     state: str = ""
 ):
     _working_for(business_id, boss_user)
-    # TODO: GET /api/io.bithead.scheduler/config/stripe/callback
-    #
-    # Waiting on the vendor layer, as `stripe/products` is.
-    #
-    # Stripe redirects the operator's browser here with `code` and `state`, so
-    # this arrives as a GET carrying their session.
-    #
-    # `state` is the token this app generated before sending them to Stripe and
-    # stored against their session. Comparing it on return is what says the
-    # exchange began here, and it is checked before `code` is spent.
-    return ConfigStripeCallback(stripeAccountId="acct_stub_001", success=True)
+    account = lib.complete_connect(business_id, code)
+    return ConfigStripeCallback(stripeAccountId=account, success=True)
 
 
 @router.get(
@@ -2201,15 +2190,22 @@ async def superadmin_get_vendors(request: Request):
     return Vendors(vendors=lib.get_vendors())
 
 
-@router.put("/vendor/{vendor_type}", response_model=Vendor)
+@router.get("/vendor/{channel}", response_model=ChannelVendors)
+@require_admin()
+@handled
+async def superadmin_get_vendor(channel: str, request: Request):
+    return lib.get_vendor(channel)
+
+
+@router.put("/vendor/{channel}", response_model=ChannelVendors)
 @require_admin()
 @handled
 async def superadmin_update_vendor(
-    vendor_type: str,
+    channel: str,
     request: Request,
-    body: VendorBody
+    body: VendorChoice
 ):
-    return lib.set_vendor(vendor_type, body.vendor, body.config)
+    return lib.set_vendor(channel, body.id, body.config)
 
 
 @router.get("/templates", response_model=ConfigTemplates)
@@ -2399,30 +2395,76 @@ async def get_last_message(request: Request):
     return LastMessage(channel=sent[0], destination=sent[1], message=sent[2])
 
 
-# What an email from this app says it is about. A channel that carries no
-# subject ignores it.
-EMAIL_SUBJECT = "Your appointment"
+def _payment_url(job_id: int, request: Request) -> Optional[str]:
+    """A card-charge URL for this appointment, or none if none is due."""
+    job = db.get_scheduled_job(job_id)
+    if job is None or not db.job_type_takes_money(job.job_type_id):
+        return None
+    if lib.channel_chosen("payment") is None:
+        return None
+    try:
+        charge = lib.charge_for_job(
+            job.business_id,
+            job_id,
+            str(request.base_url)
+        )
+        return lib.payment_link(charge)
+    except lib.ValidationError:
+        return None
 
 
-def _send_to_vendor(channel: str, destination: str, message: str) -> None:
-    """Deliver through the vendor layer on the Swift server."""
-    send_message(channel, destination, message, subject=EMAIL_SUBJECT)
+@router.post("/webhooks/payment", response_model=Success)
+@handled
+async def payment_webhook(request: Request):
+    """A payment vendor telling us a charge succeeded.
+
+    Public: Stripe (or the mock) calls this. The adapter checks the signature.
+    """
+    notice = lib.apply_webhook(await request.body(), dict(request.headers))
+    if notice is None:
+        return Success(success=True)
+    job = db.get_scheduled_job(notice.jobId)
+    if job is None:
+        return Success(success=True)
+    amount = notice.amount or lib.amount_to_charge(notice.jobId)
+    if amount > 0:
+        lib.record_payment(job.business_id, notice.jobId, amount, "stripe")
+    return Success(success=True)
+
+
+@router.get("/debug/pay/{job_id}", response_model=Success)
+@handled
+async def debug_pay(job_id: int, request: Request):
+    """Mark a mock deposit paid. Development only."""
+    if not debug.is_enabled():
+        raise HTTPException(status_code=404, detail="Not found.")
+    job = db.get_scheduled_job(job_id)
+    if job is None:
+        raise HTTPException(
+            status_code=404,
+            detail="That appointment no longer exists."
+        )
+    amount = lib.amount_to_charge(job_id)
+    if amount > 0:
+        lib.record_payment(job.business_id, job_id, amount, "stripe")
+    return Success(success=True)
+
+
+def _catalog_sender(channel: str, destination: str, message: str) -> None:
+    """Deliver through the catalog. Best effort; see `lib.deliver`.
+
+    Development also records the message, so a UI test can read an OTP off
+    `/debug/last-message` whether or not a mock vendor is chosen.
+    """
+    if debug.is_enabled():
+        lib.record_sent(channel, destination, message)
+    lib.deliver(channel, destination, message)
 
 
 def start():
     """Called once by `api.py` when the service loads this app."""
     start_database()
-
-    # In development, keep what a vendor would have sent. A verification code
-    # goes to a phone nobody is holding during a test, and typing it in is the
-    # customer's next step — so the step is unreachable without this.
-    #
-    # Otherwise the vendor layer, which answers "nothing sent" and a reason
-    # while a channel has no vendor registered. See `lib/notify.py`.
-    if debug.is_enabled():
-        lib.set_sender(lib.record_sent)
-    else:
-        lib.set_sender(_send_to_vendor)
+    lib.set_sender(_catalog_sender)
 
 
 def shutdown():

@@ -87,6 +87,17 @@ export async function readyToBook(page, businessId) {
 }
 
 /**
+ * Choose a catalog vendor. Caller is the super admin.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {string} channel - email | sms | payment
+ * @param {string} id - smtp | mailtrap | twilio | stripe | mock
+ */
+export async function chooseVendor(page, channel, id) {
+  await put(page, `/vendor/${channel}`, { id, config: {} });
+}
+
+/**
  * One confirmed appointment, held through the kiosk the way a customer makes it.
  *
  * The kiosk needs no account, so this works signed in as anybody or as nobody.

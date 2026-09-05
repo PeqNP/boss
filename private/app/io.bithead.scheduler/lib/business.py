@@ -17,6 +17,7 @@ from .. import db
 from ..model import *
 from .exception import ValidationError
 from .transform import _business, _hours, _job_type
+from .vendor import channel_chosen, payment_connected
 
 
 def create_business(
@@ -170,14 +171,15 @@ def get_setup(business_id: int) -> SetupResponse:
             tasks.append(_task(
                 f'Connect a way to send codes — "{job_type.name}" verifies a'
                 f' contact detail', "SuperAdminVendors",
-                done=db.count_active_vendors("sms") + db.count_active_vendors("email") > 0
+                done=channel_chosen("sms") is not None
+                or channel_chosen("email") is not None
             ))
         if db.job_type_takes_money(job_type.id):
             tasks.append(_task(
                 f'Connect Stripe — "{job_type.name}" takes a payment',
                 "BusinessConfig",
                 "payment",
-                done=bool(db.get_business_stripe_account(business_id))
+                done=payment_connected(business_id)
             ))
 
     return SetupResponse(configured=all(t.done for t in tasks), tasks=tasks)
@@ -252,6 +254,8 @@ def _config(row: "db.BusinessConfigRow") -> BusinessConfig:
         allowCustomerEmployeeSelection=bool(row.allow_customer_employee_selection),
         notifyEmployees=bool(row.notify_employees),
         publicUrl=f"{PUBLIC_URL_BASE}/{row.id}",
+        stripeAccountId=db.get_business_stripe_account(row.id),
+        paymentVendorChosen=channel_chosen("payment") is not None,
     )
 
 

@@ -199,7 +199,7 @@ def create_version_1_0_0(conn, version):
             -- fails here instead of leaving two rows where the answer to
             -- "which service sends the mail" depends on row order.
             vendor_type TEXT NOT NULL UNIQUE,   -- email | sms | payment
-            vendor_name TEXT NOT NULL,      -- sendgrid | twilio | stripe
+            vendor_name TEXT NOT NULL,      -- smtp | mailtrap | twilio | stripe | mock
             config_json TEXT NOT NULL,      -- JSON blob of vendor-specific credentials
             is_active INTEGER NOT NULL DEFAULT 1
         )
@@ -2054,6 +2054,15 @@ def get_vendor_configs() -> List[VendorConfigRow]:
     )
 
 
+def get_vendor_config(vendor_type: str) -> Optional[VendorConfigRow]:
+    return _one_as(
+        VendorConfigRow,
+        "SELECT id, vendor_type, vendor_name, config_json"
+        " FROM vendor_configs WHERE vendor_type = ? AND is_active = 1",
+        (vendor_type,)
+    )
+
+
 def clear_vendor_config(vendor_type: str) -> int:
     """One choice per kind, so setting one replaces what was there."""
     return update(
@@ -3523,6 +3532,41 @@ def update_job_type(
     )
 
 
+def set_job_type_payment(
+    job_type_id: int,
+    icon_id: Optional[int],
+    payment_required: int,
+    deposit_required: int,
+    deposit_type: Optional[str],
+    deposit_amount: Optional[float],
+    stripe_product_id: Optional[str],
+    stripe_price_id: Optional[str]
+) -> int:
+    return update(
+        """
+        UPDATE job_types
+           SET icon_id = ?,
+               payment_required = ?,
+               deposit_required = ?,
+               deposit_type = ?,
+               deposit_amount = ?,
+               stripe_product_id = ?,
+               stripe_price_id = ?
+         WHERE id = ?
+        """,
+        (
+            icon_id,
+            payment_required,
+            deposit_required,
+            deposit_type,
+            deposit_amount,
+            stripe_product_id,
+            stripe_price_id,
+            job_type_id
+        )
+    )
+
+
 def count_jobs_for_job_type(job_type_id: int) -> int:
     row = _one(
         "SELECT COUNT(*) FROM scheduled_jobs WHERE job_type_id = ?",
@@ -3742,15 +3786,6 @@ def count_open_days(business_id: int) -> int:
     return row[0] if row else 0
 
 
-def job_type_requires_otp(job_type_id: int) -> bool:
-    row = _one(
-        "SELECT 1 FROM job_type_contact_fields"
-        " WHERE job_type_id = ? AND require_otp = 1",
-        (job_type_id,)
-    )
-    return row is not None
-
-
 def count_active_vendors(vendor_type: str) -> int:
     row = _one(
         "SELECT COUNT(*) FROM vendor_configs"
@@ -3760,12 +3795,28 @@ def count_active_vendors(vendor_type: str) -> int:
     return row[0] if row else 0
 
 
+def job_type_requires_otp(job_type_id: int) -> bool:
+    row = _one(
+        "SELECT 1 FROM job_type_contact_fields"
+        " WHERE job_type_id = ? AND require_otp = 1",
+        (job_type_id,)
+    )
+    return row is not None
+
+
 def get_business_stripe_account(business_id: int) -> Optional[str]:
     row = _one(
         "SELECT stripe_account_id FROM businesses WHERE id = ?",
         (business_id,)
     )
     return row[0] if row else None
+
+
+def set_business_stripe_account(business_id: int, account_id: str) -> int:
+    return update(
+        "UPDATE businesses SET stripe_account_id = ? WHERE id = ?",
+        (account_id, business_id)
+    )
 
 
 def job_type_takes_money(job_type_id: int) -> bool:

@@ -18,12 +18,13 @@ import { test, expect } from "@playwright/test";
 import { signInAsAdmin, signInAsOperator, ensureOperator, bootBOSS,
          openApplication, openController , closeAll } from "../lib/boss.js";
 import { resetDatabase } from "../lib/seed.js";
-import { readyToBook } from "../lib/scheduler.js";
+import { readyToBook, chooseVendor } from "../lib/scheduler.js";
 
 const API = "/api/io.bithead.scheduler";
 
 test.describe("scheduler kiosk", () => {
   let businessId;
+  let booked;
 
   // A window left open outlives its test — see `ui-plan.md`.
   test.afterEach(async ({ page }) => {
@@ -42,7 +43,7 @@ test.describe("scheduler kiosk", () => {
     businessId = (await response.json()).businessId;
 
     await signInAsOperator(page);
-    await readyToBook(page, businessId);
+    booked = await readyToBook(page, businessId);
     await bootBOSS(page);
     await openApplication(page, "io.bithead.scheduler");
     await expect(page.locator(".ui-window")).toBeVisible();
@@ -127,11 +128,102 @@ test.describe("scheduler kiosk", () => {
     await expect(win.locator(".kiosk-slot-btn").first()).toBeVisible();
   });
 
-  // The OTP step and the deposit step are unreachable until a vendor exists.
-  // `get_setup` adds "Connect a way to send codes" for a job type that verifies
-  // a contact detail, and "Connect Stripe" for one that takes a payment; both
-  // are outstanding, so `configured` is false and the kiosk draws
-  // `step-not-configured` instead of taking a booking. See `review.md`.
+  test("verify a phone", async ({ page }) => {
+    await signInAsAdmin(page);
+    await chooseVendor(page, "sms", "mock");
+    await signInAsOperator(page);
+
+    const detail = await (await page.request.get(
+      `${API}/business/${businessId}/job-type/${booked.jobTypeId}`
+    )).json();
+    const phone = detail.contactFields.find((f) => f.name === "Phone");
+    expect(phone, "Haircut asks for no phone").toBeTruthy();
+    const required = await page.request.put(
+      `${API}/business/${businessId}/job-type-contact-field/${phone.id}`,
+      { data: { contactFieldTypeId: phone.contactFieldTypeId,
+                isRequired: true, requireOtp: true } }
+    );
+    expect(required.ok(), `could not require OTP: ${await required.text()}`)
+      .toBe(true);
+
+    const win = await openKiosk(page);
+    await win.locator(".kiosk-option-btn", { hasText: "Haircut" }).first()
+      .click();
+    await win.locator(".kiosk-slot-btn").first().click();
+    await expect(win.locator("[name='step-contact']")).toBeVisible();
+
+    const contact = win.locator("[name='contact-fields'] input");
+    const fields = await contact.count();
+    for (let i = 0; i < fields; i++) {
+      const field = contact.nth(i);
+      const type = await field.getAttribute("type");
+      await field.fill(type === "email" ? "jane@example.com"
+                       : type === "tel" ? "555-0101" : "Jane");
+    }
+    await win.locator("button", { hasText: "Next" }).click();
+    await expect(win.locator("[name='step-otp']")).toBeVisible();
+
+    const sent = await (await page.request.get(`${API}/debug/last-message`))
+      .json();
+    const code = (sent.message.match(/\b\d{4,8}\b/) || [])[0];
+    expect(code, `no code in what was sent: ${sent.message}`).toBeTruthy();
+    await win.locator("input[name='otp-code']").fill(code);
+    await win.locator("button", { hasText: "Verify" }).click();
+    await expect(win.locator("[name='step-confirmation']")).toBeVisible();
+  });
+
+  test("pay a deposit", async ({ page }) => {
+    await signInAsAdmin(page);
+    await chooseVendor(page, "payment", "mock");
+    await signInAsOperator(page);
+
+    const saved = await page.request.put(
+      `${API}/business/${businessId}/job-type/${booked.jobTypeId}`,
+      { data: { name: "Haircut", minEmployees: 1, isActive: true,
+                depositRequired: true, depositType: "fixed",
+                depositAmount: 10 } }
+    );
+    expect(saved.ok(), `could not ask for a deposit: ${await saved.text()}`)
+      .toBe(true);
+
+    const connected = await page.request.get(
+      `${API}/business/${businessId}/config/stripe/callback?code=mock`
+    );
+    expect(connected.ok(), `could not connect: ${await connected.text()}`)
+      .toBe(true);
+
+    const win = await openKiosk(page);
+    await win.locator(".kiosk-option-btn", { hasText: "Haircut" }).first()
+      .click();
+    await win.locator(".kiosk-slot-btn").first().click();
+    await expect(win.locator("[name='step-contact']")).toBeVisible();
+
+    const contact = win.locator("[name='contact-fields'] input");
+    const fields = await contact.count();
+    for (let i = 0; i < fields; i++) {
+      const field = contact.nth(i);
+      const type = await field.getAttribute("type");
+      await field.fill(type === "email" ? "jane@example.com"
+                       : type === "tel" ? "555-0101" : "Jane");
+    }
+
+    const confirmed = page.waitForResponse((response) =>
+      response.url().includes("/kiosk/session/")
+      && response.url().includes("/confirm")
+      && response.request().method() === "POST"
+    );
+    await win.locator("button", { hasText: "Next" }).click();
+    await expect(win.locator("[name='step-deposit']")).toBeVisible();
+    const jobId = (await (await confirmed).json()).jobId;
+
+    const paid = await page.request.get(`${API}/debug/pay/${jobId}`);
+    expect(paid.ok(), `mock pay failed: ${await paid.text()}`).toBe(true);
+
+    const job = await (await page.request.get(
+      `${API}/business/${businessId}/job/${jobId}`
+    )).json();
+    expect(job.paymentStatus, "the deposit was not taken").toBe("deposit_paid");
+  });
 
   test("kiosk not configured", async ({ page }) => {
     // Closed by its own operator. `is_active` is left out of

@@ -4705,45 +4705,195 @@ def test_kiosk_close_permission():
     assert is_operator_of(mine, 99) is False, "it: nor is owning none"
 
 
-def test_platform_vendors():
-    """Which service sends the mail, the texts, and takes the money."""
+def test_vendor_catalog():
+    """The catalog is code: SMTP, Mailtrap, Twilio, Stripe, mock."""
     fresh_database()
 
-    vendors = {v.type: v for v in get_vendors()}
+    vendors = {v.channel: v for v in get_vendors()}
     assert set(vendors) == {"email", "sms", "payment"}, \
         "it: offers a choice for each kind of thing that leaves the platform"
-    assert vendors["email"].currentVendor is None, \
+
+    # describe: email
+    email_ids = [o.id for o in vendors["email"].vendors]
+    assert email_ids == ["smtp", "mailtrap", "mock"], \
+        "it: offers smtp, mailtrap, and mock in development"
+    smtp = next(o for o in vendors["email"].vendors if o.id == "smtp")
+    assert smtp.fields == [], "it: SMTP uses BOSS's account, so it asks for nothing"
+    assert vendors["email"].chosen is None, \
         "it: has nobody chosen until somebody chooses"
-    assert "sendgrid" in vendors["email"].registeredVendors
-    assert vendors["email"].configKeys == []
 
-    # describe: choosing one
-    chosen = set_vendor("email", "sendgrid",
-                        {"fromEmail": "noreply@bithead.io", "apiKey": "SG.secret"})
-    assert chosen.currentVendor == "sendgrid"
-    assert chosen.configKeys == ["apiKey", "fromEmail"], \
-        "it: names what is configured without handing back the credentials"
-    assert {v.type: v.currentVendor for v in get_vendors()}["email"] == "sendgrid", \
-        "it: is what the platform uses from now on"
+    # describe: payment
+    payment_ids = [o.id for o in vendors["payment"].vendors]
+    assert "stripe" in payment_ids
+    assert "mock" in payment_ids, "it: offers mock in development"
 
-    # describe: changing to another
-    changed = set_vendor("email", "mailgun", {"fromEmail": "hello@bithead.io"})
-    assert changed.currentVendor == "mailgun"
-    assert changed.configKeys == ["fromEmail"], \
-        "it: replaces what was configured rather than keeping the old keys"
-    assert {v.type: v.currentVendor for v in get_vendors()}["email"] == "mailgun"
-
-    # describe: a kind of vendor the platform has no use for
+    # describe: a channel the platform has none of
     with pytest.raises(ValidationError):
-        set_vendor("carrier-pigeon", "pigeon", {})
+        get_vendor("carrier-pigeon")
 
-    # describe: a vendor the platform does not recognise
-    with pytest.raises(ValidationError):
-        set_vendor("email", "smoke-signal", {})
+    # describe: secrets
+    chosen = set_vendor("email", "mailtrap",
+                        {"username": "a@b.com", "password": "secret"})
+    assert "password" not in chosen.config, \
+        "it: GET names keys and never secret values"
+    assert "password" in chosen.configuredKeys
 
-    # describe: clearing the choice
+
+def test_vendor_choice():
+    """Choosing a vendor stores the id and the credentials the user typed."""
+    fresh_database()
+
+    # describe: choose SMTP
+    smtp = set_vendor("email", "smtp", {})
+    assert smtp.chosen == "smtp"
+    assert smtp.config == {}, "it: SMTP uses BOSS's account, so it stores none"
+
+    # describe: choose mailtrap with host and username
+    chosen = set_vendor("email", "mailtrap",
+                        {"host": "sandbox.smtp.mailtrap.io",
+                         "username": "a@b.com"})
+    assert chosen.chosen == "mailtrap"
+    assert chosen.config["host"] == "sandbox.smtp.mailtrap.io"
+    assert chosen.config["username"] == "a@b.com"
+    assert {v.channel: v.chosen for v in get_vendors()}["email"] == "mailtrap"
+
+    # describe: save a secret then GET
+    with_secret = set_vendor("email", "mailtrap",
+                             {"username": "a@b.com", "password": "secret"})
+    assert "password" not in with_secret.config, \
+        "it: the value is not in the response"
+    assert "password" in with_secret.configuredKeys
+
+    # describe: save again with empty password
+    again = set_vendor("email", "mailtrap",
+                       {"username": "a@b.com", "password": ""})
+    assert "password" in again.configuredKeys, \
+        "it: the stored password is unchanged"
+
+    # describe: choose none
     cleared = set_vendor("email", None, {})
-    assert cleared.currentVendor is None, "it: sends nothing until one is chosen"
+    assert cleared.chosen is None, "it: sends nothing until one is chosen"
+    assert deliver("email", "a@b.com", "hello").sent is False
+
+
+def test_email_send():
+    """Sending mail through the chosen vendor."""
+    fresh_database()
+
+    # describe: mock
+    set_vendor("email", "mock", {})
+    result = deliver("email", "a@b.com", "hello")
+    assert result.sent is True
+    assert last_sent() == ("email", "a@b.com", "hello"), \
+        "it: last_sent holds the message"
+
+    # describe: no vendor chosen
+    set_vendor("email", None, {})
+    none = deliver("email", "a@b.com", "hello")
+    assert none.sent is False
+    assert none.reason, "it: sent is false and a reason, no exception"
+
+    # describe: SMTP
+    set_vendor("email", "smtp", {})
+    smtp = deliver("email", "a@b.com", "hello")
+    assert isinstance(smtp.reason, str), \
+        "it: asks Swift and never raises"
+
+    # describe: mailtrap with no password
+    set_vendor("email", "mailtrap", {"username": "a@b.com"})
+    missing = deliver("email", "a@b.com", "hello")
+    assert missing.sent is False
+    assert missing.reason, "it: sent is false and a reason"
+
+
+def test_sms_send():
+    """Sending a text through the chosen vendor."""
+    fresh_database()
+
+    # describe: mock
+    set_vendor("sms", "mock", {})
+    result = deliver("sms", "+15552340000", "hello")
+    assert result.sent is True
+    assert last_sent() == ("sms", "+15552340000", "hello")
+
+    # describe: no vendor chosen
+    set_vendor("sms", None, {})
+    none = deliver("sms", "+15552340000", "hello")
+    assert none.sent is False
+    assert none.reason
+
+
+def test_payment_vendor():
+    """Mock Connect, products, a payment link, and a webhook."""
+    fresh_database()
+    business_id = a_business(slot_mode="unlimited")
+    job_type_id, size_id = a_job_type(business_id)
+    update_job_type(business_id, job_type_id, "Lawn Mowing", is_active=True)
+    set_job_type_deposit(job_type_id, "fixed", 25.0)
+    held = create_job_session(business_id, job_type_id, size_id, MONDAY, "10:00")
+    confirm_session(held.sessionToken, contact={"Phone": "+15552340000"})
+
+    set_vendor("payment", "mock", {})
+
+    # describe: mock connect
+    account = complete_connect(business_id, "mock")
+    assert account
+    assert payment_connected(business_id) is True, \
+        "it: business has a stripe_account_id"
+
+    # describe: mock products
+    products = list_products(business_id)
+    assert products, "it: a non-empty list with ids"
+    assert products[0].id
+
+    # describe: mock payment link
+    charge = charge_for_job(business_id, held.jobId, "/")
+    url = payment_link(charge)
+    assert "/debug/pay/" in url, "it: a URL under this app"
+
+    # describe: mock webhook
+    notice = apply_webhook(
+        b'{"jobId": %d, "amount": 25}' % held.jobId,
+        {}
+    )
+    assert notice is not None
+    record_payment(business_id, notice.jobId, notice.amount, "stripe")
+    assert get_payments(held.jobId)[-1].method == "stripe"
+
+
+def test_setup_with_vendors():
+    """OTP and paid job types wait on a chosen vendor."""
+    fresh_database()
+
+    business_id = db.insert_business("Green Thumb", "UTC", "reserved")
+    job_type = create_job_type(business_id, "Lawn Mowing")
+    update_job_type(business_id, job_type.id, "Lawn Mowing", is_active=True)
+    add_job_type_size(business_id, job_type.id, "Standard", 60, 50.0)
+    phone = [f for f in get_contact_field_types() if f.name == "Phone"][0]
+    add_job_type_contact_field(business_id, job_type.id, phone.id, require_otp=True)
+    employee = create_employee(business_id, "Alice", "Kim")
+    allow_job_type(employee.id, job_type.id)
+    add_working_day(business_id, employee.id, 1, "09:00", "17:00")
+
+    # describe: OTP job type, no email or SMS vendor
+    outstanding = [t.text for t in get_setup(business_id).tasks if not t.done]
+    assert any("send codes" in t for t in outstanding), \
+        "it: configured is false"
+    assert get_setup(business_id).configured is False
+
+    # describe: OTP job type, mock email chosen
+    set_vendor("email", "mock", {})
+    assert get_setup(business_id).configured is True, \
+        "it: that task is done"
+
+    # describe: paid job type, mock payment connected
+    set_job_type_deposit(job_type.id, "fixed", 10.0)
+    unpaid = [t.text for t in get_setup(business_id).tasks if not t.done]
+    assert any("Connect Stripe" in t for t in unpaid)
+    set_vendor("payment", "mock", {})
+    complete_connect(business_id, "mock")
+    assert get_setup(business_id).configured is True, \
+        "it: Connect Stripe is done"
 
 
 def test_create_employee():

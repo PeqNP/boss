@@ -274,8 +274,8 @@
         try {
           response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/config/stripe/connect`);
         }
-        catch {
-          os.ui.showError("Failed to start Stripe Connect. Please try again.");
+        catch (error) {
+          os.ui.showError(error.message || "Failed to start Stripe Connect. Please try again.");
           return;
         }
         window.open(response.connectUrl, "_blank");
@@ -392,6 +392,11 @@
         }
         view.ui.input("allow-employee-selection").checked = response.allowCustomerEmployeeSelection;
         view.ui.input("notify-employees").checked = response.notifyEmployees;
+
+        view.ui.span("stripe-account-id").innerText = isEmpty(response.stripeAccountId)
+          ? "Not connected"
+          : response.stripeAccountId;
+        view.ui.button("connect-stripe").disabled = !response.paymentVendorChosen;
 
         // Load business templates for Business Type tab
         try {
@@ -761,38 +766,7 @@
       <!-- Notifications tab -->
       <div name="tab-notifications" style="display: none;">
         <div class="vbox gap-20">
-          <p>Configure email and SMS vendors for customer and operator notifications.</p>
-          <fieldset>
-            <legend>Email Vendor</legend>
-            <div class="vbox gap-10">
-              <div class="ui-popup-menu stacked">
-                <label>Vendor</label>
-                <select name="email-vendor">
-                  <option value="">— None —</option>
-                  <option value="sendgrid">SendGrid</option>
-                  <option value="mailgun">Mailgun</option>
-                </select>
-              </div>
-              <div class="text-field">
-                <label for="email-from">From Address</label>
-                <input type="text" name="email-from">
-              </div>
-              <div class="text-field">
-                <label for="email-from-name">From Name</label>
-                <input type="text" name="email-from-name">
-              </div>
-            </div>
-          </fieldset>
-          <fieldset>
-            <legend>SMS Vendor</legend>
-            <div class="ui-popup-menu stacked">
-              <label>Vendor</label>
-              <select name="sms-vendor">
-                <option value="">— None —</option>
-                <option value="twilio">Twilio</option>
-              </select>
-            </div>
-          </fieldset>
+          <p>Email and SMS are sent by the vendor the platform has chosen on Vendor Integrations. This business chooses whether to confirm by text or email on the Schedule tab.</p>
         </div>
       </div>
 
@@ -805,7 +779,7 @@
             <span name="stripe-account-id">Not connected</span>
           </div>
           <div class="controls">
-            <button class="default" onclick="$(this.controller).connectStripe();">Connect Stripe Account</button>
+            <button name="connect-stripe" class="default" onclick="$(this.controller).connectStripe();">Connect Stripe Account</button>
           </div>
         </div>
       </div>

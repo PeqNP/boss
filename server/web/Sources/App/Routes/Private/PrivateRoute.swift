@@ -9,7 +9,7 @@ import Vapor
 /// These routes are not accessible to the public. Therefore, they do not need authorization.
 public func registerPrivate(_ app: Application) {
     app.group("private") { group in
-        registerVendor(group)
+        registerSmtp(group)
 
         group.group("acl") { acl in
             acl.post("register") { req in

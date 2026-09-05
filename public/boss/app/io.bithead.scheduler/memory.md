@@ -1,12 +1,14 @@
 # Session Memory — Scheduler
 
-Every stage of `plan.md` is finished. Leftovers are in [`review.md`](../../../../private/app/io.bithead.scheduler/review.md). The two screen gaps are closed. What remains waits on a vendor, a Stripe account, or a holiday provider.
+Every stage of `plan.md` is finished. Vendors moved into this app — see [`plan-vendors.md`](../../../../private/app/io.bithead.scheduler/plan-vendors.md). Leftovers are in [`review.md`](../../../../private/app/io.bithead.scheduler/review.md). Holidays still wait on a provider.
 
 ## Watch out for
 
 - An operator finds a staff account through `GET .../business/{id}/users?email=`. Python asks `POST /private/users`. `/account/users` still answers only the caller, or everyone if they are the super admin.
 - Write-off is `POST .../job/{id}/write-off`. The button sits with Record Payment and asks before it sends.
+- Appointment mail, SMS, and card charges go through `lib/vendor/`. The catalog is code; the choice and credentials are stored in `vendor_configs`. SMTP hands mail to `POST /private/smtp/send`.
+- Development records messages for `/debug/last-message`. A mock payment is `GET /debug/pay/{jobId}`.
 
 ## Open
 
-See `review.md`. Vendor, Stripe, and holidays wait on accounts.
+See `review.md`. Holidays wait on a provider. Production vendor accounts wait on whoever runs the platform.

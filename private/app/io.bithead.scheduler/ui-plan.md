@@ -30,14 +30,14 @@ Dependency first, then how often a break there would go unnoticed.
 | 3 | Business settings | `scheduler-business-settings.spec.js` | Each tab saves and reads back — hours, slot mode, notice windows, confirmation channels; an invalid value is refused with a message the screen shows | **Done** — 7 specs |
 | 4 | Job types | `scheduler-job-types.spec.js` | Create, name, size, attribute, contact field, reorder, delete; a draft left unsaved does not reach the kiosk | **Done** — 9 specs |
 | 5 | Employees | `scheduler-employees.spec.js` | Create, working days, time off, the work they may be given, a linked BOSS account, and a draft left unsaved | **Done** — 9 specs |
-| 6 | Kiosk booking | `scheduler-kiosk.spec.js` | The whole path a customer walks: service, size, employee, slot, contact, OTP, confirm — and the appointment exists afterwards with what they chose | **Done** — 3 specs. The OTP and deposit steps need a vendor before they can be reached; see `review.md` |
+| 6 | Kiosk booking | `scheduler-kiosk.spec.js` | The whole path a customer walks: service, size, employee, slot, contact, OTP, confirm — and the appointment exists afterwards with what they chose | **Done** — 5 specs. OTP and deposit use mock vendors |
 | 7 | Appointment lookup | `scheduler-lookup.spec.js` | A job code and a verification code let a customer back in; a wrong code refuses; six wrong codes lock it and the operator can still change it | **Done** — 5 specs |
 | 8 | Operator calendar | `scheduler-calendar.spec.js` | Month, week and day draw what was booked; a day opens; a job opens from it; assigning a week puts somebody on each | **Done** — 4 specs |
 | 9 | Job detail and payment | `scheduler-job.spec.js` | Reschedule, reassign, complete, take payment, write off, cancel — each reads back | **Done** — 8 specs |
 | 10 | Customers | `scheduler-customers.spec.js` | List, search, detail, notes, and the appointments a customer holds | **Done** — 11 specs |
 | 11 | Financial report | `scheduler-report.spec.js` | The figures match what was booked and paid over a period, and the CSV downloads | **Done** — 5 specs, no defects found |
 | 12 | Employee portal | `scheduler-portal.spec.js` | The dashboard shows today's work, the calendar shows their own jobs and no colleague's, the profile saves | **Done** — 7 specs |
-| 13 | Platform screens | `scheduler-platform.spec.js` | Businesses, contact fields, holidays, timeout, vendors, templates — each list and its editor | **Done** — 9 specs. Holidays need a provider before the screen has anything to draw; see `review.md` |
+| 13 | Platform screens | `scheduler-platform.spec.js` | Businesses, contact fields, holidays, timeout, vendors, templates — each list and its editor | **Done** — 11 specs. Holidays need a provider before the screen has anything to draw; see `review.md` |
 
 ## Findings
 

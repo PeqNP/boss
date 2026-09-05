@@ -221,6 +221,8 @@ class BusinessConfig(Model):
     allowCustomerEmployeeSelection: bool
     notifyEmployees: bool
     publicUrl: str
+    stripeAccountId: Optional[str] = None
+    paymentVendorChosen: bool = False
 
 
 #   GET /admin/config/stripe/connect
@@ -802,22 +804,52 @@ class ScheduleTimeout(Model):
     timeoutMinutes: int
 
 
-class Vendor(Model):
-    """Which service the platform uses for one kind of outbound thing.
+class VendorField(Model):
+    """One input the chosen vendor needs, so the Vendors window can build it."""
+    key: str
+    label: str
+    kind: str = "text"
+    secret: bool = False
+    default: Optional[str] = None
 
-    `configKeys` names what has been configured without saying what it is: the
-    values are credentials, and a super admin already knows them. Sending them
-    back puts an API key in every response that carries this.
+
+class VendorOffer(Model):
+    """A vendor the catalog offers for one channel."""
+    id: str
+    name: str
+    fields: List[VendorField] = []
+
+
+class ChannelVendors(Model):
+    """One channel: who is chosen, who could be, and the non-secret config.
+
+    `config` never carries a secret. `configuredKeys` names every stored key,
+    including secrets, so the form can show "unchanged" without the value.
     """
-    type: str
-    currentVendor: Optional[str] = None
-    registeredVendors: List[str] = []
-    configKeys: List[str] = []
+    channel: str
+    chosen: Optional[str] = None
+    vendors: List[VendorOffer] = []
+    config: Dict[str, Any] = {}
+    configuredKeys: List[str] = []
 
 
-#   GET /superadmin/vendors
+#   GET /vendors
+#   GET /vendor/{channel}
 class Vendors(Model):
-    vendors: List[Vendor] = []
+    vendors: List[ChannelVendors] = []
+
+
+class PaymentProduct(Model):
+    id: str
+    name: str
+    priceId: str
+    unitAmount: int
+    currency: str = "usd"
+
+
+#   GET /business/{id}/stripe/products
+class Products(Model):
+    products: List[PaymentProduct] = []
 
 
 #   POST /admin/config/stripe/callback
@@ -1161,6 +1193,7 @@ class KioskSessionBody(Model):
 
 class OtpSendBody(Model):
     fieldType: str
+    destination: Optional[str] = None
 
 
 class OtpVerifyBody(Model):
@@ -1197,6 +1230,13 @@ class JobTypeBody(Model):
     name: str
     minEmployees: Optional[int] = None
     isActive: Optional[bool] = None
+    iconId: Optional[int] = None
+    paymentRequired: Optional[bool] = None
+    depositRequired: Optional[bool] = None
+    depositType: Optional[str] = None
+    depositAmount: Optional[float] = None
+    stripeProductId: Optional[str] = None
+    stripePriceId: Optional[str] = None
 
 
 class JobTypeSizeBody(Model):
@@ -1205,13 +1245,13 @@ class JobTypeSizeBody(Model):
     cost: float
 
 
-class VendorBody(Model):
+class VendorChoice(Model):
     """A choice of service, and the credentials it needs.
 
-    `vendor` of `null` clears the choice. `config` is vendor-specific, so it
-    is read by whichever module comes to do the sending.
+    `id` of `null` clears the choice. `config` is vendor-specific. An empty
+    secret on a re-save leaves the stored value.
     """
-    vendor: Optional[str] = None
+    id: Optional[str] = None
     config: Dict[str, Any] = {}
 
 

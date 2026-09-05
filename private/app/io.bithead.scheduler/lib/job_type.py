@@ -370,7 +370,14 @@ def update_job_type(
     job_type_id: int,
     name: str,
     min_employees: Optional[int] = None,
-    is_active: Optional[bool] = None
+    is_active: Optional[bool] = None,
+    icon_id: Optional[int] = None,
+    payment_required: Optional[bool] = None,
+    deposit_required: Optional[bool] = None,
+    deposit_type: Optional[str] = None,
+    deposit_amount: Optional[float] = None,
+    stripe_product_id: Optional[str] = None,
+    stripe_price_id: Optional[str] = None
 ) -> Optional[JobType]:
     current = get_job_type(business_id, job_type_id)
     if current is None:
@@ -387,6 +394,36 @@ def update_job_type(
         people,
         1 if (current.isActive if is_active is None else is_active) else 0
     )
+    detail = db.get_job_type_detail(job_type_id)
+    if detail is not None and any(value is not None for value in (
+        icon_id, payment_required, deposit_required, deposit_type,
+        deposit_amount, stripe_product_id, stripe_price_id
+    )):
+        db.set_job_type_payment(
+            job_type_id,
+            detail.icon_id if icon_id is None else icon_id,
+            (
+                detail.payment_required if payment_required is None
+                else (1 if payment_required else 0)
+            ),
+            (
+                detail.deposit_required if deposit_required is None
+                else (1 if deposit_required else 0)
+            ),
+            detail.deposit_type if deposit_type is None else deposit_type,
+            (
+                detail.deposit_amount if deposit_amount is None
+                else deposit_amount
+            ),
+            (
+                detail.stripe_product_id if stripe_product_id is None
+                else stripe_product_id
+            ),
+            (
+                detail.stripe_price_id if stripe_price_id is None
+                else stripe_price_id
+            )
+        )
     return get_job_type(business_id, job_type_id)
 
 

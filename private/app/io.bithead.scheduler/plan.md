@@ -8,11 +8,11 @@
 - **Private service dir:** `private/app/io.bithead.scheduler/`
 - **App stylesheet:** `public/boss/app/io.bithead.scheduler/scheduler.css` (loaded via `os.network.stylesheet()` in `applicationDidStart`)
 - **Test file:** `private/tests/test_scheduler.py`
-- **Backend:** Python (FastAPI, SQLite) + Swift vendor layer (email/SMS/payment)
+- **Backend:** Python (FastAPI, SQLite). Appointment mail, SMS, and card charges are this app's — see [`plan-vendors.md`](plan-vendors.md). Choosing SMTP hands mail to Swift on `boss.config.smtp`.
 - **Reference app for UI components:** `public/boss/app/io.bithead.tutorial/controller/Example.html`
 - **Reference for settings-style left-side navigation:** `io.bithead.settings` app (`Home.html`)
 - **Reference for test harness setup:** `private/tests/test_wordy.py` + `private/tests/libtest/`
-- **What is left:** [`review.md`](review.md) — every stage here is finished and every flow in `ui-plan.md` has a spec. What remains is gathered there.
+- **What is left:** [`review.md`](review.md) — every stage here is finished and every flow in `ui-plan.md` has a spec. Vendors, OTP, and deposits are [`plan-vendors.md`](plan-vendors.md). Holidays still wait on a provider.
 
 ---
 
@@ -1044,11 +1044,14 @@ Single integer field (minutes). Save button.
 ---
 
 #### `Vendors`
-Per vendor type (email, SMS): dropdown of registered vendor integrations, then vendor-specific config fields (stored as JSON blob).
+A document. Super admin. One fieldset per channel: a pop-up of the catalog,
+then the fields the chosen vendor declares. The catalog is code; the choice
+and credentials are stored.
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/vendors` → registered vendor types and current configs
-- `PUT /api/io.bithead.scheduler/vendor/{type}` → `{ vendor: str, config: dict }`
+- `GET /api/io.bithead.scheduler/vendors` → `ChannelVendors` per channel
+- `GET /api/io.bithead.scheduler/vendor/{channel}` → one `ChannelVendors`
+- `PUT /api/io.bithead.scheduler/vendor/{channel}` → `{ id, config }`
 
 ---
 
@@ -1136,9 +1139,9 @@ CREATE TABLE system_holidays (
 
 CREATE TABLE vendor_configs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    vendor_type TEXT NOT NULL,      -- email | sms | payment
-    vendor_name TEXT NOT NULL,      -- sendgrid | twilio | stripe
-    config_json TEXT NOT NULL,      -- JSON blob of vendor-specific credentials
+    vendor_type TEXT NOT NULL UNIQUE,   -- email | sms | payment
+    vendor_name TEXT NOT NULL,          -- smtp | mailtrap | twilio | stripe | mock
+    config_json TEXT NOT NULL,          -- credentials the user typed
     is_active INTEGER NOT NULL DEFAULT 1
 );
 

@@ -167,13 +167,66 @@ test.describe("scheduler platform", () => {
     const sections = win.locator("[name='vendors-container'] fieldset");
     await expect(sections.first()).toBeVisible();
 
-    // A vendor's config holds credentials. The screen names the keys and the
-    // service never sends the values, so a value on screen is a leak.
+    // A vendor's config holds credentials. Secret values are never sent back,
+    // so a password on screen is a leak.
     const vendors = await (await page.request.get(`${API}/vendors`)).json();
-    for (const vendor of vendors.vendors) {
-      expect(Object.keys(vendor), `${vendor.type} carries its config values`)
-        .not.toContain("config");
+    for (const channel of vendors.vendors) {
+      expect(channel.config, `${channel.channel} carries secret values`)
+        .not.toHaveProperty("password");
+      expect(channel.config, `${channel.channel} carries a secret key`)
+        .not.toHaveProperty("secretKey");
+      expect(channel.config, `${channel.channel} carries an auth token`)
+        .not.toHaveProperty("authToken");
     }
+  });
+
+  test("save SMTP", async ({ page }) => {
+    const win = await open(page, "Vendors", "Vendor Integrations");
+
+    await selectPopupOption(win, "vendor-select-email", "SMTP");
+    await expect(win.locator("[name='vendor-fields-email'] input")).toHaveCount(0);
+    await docAction(win, "save").click();
+
+    await expect
+      .poll(async () => (await (await page.request.get(`${API}/vendors`)).json())
+              .vendors.find((v) => v.channel === "email").chosen,
+            { message: "the choice never reached the server" })
+      .toBe("smtp");
+  });
+
+  test("save a vendor choice", async ({ page }) => {
+    const win = await open(page, "Vendors", "Vendor Integrations");
+
+    const before = await (await page.request.get(`${API}/vendors`)).json();
+    const email = before.vendors.find((v) => v.channel === "email");
+    expect(email, "the platform offers no email vendor").toBeTruthy();
+    expect(email.chosen, "one is chosen already").toBeFalsy();
+
+    await selectPopupOption(win, "vendor-select-email", "Mailtrap");
+    await win.locator("input[name='vendor-field-email-username']")
+      .fill("noreply@bithead.io");
+    await docAction(win, "save").click();
+
+    await expect
+      .poll(async () => (await (await page.request.get(`${API}/vendors`)).json())
+              .vendors.find((v) => v.channel === "email").chosen,
+            { message: "the choice never reached the server" })
+      .toBe("mailtrap");
+
+    const saved = await (await page.request.get(`${API}/vendors`)).json();
+    const chosen = saved.vendors.find((v) => v.channel === "email");
+    expect(chosen.config, "secrets absent from GET")
+      .not.toHaveProperty("password");
+  });
+
+  test("show Stripe fields", async ({ page }) => {
+    const win = await open(page, "Vendors", "Vendor Integrations");
+
+    await selectPopupOption(win, "vendor-select-payment", "Stripe");
+    await expect(win.locator("input[name='vendor-field-payment-secretKey']"))
+      .toBeVisible();
+    await expect(win.locator("input[name='vendor-field-payment-publishableKey']"))
+      .toBeVisible();
   });
 
   // Holidays are not covered: `system_holidays` is only written by
@@ -181,25 +234,6 @@ test.describe("scheduler platform", () => {
   // `POST /system-holidays/refresh` reports the count already there rather
   // than fetching a year. The screen has nothing to draw until a provider is
   // connected — see `review.md`.
-
-  test("save a vendor choice", async ({ page }) => {
-    const win = await open(page, "Vendors", "Vendor Integrations");
-
-    const before = await (await page.request.get(`${API}/vendors`)).json();
-    const email = before.vendors.find((v) => v.type === "email");
-    expect(email, "the platform offers no email vendor").toBeTruthy();
-    expect(email.currentVendor, "one is chosen already").toBeFalsy();
-
-    await selectPopupOption(win, "vendor-select-email",
-                            email.registeredVendors[0]);
-    await docAction(win, "save").click();
-
-    await expect
-      .poll(async () => (await (await page.request.get(`${API}/vendors`)).json())
-              .vendors.find((v) => v.type === "email").currentVendor,
-            { message: "the choice never reached the server" })
-      .toBe(email.registeredVendors[0]);
-  });
 
   test("platform scoping", async ({ page }) => {
     await signInAsOperator(page);

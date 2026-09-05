@@ -22,6 +22,8 @@
 
       // Chosen from the connected Stripe account, sent with the job type.
       let stripeProductId = null;
+      let stripePriceId = null;
+      let stripeProducts = [];
 
       // Contact fields as last loaded. Order here is the order the customer is
       // asked for them, and is what a reorder is computed against.
@@ -97,6 +99,7 @@
         }
         iconId = response.iconId;
         stripeProductId = response.stripeProductId;
+        stripePriceId = response.stripePriceId;
         win.span("selected-stripe-product").innerText =
           isEmpty(response.stripeProductId) ? "None chosen" : response.stripeProductId;
 
@@ -273,11 +276,12 @@
           os.ui.showError("Failed to load the Stripe products. Please try again later.");
           return;
         }
+        stripeProducts = response.products || [];
         win.select("stripe-product").ui.addNewOptions(
-          response.products.map(function(p) {
+          stripeProducts.map(function(p) {
             return {
               id: p.id,
-              name: `${p.name} ($${(p.defaultPrice.unitAmount / 100).toFixed(2)})`
+              name: `${p.name} ($${(p.unitAmount / 100).toFixed(2)})`
             };
           })
         );
@@ -286,6 +290,10 @@
 
       function didChangeStripeProduct() {
         stripeProductId = win.select("stripe-product").ui.selectedValue();
+        const product = stripeProducts.find(function(p) {
+          return p.id === stripeProductId;
+        });
+        stripePriceId = isEmpty(product) ? null : product.priceId;
         win.span("selected-stripe-product").innerText =
           isEmpty(stripeProductId) ? "None chosen" : stripeProductId;
       }
@@ -312,6 +320,7 @@
           iconId,
           minEmployees,
           stripeProductId,
+          stripePriceId,
           paymentRequired: win.input("payment-required").checked,
           depositRequired: win.input("deposit-required").checked,
           isActive: win.input("is-active").checked
