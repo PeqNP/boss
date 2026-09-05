@@ -50,7 +50,14 @@ ADDED = [
 
 
 def diff(cached, paths):
-    argv = ["git", "diff"] + (["--cached"] if cached else []) + ["--unified=0"]
+    # Paths are this changeset, staged or not, so compare to HEAD. Without
+    # paths, the unstaged tree is the default, and `--cached` is the index.
+    argv = ["git", "diff"]
+    if cached:
+        argv.append("--cached")
+    elif paths:
+        argv.append("HEAD")
+    argv.append("--unified=0")
     if paths:
         argv += ["--"] + paths
     result = subprocess.run(argv, cwd=REPO, capture_output=True, text=True)

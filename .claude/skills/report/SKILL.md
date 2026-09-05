@@ -62,10 +62,10 @@ A lesson is something that changes what somebody does next. These qualify:
 
 Where the work stands. One or two sentences: the next step, then what remains.
 
-Read it off `memory.md`, the current `plan.md` (or the extra plan this slice
-uses), and `review.md`. Name the next stage, leftover, or decision. Say how
-much is left — remaining stages, remaining leftovers, remaining flows — so a
-reader can tell whether the plan is mid-flight or waiting on someone else.
+Read it off the app's `memory.md`, and the current `plan.md` while a stage is
+open. Name the next stage, leftover, or decision. Say how much is left —
+remaining stages, remaining leftovers, remaining flows — so a reader can tell
+whether the plan is mid-flight or waiting on someone else.
 
 ```markdown
 ## Next
@@ -77,8 +77,8 @@ remain.
 ```markdown
 ## Next
 
-Production Stripe and Twilio keys on Vendors. `plan.md` and `plan-vendors.md`
-are finished; that leftover is in `review.md`.
+Production Stripe and Twilio keys on Vendors. `plan.md` is finished; that
+leftover is in `memory.md`.
 ```
 
 A skill or docs change still names the next step of the app in play, when

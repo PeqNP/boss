@@ -15,8 +15,8 @@ The message is this changeset: the files this turn changed. A working tree
 that still holds earlier work is not the changeset.
 
 ```bash
-git diff --stat -- <paths>
-git diff -- <paths> | grep "^[-+]def \|^[-+].*CREATE TABLE \|^[-+]@router\."
+git diff HEAD --stat -- <paths>
+git diff HEAD -- <paths> | grep "^[-+]def \|^[-+].*CREATE TABLE \|^[-+]@router\."
 ```
 
 The second command lists the symbols that moved. Those are the bullets.
@@ -50,7 +50,7 @@ scheduler: cover working days, time off, and the work an employee takes
 - Record flow 5 as done in `ui-plan.md`, with deleting a working day and a
   time-off window still to cover
 - Record the missing BOSS account picker as a finding in `ui-plan.md`
-- Record it in `review.md` under built on the server, missing from a screen
+- Record it in `memory.md` under Open
 ```
 
 **Name every removal.** A removal exists only in history, so one a message

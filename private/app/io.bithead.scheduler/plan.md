@@ -8,11 +8,11 @@
 - **Private service dir:** `private/app/io.bithead.scheduler/`
 - **App stylesheet:** `public/boss/app/io.bithead.scheduler/scheduler.css` (loaded via `os.network.stylesheet()` in `applicationDidStart`)
 - **Test file:** `private/tests/test_scheduler.py`
-- **Backend:** Python (FastAPI, SQLite). Appointment mail, SMS, and card charges are this app's — see [`plan-vendors.md`](plan-vendors.md). Choosing SMTP hands mail to Swift on `boss.config.smtp`.
+- **Backend:** Python (FastAPI, SQLite). Appointment mail, SMS, and card charges live in `lib/vendor/`. Choosing SMTP hands mail to Swift on `POST /private/smtp/send` (`boss.config.smtp`). Mailtrap, Twilio, Stripe, and mock (development only) send from this app.
 - **Reference app for UI components:** `public/boss/app/io.bithead.tutorial/controller/Example.html`
 - **Reference for settings-style left-side navigation:** `io.bithead.settings` app (`Home.html`)
 - **Reference for test harness setup:** `private/tests/test_wordy.py` + `private/tests/libtest/`
-- **What is left:** [`review.md`](review.md) — every stage here is finished and every flow in `ui-plan.md` has a spec. Vendors, OTP, and deposits are [`plan-vendors.md`](plan-vendors.md). Holidays still wait on a provider.
+- **What is left:** the app's `memory.md` — every stage here is finished and every flow in `ui-plan.md` has a spec.
 
 ---
 
@@ -871,7 +871,7 @@ owner to one by name:
 1. **General** (`general`) — name, phone(s), address, owner info, description, site link, timezone dropdown (default from signup), read-only public URL
 2. **Business Type** (`business-type`) — the template that fills in the rest; choosing one asks before overwriting what is already set
 3. **Schedule** (`schedule`) — **Time Slots** (Reserved / Unlimited), **Operating Hours** (seven days, one range each, closable), cutoff window (days), slot increment (dropdown: 15m/30m/1h), min booking notice (hours), **minimum change notice (minutes)**, buffer time (minutes), reminder toggle (1 day before, email/SMS), completion mode (auto/manual), reminder opt-out per channel, and **Send confirmation** (below)
-4. **Notifications** (`notifications`) — vendor type selection (email/SMS); per-type: vendor dropdown + config fields
+4. **Notifications** (`notifications`) — which channels this business uses for confirmation. The platform vendor (SMTP, Mailtrap, Twilio) is chosen on `Vendors`, not here.
 
 **No Save button.** Business Settings writes as the owner works —
 [`js.md` § Saving as the user works](../../../docs/prompt/js.md#saving-as-the-user-works)
@@ -1051,14 +1051,40 @@ Single integer field (minutes). Save button.
 ---
 
 #### `Vendors`
-A document. Super admin. One fieldset per channel: a pop-up of the catalog,
-then the fields the chosen vendor declares. The catalog is code; the choice
-and credentials are stored.
+A document (Cancel/Save; no Delete). Super admin. One fieldset per channel
+(Email, SMS, Payment): a pop-up of the catalog, then the fields the chosen
+vendor declares. Fields are built with `os.ui.makeTextField` when the choice
+changes. Secret fields use `type: password`. Saved values are never sent back;
+a secret that already has a value shows a placeholder "unchanged" and an empty
+submit leaves the stored value. **No vendor** is the first option; saving it
+clears the channel.
 
-**Stub endpoints:**
+The **catalog is code**, not rows. Hard-coded ids:
+
+| Channel | Id | Name |
+|---|---|---|
+| email | `smtp` | SMTP — BOSS's account, no fields, Swift sends |
+| email | `mailtrap` | Mailtrap — host, port, username, password, fromEmail, fromName |
+| sms | `twilio` | Twilio — accountSid, authToken, fromNumber |
+| payment | `stripe` | Stripe — secretKey, publishableKey, webhookSecret |
+
+In development (`env: dev`) each channel also offers `mock` (no fields).
+Production does not, and choosing `mock` is refused.
+
+`vendor_configs` stores the choice (`vendor_name` is an id above, `config_json`
+the credentials the user typed). A row whose `vendor_name` is no longer in the
+catalog is treated as unchosen. Stripe Connect still stores
+`businesses.stripe_account_id`.
+
+`notify.send` asks the catalog for the chosen email or SMS adapter.
+`GET /debug/last-message` and `GET /debug/pay/{jobId}` are the mock paths for
+OTP and deposit in UI tests.
+
+**Endpoints:**
 - `GET /api/io.bithead.scheduler/vendors` → `ChannelVendors` per channel
 - `GET /api/io.bithead.scheduler/vendor/{channel}` → one `ChannelVendors`
 - `PUT /api/io.bithead.scheduler/vendor/{channel}` → `{ id, config }`
+- `POST /api/io.bithead.scheduler/webhooks/payment` → public; the payment adapter verifies the signature
 
 ---
 
@@ -1614,6 +1640,14 @@ from io.bithead.scheduler import db
 #### `test_business_template()`
 - `describe: apply template` → business config fields updated to template defaults
 
+#### `test_vendor_catalog` / `test_vendor_choice` / `test_email_send` / `test_sms_send` / `test_payment_vendor` / `test_setup_with_vendors`
+- `describe: email` → `smtp` and `mailtrap`; in development, `mock`
+- `describe: production` → no `mock`; choosing it is refused
+- `describe: secrets` → GET names keys and never values
+- `describe: choose SMTP` → no config stored
+- `describe: mock send` → `last_sent` holds the message
+- `describe: OTP job type, mock email chosen` → that setup task is done
+
 ---
 
 ## Stage 4 — Backend Implementation
@@ -1626,10 +1660,10 @@ After all Stage 3 tests pass against stub implementations, replace each stub fun
 private/app/io.bithead.scheduler/
     __init__.py         # FastAPI router, start/shutdown, all API route handlers
     db.py               # SQLite connection, DDL creation, all raw queries
-    lib.py              # Business logic (slot computation, session management, OTP, recurrence)
+    lib.py              # package: business rules, re-exported as lib.<name>
+    lib/vendor/         # catalog, adapters, dispatch send / payment
     model.py            # Pydantic models (request/response bodies, DB row models)
-    jobs.py             # Background jobs: hourly cleanup cron, rolling recurrence, reminder dispatch
-    stripe_client.py    # Stripe Connect integration (OAuth, product query, payment link generation, webhook)
+    jobs.py             # Background jobs: hourly cleanup, recurrence, reminders, holidays
 ```
 
 ### `db.py` Responsibilities
@@ -1642,7 +1676,7 @@ private/app/io.bithead.scheduler/
 - `create_job_session(business_id, job_type_id, size_id, employee_id, scheduled_dt)` → `Session`
 - `extend_session(session_token)` → updated `expires_at`
 - `confirm_session(session_token, contact_info, attributes)` → `ScheduledJob`
-- `send_otp(session_token, field_type)` → calls Swift vendor layer private endpoint
+- `send_otp(session_token, field_type)` → `lib.vendor.deliver` on the chosen email or SMS adapter
 - `verify_otp(session_token, code)` → `bool`
 - `send_booking_confirmation(job_id)` → sends on each channel the business enabled and the customer supplied; returns what was sent, masked
 - `request_appointment_access(job_code)` → creates a single-use code, sends it, returns `(channel, masked_destination)`
@@ -1669,25 +1703,25 @@ A job that raises is logged and tried again next interval, so one bad hour is a 
 What that costs: a restart resets the timer, and nothing records when a job last ran. Both are fine for a sweep and a reminder, and neither would be for anything that has to happen exactly once.
 
 - `hourly()` → `lib.cleanup_expired_sessions()` — deletes job_sessions where expires_at < now AND job.finalized = 0. Leaves scheduled_jobs row for analytics.
-- `daily()` → `lib.materialize_recurrences()`, then `lib.send_reminders()` — in that order, because an appointment materialised today may be tomorrow's, and that customer has to hear about it.
+- `daily()` → `lib.materialize_recurrences()`, then `lib.send_reminders()`, then `lib.ensure_holidays()` — recurrences before reminders, because an appointment materialised today may be tomorrow's; holidays fill the current and next year if those years are empty.
 - `lib.send_reminders()` — confirmed jobs scheduled for tomorrow whose business has reminder_enabled. Sends through `_notify_customer`, which is where the vendor layer plugs in. Nothing records that a reminder went out, so a second run in a day sends a second reminder.
 
-### `stripe_client.py` Responsibilities
-- `get_connect_oauth_url(business_id)` → Stripe Connect OAuth redirect URL
-- `handle_oauth_callback(code, business_id)` → exchange code for `stripe_account_id`; store on business
-- `list_products(business_id)` → query Stripe Products from the business's connected account
-- `create_payment_link(business_id, stripe_price_id, amount, metadata)` → Stripe Payment Link URL
-- `handle_webhook(payload, sig_header)` → verify signature; on `payment_intent.succeeded` → call `add_payment()`
+### `lib/vendor/` Responsibilities
 
-### Swift Vendor Layer (private endpoints, Swift web server)
-These are called by the Python service only. Not exposed publicly.
+Catalog of who exists (code), the choice and credentials (`vendor_configs`),
+and dispatch:
 
-- `POST /private/vendor/email/send` → `{ to, subject, body, vendor }` → routes to registered email vendor
-- `POST /private/vendor/sms/send` → `{ to, body, vendor }` → routes to registered SMS vendor
-- `POST /private/vendor/otp/send` → `{ to, channel (email|sms), vendor }` → generates + sends OTP, stores hash
-- `POST /private/vendor/otp/verify` → `{ to, code }` → `{ verified: bool }`
+- `EmailVendor.send(EmailMessage)` → `SendResult`
+- `SmsVendor.send(SmsMessage)` → `SendResult`
+- `PaymentVendor`: `connect_url`, `complete_connect`, `products`,
+  `payment_link(JobCharge)`, `apply_webhook` → `PaymentNotice`
 
-Vendor registration pattern: each vendor module implements a `VendorProtocol` and registers itself with a `VendorRegistry` keyed by type.
+Adapters: `boss_smtp.py` (POST `/private/smtp/send`), `mailtrap.py`,
+`twilio.py`, `stripe.py`, `mock.py` (development). `notify.py` stays the seam
+(`set_sender` for tests). Production `set_sender` is the catalog dispatcher.
+
+**Keep** Swift SMTP on account recovery and verify. The scheduler SMTP vendor
+uses that same account. `Vendor.swift` is gone.
 
 ---
 
@@ -1712,19 +1746,16 @@ Replace each stub endpoint body with a call to the corresponding `lib.py` or `db
 - [x] Super admin: businesses, contact fields, holidays, timeout, vendors, templates
 - [x] Employee portal: today view, calendar, profile self-management
 - [x] Background jobs: cleanup, recurrence materialization, reminders
-- [x] Booking confirmation by text and email — decided and recorded here; the sending itself waits on the vendor layer below
+- [x] Booking confirmation by text and email through `lib/vendor/`
+- [x] Vendors: catalog in code, choice in `vendor_configs`, SMTP / Mailtrap /
+  Twilio / Stripe / mock
+- [x] Stripe Connect, products, payment links, and `POST /webhooks/payment`
 
-Everything above reaches a rule in `lib` and has tests behind it. What is left needs something outside this app:
+Everything above reaches a rule in `lib` and has tests behind it. What is left
+needs something outside this app — see the app's `memory.md`.
 
-- [x] Swift vendor layer: `POST /private/vendor/{channel}/send`, with a `VendorRegistry` keyed by channel. Email goes out on the SMTP account BOSS already holds; no SMS vendor is registered, and a channel with none answers `sent: false` and a reason rather than failing. `lib/notify.py` is the seam — `set_sender` wires a sender in, and it carries the channel because that is what the layer routes on.
-- [ ] An SMS vendor. `VendorRegistry.vendors["sms"]` is empty until one is arranged; a `Vendor` is a `name` and a `send`.
-
-The plan named `POST /private/vendor/otp/send` and `/otp/verify` as well. They are not built and should not be: a code's digits, its hash, when it expires, how many attempts are left and the permanent lock after six are rules this service already owns and tests. Moving them to Swift would be a second copy of the lockout. The vendor layer carries a message and nothing else.
-- [ ] Stripe product link on a job type
-- [ ] Stripe Connect OAuth: `config/stripe/connect` and `config/stripe/callback`
-- [ ] Stripe webhook handler
-
-The three Stripe routes answer canned data and carry a `# TODO:` naming what they wait on. They are the only handlers in the service that reach no rule.
+OTP digits, hash, expiry, attempts, and the lock after six stay in this
+service. The vendor layer carries a message and nothing else.
 
 ---
 
@@ -1741,14 +1772,15 @@ Extraction ran bottom-up, because a submodule cannot import the package that imp
 | 1 | `exception.py` | Every exception a rule raises. |
 | 1 | `time.py` | Dates, times, what a screen reads, and `_stamp`, `_end_time`. |
 | 1 | `code.py` | Job codes and verification codes: generating, hashing, and masking a destination before it is echoed back. |
-| 1 | `notify.py` | Where a message goes. The seam the vendor layer plugs into, asked for rather than read — the sender is replaced at runtime. |
+| 1 | `notify.py` | Where a message goes. The seam `lib/vendor/` plugs into, asked for rather than read — the sender is replaced at runtime. |
+| 1 | `vendor/` | Catalog, chosen vendor, adapters, dispatch send and payment. |
 | 2 | `transform.py` | A storage row as the domain says it. Named in `__all__`, because `import *` passes over an underscore. |
 | 3 | `availability.py` | When a business could do a piece of work, under both slot modes. |
 | 3 | `business.py` | A business's settings, and `get_setup` — the same settings read as what is still missing before a customer could book. |
 | 3 | `employee.py` | The people a business schedules, when each works, when they are away, and who is on a job. |
 | 3 | `job_type.py` | The work a business offers: sizes, attributes, and the contact fields the kiosk collects. |
 | 3 | `money.py` | What an appointment costs, what was paid, and what the business took over a period. |
-| 3 | `platform.py` | Holidays, templates, contact field types, vendors, the hold timeout, the system icons. |
+| 3 | `platform.py` | Holidays, templates, contact field types, the hold timeout, the system icons. |
 | 4 | `customer.py` | The people a business books work for, and matching one to a booking. |
 | 4 | `kiosk.py` | What a customer standing at the kiosk is shown, narrower than what an operator sees. |
 | 4 | `membership.py` | Which business somebody belongs to, and as what. Opens one, so it sits above `business`. |
@@ -1783,7 +1815,10 @@ They are not components missing their `ui` interface.
    on `COUNTRIES`.
 2. ~~**OTP storage**~~ — **Resolved.** `job_sessions.otp_hash` holds `salt:sha256` of the code last sent. A column rather than a table, because `otp_attempts` and `otp_verified` already sit on the session and the three are read and written together.
 3. **Job code generation** — Confirm alphabet and length. Suggested: 6 uppercase alphanumeric (A-Z, 0-9), collision-checked at insert.
-4. **Stripe webhook endpoint exposure** — Stripe webhooks must be publicly accessible. Decide whether the webhook lands on the Python private service (via a public reverse-proxy rule) or on the Swift public web server (which then calls Python internally).
+4. ~~**Stripe webhook endpoint exposure**~~ — **Resolved.**
+   `POST /api/io.bithead.scheduler/webhooks/payment` is public on the Python
+   service. The payment adapter verifies the signature. The mock accepts a
+   debug POST with a job id.
 5. ~~**BOSS user search API**~~ — **Resolved.** `/account/users` answers a picker with an id and a name; `/account/users/details` returns whole records. `lib.server.get_user_details` reads the second. `PUT /business/{businessId}/employee/{employeeId}/account` ties the chosen account to the record and grants the license and the employee role.
 6. ~~**How a blocked caller is identified**~~ — **Resolved.** The client IP,
    read from `X-Real-IP`. It is the industry default for an anonymous endpoint
@@ -1797,3 +1832,7 @@ They are not components missing their `ui` interface.
    time the window opened. `apply_business_template` records it, and it is a
    config field like any other so the window's own save carries the choice
    along with the settings it applied.
+8. ~~**Where appointment mail is sent**~~ — **Resolved.** Choosing SMTP uses
+   BOSS's Swift SMTP account. Mailtrap on Vendors is a separate account.
+9. ~~**Stripe Connect tenancy**~~ — **Resolved.**
+   `businesses.stripe_account_id` is still what "connected" means.

@@ -857,8 +857,13 @@ An app bundle may include a `memory.md` file at the root of its bundle directory
 **What to put in it:**
 - Current stage, and the next step
 - Open decisions still unresolved, and anything knowingly left undone
+- Work that waits on an account, a credential, or a decision outside the repo
 - Non-obvious behaviour specific to this app that cost time to learn and is written down nowhere else
 - Pointers to the files that matter — paths, not copies of their contents
+
+`memory.md` is the index. The plan is the contract. Remaining work lives under
+**Open** here, not in a second leftover file. The report skill reads this
+section for its Next.
 
 A rule lives in the document that owns it, and every other mention is a link.
 
