@@ -18,7 +18,9 @@ This skill is the procedure. Do not restate those sections here.
 4. Walk the **current** stage from [`process.md` § Development Order](../../../docs/prompt/process.md#development-order). For a medium slice, only the screens and routes that slice names. Load each layer document from its index, then the sections that apply.
 5. Step 4 of Development Order uses the `private-service-tests` skill. Step 8 writes `ui-plan.md` first.
 6. Run what the stage names (`bin/validate-app` at the end of Stage 1 and again before step 3; the stage's tests at the end of steps 4–5 and 8).
-7. Update `memory.md` with the stage just finished and the next one. Report. Stop. Do not start the next stage in this turn.
+7. Update `memory.md` with the stage just finished and the next one. Report
+   (the report skill's Next section is that same answer). Stop. Do not start
+   the next stage in this turn.
 
 ## What this skill does not do
 

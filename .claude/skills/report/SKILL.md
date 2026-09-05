@@ -5,7 +5,7 @@ description: End a response that changed something with a report. Use after any 
 
 # Reporting work
 
-Three sections, in this order, and nothing else.
+Four sections, in this order, and nothing else.
 
 ## 1. Summary title
 
@@ -58,9 +58,36 @@ A lesson is something that changes what somebody does next. These qualify:
 - A mistake made, and what stopped it happening again
 - A decision that is the developer's to make
 
-## 3. Commit
+## 3. Next
 
-The message in a fenced block, written with the `commit` skill.
+Where the work stands. One or two sentences: the next step, then what remains.
+
+Read it off `memory.md`, the current `plan.md` (or the extra plan this slice
+uses), and `review.md`. Name the next stage, leftover, or decision. Say how
+much is left — remaining stages, remaining leftovers, remaining flows — so a
+reader can tell whether the plan is mid-flight or waiting on someone else.
+
+```markdown
+## Next
+
+Stage 5 is next: wire the holiday routes. Two stages and the Holidays UI test
+remain.
+```
+
+```markdown
+## Next
+
+Production Stripe and Twilio keys on Vendors. `plan.md` and `plan-vendors.md`
+are finished; that leftover is in `review.md`.
+```
+
+A skill or docs change still names the next step of the app in play, when
+there is one.
+
+## 4. Commit
+
+The message in a fenced block, written with the `commit` skill. The message
+is this changeset — see the `commit` skill.
 
 ## What never appears in a report
 
