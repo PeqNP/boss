@@ -27,7 +27,7 @@ Dependency first, then how often a break there would go unnoticed.
 |---|---|---|---|---|
 | 1 | Who reaches what | `scheduler-access.spec.js` | Every business-scoped route refuses a caller who does not work for that business; the kiosk answers a stranger; a role reaches only what it is granted | **Done** — 8 specs |
 | 2 | Opening a business | `scheduler-onboarding.spec.js` | A business is opened for whoever runs none, unnamed; the assistant asks for the name; the session is minted again so the operator role is in it; a nameless business takes no bookings | **Done** — 6 specs |
-| 3 | Business settings | `scheduler-business-settings.spec.js` | Each tab saves and reads back — hours, slot mode, notice windows, confirmation channels; an invalid value is refused with a message the screen shows | **Done** — 7 specs |
+| 3 | Business settings | `scheduler-business-settings.spec.js` | Each tab saves and reads back — hours, slot mode, notice windows, confirmation channels; an invalid value is refused with a message the screen shows; Payment says when Stripe keys are not configured | **Done** — 8 specs |
 | 4 | Job types | `scheduler-job-types.spec.js` | Create, name, size, attribute, contact field, reorder, delete; a draft left unsaved does not reach the kiosk | **Done** — 9 specs |
 | 5 | Employees | `scheduler-employees.spec.js` | Create, working days, time off, the work they may be given, a linked BOSS account, and a draft left unsaved | **Done** — 9 specs |
 | 6 | Kiosk booking | `scheduler-kiosk.spec.js` | The whole path a customer walks: service, size, employee, slot, contact, OTP, confirm — and the appointment exists afterwards with what they chose | **Done** — 5 specs. OTP and deposit use mock vendors |

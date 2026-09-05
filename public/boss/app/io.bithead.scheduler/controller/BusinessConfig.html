@@ -396,7 +396,9 @@
         view.ui.span("stripe-account-id").innerText = isEmpty(response.stripeAccountId)
           ? "Not connected"
           : response.stripeAccountId;
-        view.ui.button("connect-stripe").disabled = !response.paymentVendorChosen;
+        const paymentReady = response.paymentVendorChosen === true;
+        view.ui.button("connect-stripe").disabled = !paymentReady;
+        view.ui.div("stripe-keys-error").style.display = paymentReady ? "none" : null;
 
         // Load business templates for Business Type tab
         try {
@@ -773,6 +775,7 @@
       <div name="tab-payment" style="display: none;">
         <div class="vbox gap-10">
           <p>Connect a Stripe account to enable online payments and QR code payment generation.</p>
+          <div name="stripe-keys-error" class="error-message" style="display: none;">The administrator has not yet configured the Stripe API keys.</div>
           <div class="read-only wider-labels">
             <label>Connected Account</label>
             <span name="stripe-account-id">Not connected</span>

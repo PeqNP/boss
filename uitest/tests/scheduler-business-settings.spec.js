@@ -188,6 +188,17 @@ test.describe("scheduler business settings", () => {
     await expect(win.locator("[name='hours-note']")).not.toBeEmpty();
   });
 
+  test("say when stripe is not configured", async ({ page }) => {
+    const win = await openSettings(page, "Payment");
+
+    await expect(win.locator("button[name='connect-stripe']")).toBeDisabled();
+    const missing = win.locator("[name='stripe-keys-error']");
+    await expect(missing).toBeVisible();
+    await expect(missing).toHaveText(
+      "The administrator has not yet configured the Stripe API keys."
+    );
+  });
+
   test("save reminder enabled", async ({ page }) => {
     // Reminders live under Schedule, beside the times they are reckoned from,
     // rather than under Notifications.
