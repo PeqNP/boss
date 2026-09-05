@@ -46,6 +46,13 @@
       }
       this.showRecoverAccount = showRecoverAccount;
 
+      async function showVerifyAccount() {
+        let win = await $(app.controller).loadController("VerifyAccount");
+        win.ui.show();
+        view.ui.close();
+      }
+      this.showVerifyAccount = showVerifyAccount;
+
       async function showCreateAccount() {
         os.ui.showCreateAccount();
         view.ui.close();
@@ -81,7 +88,10 @@
     </div>
 
     <div class="footer hbox separated">
-      <a href="#" onclick="$(this.controller).showRecoverAccount(); return false;">Forgot password?</a>
+      <div class="hbox gap-10">
+        <a href="#" onclick="$(this.controller).showRecoverAccount(); return false;">Forgot password?</a>
+        <a href="#" onclick="$(this.controller).showVerifyAccount(); return false;">Verify account</a>
+      </div>
       <a href="#" onclick="$(this.controller).showCreateAccount(); return false;">Create account</a>
     </div>
   </div>

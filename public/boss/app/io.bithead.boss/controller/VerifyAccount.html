@@ -35,7 +35,10 @@
         win.ui.show();
         close();
       }
-      this.verifyAccount = verifyAccount;
+      this.verifyAccount = os.ui.mutex(
+        verifyAccount,
+        view.ui.button("verify-account")
+      );
 
       function close() {
         view.ui.close();
@@ -48,12 +51,12 @@
       }
       this.showSignIn = showSignIn;
 
-      function viewDidLoad() {
+      function viewDidAppear() {
         view.ui.input("code").focus();
       }
-      this.viewDidLoad = viewDidLoad;
+      this.viewDidAppear = viewDidAppear;
 
-      this.didHitEnter = verifyAccount;
+      this.didHitEnter = this.verifyAccount;
     }
   </script>
   <div class="title">Sign In</div>
@@ -82,7 +85,7 @@
 
     <div class="controls">
       <button class="primary" onclick="$(this.controller).close();">Close</button>
-      <button class="default" onclick="$(this.controller).verifyAccount();">Verify account</button>
+      <button name="verify-account" class="default" onclick="$(this.controller).verifyAccount();">Verify account</button>
     </div>
 
     <div class="footer">

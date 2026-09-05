@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# usage: watchlogs /var/log/svc1.log /var/log/svc2.log
+set -euo pipefail
+
+if [[ $# -ne 2 ]]; then
+  echo "usage: $0 log1 log2" >&2
+  exit 1
+fi
+
+SESSION=logs
+
+tmux has-session -t "$SESSION" 2>/dev/null && tmux kill-session -t "$SESSION"
+
+tmux new-session -d -s "$SESSION" -n monitor "tail -n 200 -F '$1'"
+tmux split-window -h -t "$SESSION":0 "tail -n 200 -F '$2'"
+tmux select-layout -t "$SESSION":0 even-horizontal
+tmux select-pane -t "$SESSION":0.0
+tmux attach -t "$SESSION"
