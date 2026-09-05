@@ -2141,8 +2141,8 @@ async def superadmin_reorder_contact_fields(
 @require_admin()
 @handled
 async def superadmin_get_holiday_years(request: Request):
-    # The years the platform has holidays for. Empty until somebody fetches a
-    # year, and the screen offers this one and the next in the meantime.
+    # First open of Holidays fills this year and next if they are empty.
+    lib.ensure_holidays()
     return SystemHolidayYears(years=lib.get_holiday_years())
 
 
@@ -2157,12 +2157,9 @@ async def superadmin_get_holidays(request: Request, year: int = 2026):
 @require_admin()
 @handled
 async def superadmin_refresh_holidays(request: Request, year: int = 2026):
-    # Fetching a year from a holiday API is still a stub, as Stripe is: there
-    # is no vendor to call yet. The shape below is the contract it will meet,
-    # and the count is what the screen reports.
     return SystemHolidayRefresh(
         success=True,
-        count=len(db.get_holidays_for_year(year))
+        count=lib.refresh_holidays(year)
     )
 
 
@@ -2465,6 +2462,7 @@ def start():
     """Called once by `api.py` when the service loads this app."""
     start_database()
     lib.set_sender(_catalog_sender)
+    lib.ensure_holidays()
 
 
 def shutdown():

@@ -1024,11 +1024,18 @@ System-wide contact field types, as an ordered list box. Add and Edit open `Cont
 ---
 
 #### `Holidays`
-Query third-party API for current and next year on first load (cached in DB). Display holidays grouped by country. Operators view their own selection (operator-facing sub-view).
+Fill US holidays for the current and next year when those years are empty
+(`python-holidays`, cached in `system_holidays`). Display grouped by country.
+Operators view their own selection (operator-facing sub-view).
 
-**Stub endpoints:**
+`GET /system-holidays/years` fills empty years (first open of the screen).
+`POST /system-holidays/refresh?year=` fills that year if it is empty. The daily
+job fills current and next if empty. Canada and Mexico are stubbed, commented
+out, in `COUNTRIES`.
+
+**Endpoints:**
 - `GET /api/io.bithead.scheduler/system-holidays?year=` → holidays list, grouped by country
-- `POST /api/io.bithead.scheduler/system-holidays/refresh?year=` → force re-fetch from API
+- `POST /api/io.bithead.scheduler/system-holidays/refresh?year=` → fill that year if empty
 - `GET /api/io.bithead.scheduler/holidays?year=` → operator view of holidays with their selections
 - `PUT /api/io.bithead.scheduler/holidays?year=` → `{ holidayIds: [int] }` save operator selections
 
@@ -1770,7 +1777,10 @@ They are not components missing their `ui` interface.
 
 ## Open Decisions (to revisit before Stage 4)
 
-1. **Holiday API provider** — Identify a third-party API that supports querying holidays by country and year (e.g. `holidayapi.com`, `nager.date`). Evaluate free tier limits vs. annual query cadence.
+1. ~~**Holiday API provider**~~ — **Resolved.** `python-holidays` writes US
+   dates into `system_holidays` for the current and next year when those years
+   are empty. No third-party HTTP call. Canada and Mexico are commented stubs
+   on `COUNTRIES`.
 2. ~~**OTP storage**~~ — **Resolved.** `job_sessions.otp_hash` holds `salt:sha256` of the code last sent. A column rather than a table, because `otp_attempts` and `otp_verified` already sit on the session and the three are read and written together.
 3. **Job code generation** — Confirm alphabet and length. Suggested: 6 uppercase alphanumeric (A-Z, 0-9), collision-checked at insert.
 4. **Stripe webhook endpoint exposure** — Stripe webhooks must be publicly accessible. Decide whether the webhook lands on the Python private service (via a public reverse-proxy rule) or on the Swift public web server (which then calls Python internally).

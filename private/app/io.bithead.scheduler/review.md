@@ -13,7 +13,6 @@ An account, a credential, or a decision that is not the code's to make.
 
 | | What exists | What is missing |
 |---|---|---|
-| Holidays for a year | `POST /system-holidays/refresh`, reporting the count already there, and the Holidays screen | `plan.md` Open Decision 1: which provider. `system_holidays` is written only by `close_on_holiday`, which no route exposes, so the table is empty and the screen has nothing to draw |
 | A live Stripe / Twilio account | Mock vendors cover OTP and deposit in development. Production adapters are written. SMTP uses the BOSS account. | Platform keys on Vendors, and a connected Stripe account per business |
 
 Vendor, Stripe, OTP, and deposit are [`plan-vendors.md`](plan-vendors.md). The four stubbed handlers are gone.

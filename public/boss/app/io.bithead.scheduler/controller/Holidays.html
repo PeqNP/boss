@@ -40,7 +40,7 @@
       }
       this.loadYear = loadYear;
 
-      async function refreshFromApi() {
+      async function loadHolidays() {
         const year = parseInt(view.ui.select("year").ui.selectedValue());
         if (!isNumeric(year)) {
           return;
@@ -50,12 +50,12 @@
           os.ui.showAlert(`${resp.count} holidays loaded for ${year}.`);
         }
         catch {
-          os.ui.showError("Failed to refresh holidays. Please try again.");
+          os.ui.showError("Failed to load holidays. Please try again.");
           return;
         }
         await loadYear();
       }
-      this.refreshFromApi = refreshFromApi;
+      this.loadHolidays = loadHolidays;
 
       // --- Lifecycle ---
 
@@ -77,6 +77,9 @@
         view.ui.select("year").ui.addNewOptions(
           years.map(function(y) { return { id: String(y), name: String(y) }; })
         );
+        const currentYear = new Date().getFullYear();
+        const selected = years.indexOf(currentYear) >= 0 ? currentYear : years[0];
+        view.ui.select("year").ui.selectValue(String(selected));
         await loadYear();
       }
       this.viewDidLoad = viewDidLoad;
@@ -97,7 +100,7 @@
           <option>Select a year</option>
         </select>
       </div>
-      <button class="primary" onclick="$(this.controller).refreshFromApi();">Refresh from API</button>
+      <button class="primary" onclick="$(this.controller).loadHolidays();">Load holidays</button>
     </div>
     <div name="holidays-container" class="vbox gap-10"></div>
   </div>

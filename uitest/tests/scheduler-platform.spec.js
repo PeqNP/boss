@@ -229,11 +229,14 @@ test.describe("scheduler platform", () => {
       .toBeVisible();
   });
 
-  // Holidays are not covered: `system_holidays` is only written by
-  // `close_on_holiday`, which no route exposes, and
-  // `POST /system-holidays/refresh` reports the count already there rather
-  // than fetching a year. The screen has nothing to draw until a provider is
-  // connected — see `review.md`.
+  test("show US holidays for the year", async ({ page }) => {
+    const win = await open(page, "Holidays", "Holidays");
+
+    await expect(win.locator("legend", { hasText: "United States" }))
+      .toBeVisible();
+    await expect(win.locator("td", { hasText: "New Year's Day" }))
+      .toBeVisible();
+  });
 
   test("platform scoping", async ({ page }) => {
     await signInAsOperator(page);

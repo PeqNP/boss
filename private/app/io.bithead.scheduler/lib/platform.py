@@ -12,7 +12,10 @@
 import json
 import os
 
-from typing import List, Optional
+from datetime import date
+from typing import Dict, List, Optional, Tuple
+
+import holidays
 
 from lib import media
 
@@ -30,6 +33,14 @@ SYSTEM_ICON_URL = f"/boss/app/{BUNDLE}/img"
 
 
 ICON_KINDS = ("system", "custom")
+
+# Countries whose holidays this platform fills. US is live. Uncomment a row
+# to fill that country the same way.
+COUNTRIES: Tuple[Tuple[str, str], ...] = (
+    ("US", "United States"),
+    # ("CA", "Canada"),
+    # ("MX", "Mexico"),
+)
 
 
 def _icon(row: "db.IconRow") -> Icon:
@@ -95,6 +106,59 @@ def delete_icon(business_id: int, icon_id: int) -> None:
 def get_holiday_years() -> List[int]:
     """The years the platform has holidays for."""
     return db.get_holiday_years()
+
+
+def _fill_country(country_code: str, country_name: str, year: int) -> bool:
+    """Write one country's holidays for a year, if that year is empty."""
+    if db.get_system_holidays(year, country_code):
+        return False
+    calendar = holidays.country_holidays(country_code, years=year)
+    for day, name in sorted(calendar.items()):
+        if day.year != year:
+            continue
+        db.insert_system_holiday(
+            country_code,
+            country_name,
+            name,
+            day.isoformat(),
+            year
+        )
+    return True
+
+
+def _fill_year(year: int) -> bool:
+    """Write every live country for a year.
+
+    Returns whether anything was written.
+    """
+    wrote = False
+    for country_code, country_name in COUNTRIES:
+        if _fill_country(country_code, country_name, year):
+            wrote = True
+    # _fill_country("CA", "Canada", year)
+    # _fill_country("MX", "Mexico", year)
+    return wrote
+
+
+def ensure_holidays(
+    years: Optional[List[int]] = None,
+    today: Optional[date] = None
+) -> int:
+    """Write US holidays for years that have none.
+
+    No `years`: this year and next, from `today`. A year that already has
+    rows is left alone. Returns how many years were written.
+    """
+    if years is None:
+        today = today or date.today()
+        years = [today.year, today.year + 1]
+    return sum(1 for year in years if _fill_year(year))
+
+
+def refresh_holidays(year: int) -> int:
+    """Fill one year if it is empty, and return how many holidays it holds."""
+    ensure_holidays(years=[year])
+    return len(db.get_holidays_for_year(year))
 
 
 def get_platform_holidays(year: int) -> SystemHolidays:

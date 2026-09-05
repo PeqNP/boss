@@ -23,7 +23,7 @@ import re
 
 import pytest
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from lib import Environment, configure_logging, media
 from libtest import *
@@ -4513,6 +4513,58 @@ def test_platform_holidays():
 
     # describe: a year nobody has fetched
     assert get_platform_holidays(2030).countries == []
+
+
+def test_ensure_holidays():
+    """US holidays for this year and next, only when a year is empty."""
+    fresh_database()
+
+    today = date(2026, 7, 6)
+
+    # describe: empty years
+    filled = ensure_holidays(today=today)
+    assert filled == 2, "it: writes this year and next"
+    us = get_platform_holidays(2026)
+    assert [c.countryCode for c in us.countries] == ["US"], \
+        "it: fills the United States and no other country"
+    names = {h.name: h.date for h in us.countries[0].holidays}
+    assert names["Independence Day"] == "2026-07-04"
+    assert names["New Year's Day"] == "2026-01-01"
+    next_year = get_platform_holidays(2027)
+    assert any(h.name == "New Year's Day" for h in next_year.countries[0].holidays), \
+        "it: writes next year too"
+    assert get_holiday_years() == [2026, 2027]
+
+    # describe: a year that already has rows
+    fresh_database()
+    db.insert_system_holiday(
+        "US",
+        "United States",
+        "Only This",
+        "2026-03-03",
+        2026
+    )
+    filled = ensure_holidays(today=today)
+    assert filled == 1, "it: writes only the empty year"
+    kept = get_platform_holidays(2026)
+    assert [h.name for h in kept.countries[0].holidays] == ["Only This"], \
+        "it: leaves a year that already has rows"
+    assert any(
+        h.name == "New Year's Day"
+        for h in get_platform_holidays(2027).countries[0].holidays
+    ), "it: still writes 2027"
+
+    # describe: refresh of a year that is empty
+    fresh_database()
+    count = refresh_holidays(2028)
+    assert count > 0
+    assert get_platform_holidays(2028).countries[0].countryCode == "US"
+    assert 2026 not in get_holiday_years(), \
+        "it: does not fill this year when asked for another"
+
+    # describe: refresh of a year that is not empty
+    again = refresh_holidays(2028)
+    assert again == count, "it: does not write a second copy"
 
 
 def test_business_icons():

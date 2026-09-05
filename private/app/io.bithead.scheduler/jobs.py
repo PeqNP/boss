@@ -44,6 +44,9 @@ def daily() -> int:
     logging.info(f"Materialised {made} recurring appointment(s)")
     told = lib.send_reminders()
     logging.info(f"Reminded {told} customer(s)")
+    years = lib.ensure_holidays()
+    if years:
+        logging.info(f"Filled holidays for {years} year(s)")
     return made + told
 
 

@@ -1,6 +1,6 @@
 # Session Memory — Scheduler
 
-Every stage of `plan.md` is finished. [`plan-vendors.md`](../../../../private/app/io.bithead.scheduler/plan-vendors.md) is implemented through Stage 8. Mock vendors are offered only when `env` is `dev`. Leftovers are in [`review.md`](../../../../private/app/io.bithead.scheduler/review.md): holidays wait on a provider; live Stripe/Twilio keys wait on whoever runs the platform.
+Every stage of `plan.md` is finished. [`plan-vendors.md`](../../../../private/app/io.bithead.scheduler/plan-vendors.md) is implemented through Stage 8. Mock vendors are offered only when `env` is `dev`. US holidays fill from `python-holidays` when a year is empty. Leftovers are in [`review.md`](../../../../private/app/io.bithead.scheduler/review.md): live Stripe/Twilio keys wait on whoever runs the platform.
 
 ## Watch out for
 
@@ -11,4 +11,4 @@ Every stage of `plan.md` is finished. [`plan-vendors.md`](../../../../private/ap
 
 ## Open
 
-See `review.md`. Holidays wait on a provider. Production vendor accounts wait on whoever runs the platform.
+See `review.md`. Production vendor accounts wait on whoever runs the platform.
