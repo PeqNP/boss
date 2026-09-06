@@ -51,17 +51,35 @@
         // from. The settings alone cannot say: two templates can share them.
         chosenTemplateId = template.id;
         const cfg = template.config || {};
-        if (!isEmpty(cfg.allowCustomerEmployeeSelection)) {
+        if ("allowCustomerEmployeeSelection" in cfg) {
           view.ui.input("allow-employee-selection").checked = cfg.allowCustomerEmployeeSelection;
         }
-        if (!isEmpty(cfg.notifyEmployees)) {
+        if ("notifyEmployees" in cfg) {
           view.ui.input("notify-employees").checked = cfg.notifyEmployees;
         }
-        if (!isEmpty(cfg.slotIncrementMinutes)) {
+        if ("slotIncrementMinutes" in cfg) {
           view.ui.select("slot-increment").ui.selectValue(String(cfg.slotIncrementMinutes));
         }
-        if (!isEmpty(cfg.bufferMinutes)) {
+        if ("bufferMinutes" in cfg) {
           view.ui.input("buffer-minutes").value = cfg.bufferMinutes;
+        }
+        if ("minBookingNoticeHours" in cfg) {
+          view.ui.input("min-notice-hours").value = cfg.minBookingNoticeHours;
+        }
+        if ("slotMode" in cfg) {
+          view.ui.radio("slot-mode", cfg.slotMode === "unlimited" ? "unlimited" : "reserved").checked = true;
+          didChangeSlotMode();
+        }
+        markSelectedTemplate(template.id);
+      }
+
+      function markSelectedTemplate(templateId) {
+        const grid = view.ui.div("template-grid");
+        for (const card of grid.querySelectorAll(".template-card")) {
+          card.classList.toggle(
+            "selected",
+            parseInt(card.dataset.templateId, 10) === templateId
+          );
         }
       }
 
@@ -418,6 +436,10 @@
           for (const t of tmplResp.templates) {
             const card = document.createElement("div");
             card.className = "template-card";
+            card.dataset.templateId = t.id;
+            if (t.id === chosenTemplateId) {
+              card.classList.add("selected");
+            }
             card.innerHTML =
               `<span class='template-name'>${t.name}</span><span class='template-desc'>${t.description}</span>`;
             card.onclick = (function(tid) { return function() { selectTemplate(tid); }; })(t.id);

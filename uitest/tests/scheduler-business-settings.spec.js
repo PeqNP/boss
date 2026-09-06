@@ -115,6 +115,9 @@ test.describe("scheduler business settings", () => {
       .poll(async () => (await config(page, businessId)).templateId,
             { message: "the choice never reached the server" })
       .toBeGreaterThan(0);
+    const chosen = win.locator(".template-card.selected");
+    await expect(chosen).toHaveText(/Pet Services/);
+    await expect(chosen).toHaveCSS("background-color", "rgb(0, 0, 0)");
 
     // Reopened, because the window sets that label as the card is clicked. It
     // read `None` again next time until the choice was stored.
@@ -122,6 +125,9 @@ test.describe("scheduler business settings", () => {
     win = await openSettings(page, "Business Type");
     await expect(win.locator("[name='selected-template-name']"))
       .toHaveText("Pet Services");
+    const stillChosen = win.locator(".template-card.selected");
+    await expect(stillChosen).toHaveText(/Pet Services/);
+    await expect(stillChosen).toHaveCSS("background-color", "rgb(0, 0, 0)");
   });
 
   test("save operating hours", async ({ page }) => {
