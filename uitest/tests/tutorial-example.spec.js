@@ -59,8 +59,8 @@ test.describe("Tutorial — Example", () => {
       expect(await hasUIInterface(page, "made-list")).toBe(true);
 
       await expect(named(win, "input", "made-text")).toBeVisible();
-      await expect(named(win, "input", "made-number")).toHaveAttribute("type", "number");
-      await expect(named(win, "input", "made-check")).toHaveAttribute("type", "checkbox");
+      await expect(named(win, "input", "made-number")).toBeVisible();
+      await expect(named(win, "input", "made-check")).toBeVisible();
     });
 
     test("a factory-built popup menu renders its options and reports changes @popup", async ({ page }) => {

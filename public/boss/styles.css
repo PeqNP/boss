@@ -1151,7 +1151,7 @@ button.image {
 /** Inputs **/
 
 textarea,
-input[type=text], input[type=password], input[type=email], input[type=number],
+input[type=text], input[type=password], input[type=email], input[type=tel], input[type=number],
 input[type=date], input[type=time] {
   border: 1px solid #000;
   width: 100%;
@@ -1159,7 +1159,7 @@ input[type=date], input[type=time] {
   font-size: 12px;
 }
 
-input[type=text], input[type=password], input[type=email], input[type=number],
+input[type=text], input[type=password], input[type=email], input[type=tel], input[type=number],
 input[type=date], input[type=time] {
   height: 24px;
 }
@@ -1170,7 +1170,7 @@ input[type=date], input[type=time] {
 }
 
 textarea:disabled,
-input[type=text]:disabled, input[type=password]:disabled, input[type=email]:disabled, input[type=number]:disabled,
+input[type=text]:disabled, input[type=password]:disabled, input[type=email]:disabled, input[type=tel]:disabled, input[type=number]:disabled,
 input[type=date]:disabled, input[type=time]:disabled {
   border-color: #c0c0c0;
 }

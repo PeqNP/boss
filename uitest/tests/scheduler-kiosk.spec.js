@@ -65,6 +65,22 @@ test.describe("scheduler kiosk", () => {
     return win;
   }
 
+  /**
+   * Fill each contact field from its kind, not from the input's HTML type.
+   */
+  async function fillContact(win) {
+    const rows = win.locator("[name='contact-fields'] .kiosk-field");
+    const n = await rows.count();
+    for (let i = 0; i < n; i++) {
+      const row = rows.nth(i);
+      const kind = await row.getAttribute("data-field-type");
+      await row.locator("input").fill(
+        kind === "email" ? "jane@example.com"
+          : kind === "phone" ? "555-0101" : "Jane"
+      );
+    }
+  }
+
   test("book appointment",
        async ({ page }) => {
     const win = await openKiosk(page);
@@ -87,15 +103,9 @@ test.describe("scheduler kiosk", () => {
     await expect(win.locator("[name='step-contact']")).toBeVisible();
 
     // Who they are. The fields are whatever this job type asks for.
-    const contact = win.locator("[name='contact-fields'] input");
-    await expect(contact.first()).toBeVisible();
-    const fields = await contact.count();
-    for (let i = 0; i < fields; i++) {
-      const field = contact.nth(i);
-      const type = await field.getAttribute("type");
-      await field.fill(type === "email" ? "jane@example.com"
-                       : type === "tel" ? "555-0101" : "Jane");
-    }
+    await expect(win.locator("[name='contact-fields'] input").first())
+      .toBeVisible();
+    await fillContact(win);
     await win.locator("button", { hasText: "Next" }).click();
 
     // The confirmation is the customer's only record of the appointment.
@@ -152,14 +162,7 @@ test.describe("scheduler kiosk", () => {
     await win.locator(".kiosk-slot-btn").first().click();
     await expect(win.locator("[name='step-contact']")).toBeVisible();
 
-    const contact = win.locator("[name='contact-fields'] input");
-    const fields = await contact.count();
-    for (let i = 0; i < fields; i++) {
-      const field = contact.nth(i);
-      const type = await field.getAttribute("type");
-      await field.fill(type === "email" ? "jane@example.com"
-                       : type === "tel" ? "555-0101" : "Jane");
-    }
+    await fillContact(win);
     await win.locator("button", { hasText: "Next" }).click();
     await expect(win.locator("[name='step-otp']")).toBeVisible();
 
@@ -198,14 +201,7 @@ test.describe("scheduler kiosk", () => {
     await win.locator(".kiosk-slot-btn").first().click();
     await expect(win.locator("[name='step-contact']")).toBeVisible();
 
-    const contact = win.locator("[name='contact-fields'] input");
-    const fields = await contact.count();
-    for (let i = 0; i < fields; i++) {
-      const field = contact.nth(i);
-      const type = await field.getAttribute("type");
-      await field.fill(type === "email" ? "jane@example.com"
-                       : type === "tel" ? "555-0101" : "Jane");
-    }
+    await fillContact(win);
 
     const confirmed = page.waitForResponse((response) =>
       response.url().includes("/kiosk/session/")
