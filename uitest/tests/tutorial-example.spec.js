@@ -33,6 +33,15 @@ test.describe("Tutorial — Example", () => {
     await expect(win).toBeVisible();
   });
 
+  test("open a modal from Example @modal", async ({ page }) => {
+    const win = windowByTitle(page, "UI Components");
+    await named(win, "button", "show-modal").click();
+    const modal = windowByTitle(page, "Example modal");
+    await expect(modal).toBeVisible();
+    await modal.locator("button", { hasText: "Close" }).click();
+    await expect(modal).toHaveCount(0);
+  });
+
   test("statically declared components are styled at render @static", async ({ page }) => {
     // A styled component has a `ui` interface. If the render-time styling pass
     // regresses, these are the first things to break.

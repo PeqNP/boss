@@ -1,0 +1,19 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+      this.didHitEnter = this.close;
+      this.didHitEscape = this.close;
+    }
+  </script>
+  <div class="title">Example modal</div>
+  <div class="container vbox gap-10 default-width">
+    <p>A <code>ui-modal</code> is an overlay with no window chrome. Close it with the button, Enter, or Escape.</p>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).close();">Close</button>
+    </div>
+  </div>
+</div>

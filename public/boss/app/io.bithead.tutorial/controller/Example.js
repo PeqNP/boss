@@ -252,6 +252,18 @@ export default function Example(view, app) {
     }
     this.showColorPicker = showColorPicker;
 
+    async function showModal() {
+        const tutorial = os.application("io.bithead.tutorial");
+        const modal = await tutorial.loadController("Modal");
+        modal.ui.show();
+    }
+    this.showModal = showModal;
+
+    function showSignIn() {
+        os.ui.showSignIn();
+    }
+    this.showSignIn = showSignIn;
+
     this.didHitEnter = save;
 
     this.didHitKey = function (key) {

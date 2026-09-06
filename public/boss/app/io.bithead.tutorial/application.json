@@ -28,6 +28,9 @@
         "Kiosk": {
             "module": true
         },
+        "Modal": {
+            "modal": true
+        },
         "Tabular": { }
     }
 }

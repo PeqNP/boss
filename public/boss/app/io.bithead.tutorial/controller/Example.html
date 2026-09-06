@@ -354,6 +354,18 @@
       </div>
     </fieldset>
 
+    <fieldset class="vbox gap-10">
+      <legend>Modal</legend>
+      <p>A <code>ui-modal</code> is an overlay with no window chrome. Open one from another controller.</p>
+      <button name="show-modal" class="primary" onclick="$(this.controller).showModal();">Open modal</button>
+    </fieldset>
+
+    <fieldset class="vbox gap-10">
+      <legend>Sign In</legend>
+      <p>Opens the OS Sign In modal, the same one a guest sees at the desktop.</p>
+      <button name="show-sign-in" class="primary" onclick="$(this.controller).showSignIn();">Show Sign In</button>
+    </fieldset>
+
     <fieldset>
       <legend>Color picker</legend>
       <div class="hbox gap-10 align-center">
