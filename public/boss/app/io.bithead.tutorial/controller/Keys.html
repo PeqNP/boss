@@ -1,0 +1,42 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+
+      function viewDidAppear() {
+        view.ui.div("key-display").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+
+      function didHitEnter() {
+        view.ui.div("key-display").textContent = "Enter";
+      }
+      this.didHitEnter = didHitEnter;
+
+      function didHitEscape() {
+        view.ui.div("key-display").textContent = "Escape";
+      }
+      this.didHitEscape = didHitEscape;
+
+      function didHitKey(key) {
+        view.ui.div("key-display").textContent = key;
+      }
+      this.didHitKey = didHitKey;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Keys</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-20" style="width: 420px;">
+    <p>With this window in front, type. <code>didHitKey</code> reports every key except Enter and Escape, which have their own handlers.</p>
+    <div name="key-display" tabindex="0" style="font-family: ChicagoFLF; font-size: 48px; text-align: center; min-height: 72px; outline: 1px solid #000;">—</div>
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).close();">Close</button>
+    </div>
+  </div>
+</div>

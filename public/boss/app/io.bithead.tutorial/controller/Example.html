@@ -59,6 +59,72 @@
       </div>
 
       <div class="vbox gap-10">
+        <p>The other text-like input types the OS styles the same way.</p>
+        <div class="text-field">
+          <label for="password">Password</label>
+          <input type="password" name="password">
+        </div>
+        <div class="text-field">
+          <label for="email-address">Email</label>
+          <input type="email" name="email-address">
+        </div>
+        <div class="text-field">
+          <label for="phone">Phone</label>
+          <input type="tel" name="phone">
+        </div>
+        <div class="text-field">
+          <label for="quantity">Quantity</label>
+          <input type="number" name="quantity" value="1">
+        </div>
+        <div class="text-field">
+          <label for="on-date">Date</label>
+          <input type="date" name="on-date">
+        </div>
+        <div class="text-field">
+          <label for="at-time">Time</label>
+          <input type="time" name="at-time">
+        </div>
+        <div class="text-field">
+          <label for="disabled-text">Disabled</label>
+          <input type="text" name="disabled-text" value="Cannot edit" disabled>
+        </div>
+      </div>
+
+      <div class="vbox gap-10">
+        <p>Checkbox and radio group.</p>
+        <div class="hbox gap-10">
+          <input type="checkbox" name="notify">
+          <label for="notify">Notify me</label>
+        </div>
+        <fieldset class="vbox gap-10">
+          <legend>Size</legend>
+          <ul class="simple-list">
+            <li><label class="radio"><input type="radio" name="size" value="s" checked> Small</label></li>
+            <li><label class="radio"><input type="radio" name="size" value="m"> Medium</label></li>
+            <li><label class="radio"><input type="radio" name="size" value="l"> Large</label></li>
+          </ul>
+        </fieldset>
+      </div>
+
+      <div class="vbox gap-10 wider-labels">
+        <p>Wider labels on a group of read-only fields.</p>
+        <div class="read-only">
+          <label>Payment status</label>
+          <span name="payment-status">Paid</span>
+        </div>
+      </div>
+
+      <div class="container group">
+        <p>A <code>group</code> container divides its children with a 1px rule.</p>
+        <p>Second row in the group.</p>
+      </div>
+
+      <div class="vbox gap-10">
+        <p>Programmatic <code>UIPopOver</code> (hover the label).</p>
+        <span name="popover-target">Hover for a pop-over</span>
+      </div>
+
+      <div class="vbox gap-10">
         <p>Textarea field: Used for mult-line text input.</p>
         <div class="textarea-field">
           <label for="description">Description</label>
@@ -442,6 +508,27 @@
       <summary>Closed accordion (default)</summary>
       UIAccordion: Demonstrates a closed accordion (default state) and contents without padding.
     </details>
+
+    <fieldset class="vbox gap-10">
+      <legend>Buttons and overlays</legend>
+      <p>Disabled, icon, and image buttons. Alert and confirmation are OS modals. Mutex and flicker are for a press that takes time.</p>
+      <div class="hbox gap-10">
+        <button class="primary" disabled>Disabled</button>
+        <button name="icon-up" class="primary up-arrow"></button>
+        <button name="icon-down" class="primary down-arrow"></button>
+        <button name="icon-delete" class="primary delete"></button>
+        <button name="image-btn" class="image"><img src="/boss/img/logo.png" height="16" width="16"></button>
+      </div>
+      <div class="hbox gap-10">
+        <button name="show-alert" class="primary" onclick="$(this.controller).showAlert();">Show alert</button>
+        <button name="show-confirmation" class="primary" onclick="$(this.controller).showConfirmation();">Show confirmation</button>
+        <button name="show-os-progress" class="primary" onclick="$(this.controller).showOSProgress();">Show progress</button>
+      </div>
+      <div class="hbox gap-10">
+        <button name="mutex-action" class="primary" onclick="$(this.controller).mutexAction();">Mutex</button>
+        <button name="flicker-action" class="primary" onclick="$(this.controller).flickerAction();">Flicker</button>
+      </div>
+    </fieldset>
 
     <fieldset>
       <legend>Controls</legend>

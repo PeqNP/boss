@@ -39,6 +39,20 @@
         <td>Value</td>
       </tr>
     </table>
+
+    <p>Inputs in table cells have no <code>text-field</code> wrapper. The column header is the label.</p>
+    <table>
+      <tr>
+        <th>Day</th>
+        <th>Open</th>
+        <th>Close</th>
+      </tr>
+      <tr class="first-row">
+        <td>Monday</td>
+        <td><input type="time" name="hours-open" value="09:00"></td>
+        <td><input type="time" name="hours-close" value="17:00"></td>
+      </tr>
+    </table>
     <div class="controls">
       <button class="default" onclick="$(this.controller).cancel();">Close</button>
     </div>

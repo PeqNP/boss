@@ -1,0 +1,38 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+
+      function copy() {
+        os.copyToClipboard(
+          view.ui.button("copy"),
+          view.ui.input("source").value
+        );
+      }
+      this.copy = copy;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Clipboard</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-10" style="width: 420px;">
+    <p><code>os.copyToClipboard</code> writes the string and flickers the button. Paste into the field below to confirm.</p>
+    <div class="text-field">
+      <label for="source">Copy this</label>
+      <input type="text" name="source" value="Hello from Tutorial">
+    </div>
+    <button name="copy" class="primary" onclick="$(this.controller).copy();">Copy</button>
+    <div class="textarea-field">
+      <label for="paste">Paste here</label>
+      <textarea name="paste"></textarea>
+    </div>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).close();">Close</button>
+    </div>
+  </div>
+</div>

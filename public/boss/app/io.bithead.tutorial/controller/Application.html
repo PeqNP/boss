@@ -57,16 +57,38 @@
       }
       this.showTabular = showTabular;
 
+      async function showDemo(name) {
+        const win = await $(this.controller).loadController(name);
+        win.ui.show();
+      }
+      this.showKeys = function() { return showDemo.call(this, "Keys"); };
+      this.showSettings = function() { return showDemo.call(this, "Settings"); };
+      this.showBusy = function() { return showDemo.call(this, "Busy"); };
+      this.showUpload = function() { return showDemo.call(this, "Upload"); };
+      this.showNetwork = function() { return showDemo.call(this, "Network"); };
+      this.showEvents = function() { return showDemo.call(this, "Events"); };
+      this.showClipboard = function() { return showDemo.call(this, "Clipboard"); };
+      this.showLinks = function() { return showDemo.call(this, "Links"); };
+      this.showSingleton = function() { return showDemo.call(this, "Singleton"); };
+
       async function applicationDidStart() {
         await showExample();
       }
       this.applicationDidStart = applicationDidStart;
 
+      async function openDeepLink(deepLink) {
+        const win = await $(this.controller).loadController("Links");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(deepLink);
+        });
+      }
+      this.openDeepLink = openDeepLink;
+
       async function openUniversalLink(link) {
-        // This could call `showExample`. But this example already implements
-        // `applicationDidStart`. For now, this captures the value and shows
-        // it in the logs.
-        console.log(link);
+        const win = await $(this.controller).loadController("Links");
+        win.ui.show(function(ctrl) {
+          ctrl.configure(link);
+        });
       }
       this.openUniversalLink = openUniversalLink;
     }
@@ -85,6 +107,20 @@
         <option onclick="$(this.controller).showKiosk();">Show kiosk</option>
         <option class="group"></option>
         <option onclick="$(this.controller).close();">Close Tutorial</option>
+      </select>
+    </div>
+    <div class="ui-menu" style="width: 160px">
+      <select name="demos-menu">
+        <option>Demos</option>
+        <option onclick="$(this.controller).showKeys();">Keys</option>
+        <option onclick="$(this.controller).showSettings();">Settings</option>
+        <option onclick="$(this.controller).showBusy();">Busy</option>
+        <option onclick="$(this.controller).showUpload();">Upload</option>
+        <option onclick="$(this.controller).showNetwork();">Network</option>
+        <option onclick="$(this.controller).showEvents();">Events</option>
+        <option onclick="$(this.controller).showClipboard();">Clipboard</option>
+        <option onclick="$(this.controller).showLinks();">Links</option>
+        <option onclick="$(this.controller).showSingleton();">Singleton</option>
       </select>
     </div>
   </div>

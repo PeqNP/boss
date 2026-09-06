@@ -1,0 +1,41 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+
+      function showBusy() {
+        os.ui.showBusy();
+        setTimeout(function() {
+          os.ui.hideBusy();
+        }, 2000);
+      }
+      this.showBusy = showBusy;
+
+      async function showProgress() {
+        const bar = await os.ui.showProgressBar("Working...", null, true);
+        setTimeout(function() {
+          bar.ui.close();
+        }, 2000);
+      }
+      this.showProgress = showProgress;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Busy</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-10" style="width: 420px;">
+    <p>The busy overlay blocks the desktop and shows the watch cursor. The OS progress bar is a modal over everything.</p>
+    <div class="hbox gap-10">
+      <button name="show-busy" class="primary" onclick="$(this.controller).showBusy();">Show busy</button>
+      <button name="show-progress" class="primary" onclick="$(this.controller).showProgress();">Show progress</button>
+    </div>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).close();">Close</button>
+    </div>
+  </div>
+</div>

@@ -28,9 +28,22 @@
         "Kiosk": {
             "module": true
         },
+        "Busy": { },
+        "Clipboard": { },
+        "Events": { },
+        "Keys": { },
+        "Links": {
+            "singleton": true
+        },
         "Modal": {
             "modal": true
         },
-        "Tabular": { }
+        "Network": { },
+        "Settings": { },
+        "Singleton": {
+            "singleton": true
+        },
+        "Tabular": { },
+        "Upload": { }
     }
 }

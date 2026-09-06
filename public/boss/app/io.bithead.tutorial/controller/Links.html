@@ -1,0 +1,54 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let incoming = null;
+
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+
+      function configure(link) {
+        incoming = link;
+      }
+      this.configure = configure;
+
+      function openDeepLink() {
+        os.openDeepLink("tutorial://keys");
+      }
+      this.openDeepLink = openDeepLink;
+
+      function viewDidLoad() {
+        view.ui.p("launch-url").textContent =
+          os.getLaunchUrl("io.bithead.tutorial") || "(none)";
+        if (isEmpty(incoming)) {
+          view.ui.p("incoming").textContent = "Opened from the menu.";
+          return;
+        }
+        const path = incoming.path || incoming.href || String(incoming);
+        view.ui.p("incoming").textContent = path;
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Links</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-10" style="width: 420px;">
+    <p>Tutorial's scheme in <code>installed.json</code> is <code>tutorial</code>. A deep link is handed to the application, which opens this window.</p>
+    <div class="read-only">
+      <label>Launch URL</label>
+      <p name="launch-url"></p>
+    </div>
+    <div class="read-only">
+      <label>Incoming</label>
+      <p name="incoming"></p>
+    </div>
+    <button name="open-deep-link" class="primary" onclick="$(this.controller).openDeepLink();">Open tutorial://keys</button>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).close();">Close</button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,41 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+
+      async function send() {
+        await os.ui.sendEventsToControllers([
+          new BOSSEvent({
+            name: "io.bithead.tutorial.ping",
+            userId: 0,
+            data: { note: "ping" }
+          })
+        ]);
+      }
+      this.send = send;
+
+      this.events = {
+        "io.bithead.tutorial.ping": async function(ev) {
+          view.ui.p("event-display").textContent =
+            ev.data.note || JSON.stringify(ev.data);
+        }
+      };
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Events</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-10" style="width: 420px;">
+    <p>A controller lists the event names it handles on <code>this.events</code>. Send one to this window.</p>
+    <button name="send-event" class="primary" onclick="$(this.controller).send();">Send ping</button>
+    <p name="event-display">No event yet.</p>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).close();">Close</button>
+    </div>
+  </div>
+</div>

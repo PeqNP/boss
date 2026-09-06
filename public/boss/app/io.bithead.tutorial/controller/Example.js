@@ -214,6 +214,12 @@ export default function Example(view, app) {
                 console.log(theme);
             }
         };
+
+        new UIPopOver(
+            view.ui.span("popover-target"),
+            new UIPopOverSide("bottom"),
+            "This pop-over is created in viewDidLoad."
+        );
     }
     this.viewDidLoad = viewDidLoad;
 
@@ -264,11 +270,44 @@ export default function Example(view, app) {
     }
     this.showSignIn = showSignIn;
 
-    this.didHitEnter = save;
+    async function showAlert() {
+        await os.ui.showAlert("This is an alert.");
+    }
+    this.showAlert = showAlert;
 
-    this.didHitKey = function (key) {
-        console.log(`Hit key (${key})`);
-    };
+    async function showConfirmation() {
+        await os.ui.showConfirmation(
+            "Continue with this example?",
+            null,
+            async function() {}
+        );
+    }
+    this.showConfirmation = showConfirmation;
+
+    async function showOSProgress() {
+        const bar = await os.ui.showProgressBar("Working...", null, true);
+        setTimeout(function() {
+            bar.ui.close();
+        }, 2000);
+    }
+    this.showOSProgress = showOSProgress;
+
+    async function mutexAction() {
+        await new Promise(function(resolve) {
+            setTimeout(resolve, 1500);
+        });
+    }
+    this.mutexAction = os.ui.mutex(
+        mutexAction,
+        view.ui.button("mutex-action")
+    );
+
+    function flickerAction() {
+        os.ui.flickerButton(view.ui.button("flicker-action"), "Flickered!");
+    }
+    this.flickerAction = flickerAction;
+
+    this.didHitEnter = save;
 
     this.events = {
         "io.bithead.boss.debug": async function (ev) {

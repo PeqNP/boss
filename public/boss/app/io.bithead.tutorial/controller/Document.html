@@ -51,6 +51,17 @@
         win.close();
       }
       this.cancel = cancel;
+
+      async function pin() {
+        await os.ui.showConfirmation(
+          "Pin this note?",
+          null,
+          async function() {
+            view.ui.input("pinned").checked = true;
+          }
+        );
+      }
+      this.pin = os.ui.mutex(pin);
     }
   </script>
 
@@ -104,6 +115,7 @@
     <div class="controls">
       <button class="primary" doc-action="cancel">Cancel</button>
       <button class="primary" doc-action="delete">Delete</button>
+      <button class="primary" onclick="$(this.controller).pin();">Pin</button>
       <button class="default" doc-action="save">Save</button>
     </div>
 

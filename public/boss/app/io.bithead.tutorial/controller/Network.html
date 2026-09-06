@@ -1,0 +1,36 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+
+      async function getHeartbeat() {
+        view.ui.p("network-result").textContent = "Requesting…";
+        try {
+          const response = await os.network.get("/heartbeat");
+          view.ui.p("network-result").textContent =
+            typeof response === "string" ? response : JSON.stringify(response);
+        }
+        catch (error) {
+          view.ui.p("network-result").textContent = String(error);
+        }
+      }
+      this.getHeartbeat = getHeartbeat;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Network</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-10" style="width: 420px;">
+    <p><code>os.network.get</code> against <code>/heartbeat</code>, which the OS uses to see that the server is up.</p>
+    <button name="get-heartbeat" class="primary" onclick="$(this.controller).getHeartbeat();">GET /heartbeat</button>
+    <p name="network-result">No request yet.</p>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).close();">Close</button>
+    </div>
+  </div>
+</div>

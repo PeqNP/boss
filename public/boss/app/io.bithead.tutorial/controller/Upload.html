@@ -1,0 +1,50 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      let chosen = null;
+
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+
+      function didChooseFile() {
+        const input = view.ui.input("file");
+        chosen = input.files && input.files[0] ? input.files[0] : null;
+        view.ui.p("file-name").textContent = isEmpty(chosen)
+          ? "No file chosen."
+          : chosen.name + " (" + chosen.size + " bytes)";
+      }
+      this.didChooseFile = didChooseFile;
+
+      async function upload() {
+        if (isEmpty(chosen)) {
+          os.ui.showAlert("Choose a file first.");
+          return;
+        }
+        try {
+          await os.network.upload("/heartbeat", chosen);
+          view.ui.p("file-name").textContent = "Uploaded.";
+        }
+        catch (error) {
+          view.ui.p("file-name").textContent = String(error);
+        }
+      }
+      this.upload = upload;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Upload</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container vbox gap-10" style="width: 420px;">
+    <p><code>os.network.upload</code> POSTs a <code>File</code>. Tutorial has no upload route, so the call is expected to fail after you choose a file.</p>
+    <input type="file" name="file" onchange="$(this.controller).didChooseFile();">
+    <p name="file-name">No file chosen.</p>
+    <button name="upload" class="primary" onclick="$(this.controller).upload();">Upload</button>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).close();">Close</button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,50 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      const TAB_NAMES = ["general", "schedule"];
+
+      function showTab(name) {
+        for (const t of TAB_NAMES) {
+          view.ui.div("tab-" + t).style.display = t === name ? "" : "none";
+        }
+      }
+
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+
+      function viewDidLoad() {
+        view.ui.select("settings-nav").ui.delegate = {
+          didSelectListBoxOption: function(opt) {
+            showTab(TAB_NAMES[opt.index]);
+          }
+        };
+        view.ui.select("settings-nav").ui.selectOption(0);
+        showTab("general");
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Settings</span></div>
+    <div class="zoom-button"></div>
+  </div>
+  <div class="container settings" style="width: 720px; height: 360px;">
+    <div class="ui-list-box settings-nav" style="flex: 0 0 200px;">
+      <select name="settings-nav">
+        <option>General</option>
+        <option>Schedule</option>
+      </select>
+    </div>
+    <div class="settings-content">
+      <div name="tab-general">
+        <p>A settings window keeps a list of pages on the left. This is the General page.</p>
+      </div>
+      <div name="tab-schedule" style="display: none;">
+        <p>This is the Schedule page. Choosing a row on the left swaps the page.</p>
+      </div>
+    </div>
+  </div>
+</div>
