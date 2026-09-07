@@ -277,7 +277,7 @@ function OS() {
      * Determine if user is guest user.
      *
      * @param {object} _user - The user object to test
-     * @returns {boolean} `true` if the user is the guest user
+     * @returns {boolean} `true` if there is no user, or the user is the guest
      */
     function isGuestUser(_user) {
         if (isEmpty(_user) || _user.id == GUEST_USER_ID) {

@@ -26,6 +26,14 @@
         // something on it, and so the OS finishes handing the sign-in to every
         // open window before this one leaves that list.
         await $(app.controller).showMainWindow();
+        if (!isEmpty(sessionStorage.getItem(
+          "io.bithead.scheduler.stripeConnectCode"
+        ))) {
+          const win = await $(app.controller).loadController("BusinessConfig");
+          win.ui.show(function(ctrl) {
+            ctrl.configure("payment");
+          });
+        }
         view.ui.close();
       }
       this.userDidSignIn = userDidSignIn;

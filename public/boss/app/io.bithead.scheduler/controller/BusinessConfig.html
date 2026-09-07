@@ -474,6 +474,7 @@
         };
         showSection();
         loaded = true;
+        await finishStripeConnectIfNeeded();
       }
       this.viewDidLoad = viewDidLoad;
 
@@ -511,9 +512,41 @@
         section = TAB_NAMES.includes(_config) ? _config : TAB_NAMES[0];
         if (loaded) {
           showSection();
+          finishStripeConnectIfNeeded();
         }
       }
       this.configure = configure;
+
+      /**
+       * Records a Stripe account id returned on `/a/scheduler/config?code=`.
+       *
+       * Stripe lands on the Scheduler page so the session cookie is not
+       * required on that first GET. This call is same-origin and carries it.
+       */
+      async function finishStripeConnectIfNeeded() {
+        const code = sessionStorage.getItem(
+          "io.bithead.scheduler.stripeConnectCode"
+        );
+        if (isEmpty(code) || isEmpty(businessId)) {
+          return;
+        }
+        let response;
+        try {
+          response = await os.network.get(
+            `/api/io.bithead.scheduler/business/${businessId}/config/stripe/callback?code=${encodeURIComponent(code)}`
+          );
+        }
+        catch (error) {
+          os.ui.showError(
+            error.message || "Failed to finish Stripe Connect. Please try again."
+          );
+          return;
+        }
+        sessionStorage.removeItem("io.bithead.scheduler.stripeConnectCode");
+        if (!isEmpty(response.stripeAccountId)) {
+          view.ui.span("stripe-account-id").innerText = response.stripeAccountId;
+        }
+      }
 
       /**
        * Attaches the save triggers to every field on the form.

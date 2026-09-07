@@ -1113,8 +1113,9 @@ user signs out, so it has nothing to do in `userDidSignOut`. Reach for that
 callback only in an app that stays open across a sign-out.
 
 Decide what a guest sees with `os.isGuestUser(os.user)` in `applicationDidStart`.
-A guest is nobody yet, so an app whose routes require a session should ask this
-before it calls any of them rather than showing a screen full of failures.
+That call is the whole test: no user is a guest. A guest is nobody yet, so an
+app whose routes require a session should ask this before it calls any of them
+rather than showing a screen full of failures.
 
 ### Universal links
 
@@ -2973,7 +2974,7 @@ os.openDeepLink("settings://friends")      // Open a deep link
 os.openUniversalLink(window.location.href) // Open a universal link from the current URL
 os.getLaunchUrl("io.bithead.my-app")       // Get the launch URL for an app
 os.isSuperUser(user)                        // Boolean: is current user a super user?
-os.isGuestUser(user)                        // Boolean: is current user a guest?
+os.isGuestUser(user)                        // true when user is empty or the guest
 ```
 
 ### `os.network` — Network calls

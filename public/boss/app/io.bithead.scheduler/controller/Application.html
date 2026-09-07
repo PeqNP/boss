@@ -224,7 +224,7 @@
         // A guest is nobody yet, and every route here answers 401 for them.
         // They get the welcome, which is the only thing this app has to say
         // until they are someone.
-        if (isEmpty(os.user) || os.isGuestUser(os.user)) {
+        if (os.isGuestUser(os.user)) {
           const win = await $(this.controller).loadController("Welcome");
           win.ui.show();
           return;
@@ -246,6 +246,16 @@
           return;
         }
         if (segments[0] === "config") {
+          const code = link.params.code;
+          if (!isEmpty(code)) {
+            sessionStorage.setItem(
+              "io.bithead.scheduler.stripeConnectCode",
+              code
+            );
+          }
+          if (os.isGuestUser(os.user)) {
+            return;
+          }
           const win = await $(this.controller).loadController("BusinessConfig");
           win.ui.show(function(ctrl) {
             ctrl.configure("payment");

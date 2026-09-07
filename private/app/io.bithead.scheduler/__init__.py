@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 from functools import wraps
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import Any, Dict, List, Optional
 
@@ -1669,10 +1669,10 @@ async def get_stripe_connect_url(
     request: Request
 ):
     _working_for(business_id, boss_user)
-    return_url = (
-        f"{request.base_url}api/io.bithead.scheduler"
-        f"/business/{business_id}/config/stripe/callback"
-    )
+    # The Scheduler page, not the API callback. Stripe's return is a
+    # cross-site GET; `SameSite=strict` omits the session on that hop.
+    # The page then finishes Connect with a same-origin call.
+    return_url = f"{request.base_url}a/scheduler/config"
     return ConfigStripeConnect(
         connectUrl=lib.connect_url(business_id, return_url)
     )
@@ -1693,12 +1693,6 @@ async def handle_stripe_callback(
 ):
     _working_for(business_id, boss_user)
     account = lib.complete_connect(business_id, code)
-    accept = request.headers.get("accept") or ""
-    if "text/html" in accept:
-        return RedirectResponse(
-            url=f"{request.base_url}a/scheduler/config",
-            status_code=303
-        )
     return ConfigStripeCallback(stripeAccountId=account, success=True)
 
 
