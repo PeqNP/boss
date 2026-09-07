@@ -100,8 +100,6 @@
         view.ui.input("verified").checked = user.verified;
         view.ui.input("enabled").checked = user.enabled;
 
-        view.ui.input("email").focus();
-
         if (user.mfaEnabled) {
           view.ui.element("mfa-disabled").style.display = "none";
         }
@@ -110,6 +108,11 @@
         }
       }
       this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.input("email").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
 
       this.didHitEnter = save;
     }
