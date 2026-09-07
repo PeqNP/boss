@@ -296,9 +296,17 @@
           os.ui.showError(error.message || "Failed to start Stripe Connect. Please try again.");
           return;
         }
-        window.open(response.connectUrl, "_blank");
+        if (isEmpty(response) || isEmpty(response.connectUrl)) {
+          os.ui.showError("Stripe did not return a Connect URL.");
+          return;
+        }
+        // This window, not a tab. A tab is a popup; this is not.
+        window.location.assign(response.connectUrl);
       }
-      this.connectStripe = connectStripe;
+      this.connectStripe = os.ui.mutex(
+        connectStripe,
+        view.ui.button("connect-stripe")
+      );
 
       /**
        * Applies a business template, asking first.

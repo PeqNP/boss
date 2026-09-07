@@ -306,6 +306,7 @@ Both URLs are handled by `Application.html`. `configure()` receives the parsed p
 | `/a/scheduler/{businessId}` | `{ businessId }` | `SchedulerKiosk` |
 | `/a/scheduler/appointment` | `null` | `AppointmentLookup` — the anonymous door, opened with a job code |
 | `/a/scheduler/appointment/{appointmentId}` | `{ appointmentId }` | `Appointment` (requires login) |
+| `/a/scheduler/config` | `"payment"` | `BusinessConfig` on the Payment tab — Stripe Connect returns here |
 | No params | `null` | `Welcome` for a guest; otherwise the window that fits the role |
 
 ## Signing In

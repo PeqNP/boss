@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 from functools import wraps
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import RedirectResponse, Response
 from pydantic import BaseModel
 from typing import Any, Dict, List, Optional
 
@@ -1693,6 +1693,12 @@ async def handle_stripe_callback(
 ):
     _working_for(business_id, boss_user)
     account = lib.complete_connect(business_id, code)
+    accept = request.headers.get("accept") or ""
+    if "text/html" in accept:
+        return RedirectResponse(
+            url=f"{request.base_url}a/scheduler/config",
+            status_code=303
+        )
     return ConfigStripeCallback(stripeAccountId=account, success=True)
 
 
