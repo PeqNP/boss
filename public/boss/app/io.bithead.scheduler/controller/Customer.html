@@ -29,22 +29,45 @@
 
       // CustomerNoteDelegate
       let noteDelegate = {
-        didSaveCustomerNote: reload,
-        didDeleteCustomerNote: reload
+        didSaveCustomerNote: reloadLists,
+        didDeleteCustomerNote: reloadLists
       };
 
       // --- Private helpers ---
 
       /**
-       * Load the customer and redraw everything they own.
+       * Fetches the customer, or `null` when they cannot be read.
        */
-      async function reload() {
-        let response;
+      async function fetchCustomer() {
         try {
-          response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/customer/${customerId}`);
+          return await os.network.get(
+            `/api/io.bithead.scheduler/business/${businessId}/customer/${customerId}`
+          );
         }
         catch {
           os.ui.showError("Failed to load the customer. Please try again later.");
+          return null;
+        }
+      }
+
+      /**
+       * Redraws notes and appointments from a fetched customer.
+       *
+       * Leaves the contact fields this form is editing alone.
+       *
+       * @param {object} response - The customer as the server has them
+       */
+      function applyLists(response) {
+        renderNotes(response.notes);
+        renderAppointments(response.appointments);
+      }
+
+      /**
+       * Load the customer and fill the form.
+       */
+      async function reload() {
+        const response = await fetchCustomer();
+        if (response === null) {
           return;
         }
         hasBossAccount = response.hasBossAccount;
@@ -64,8 +87,18 @@
           win.button("save-btn").style.display = "none";
         }
 
-        renderNotes(response.notes);
-        renderAppointments(response.appointments);
+        applyLists(response);
+      }
+
+      /**
+       * Refreshes the lists after a note changes.
+       */
+      async function reloadLists() {
+        const response = await fetchCustomer();
+        if (response === null) {
+          return;
+        }
+        applyLists(response);
       }
 
       function setField(name, value) {

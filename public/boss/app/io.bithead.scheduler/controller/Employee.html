@@ -51,28 +51,52 @@
 
       // EmployeeScheduleDelegate
       let scheduleDelegate = {
-        didSaveEmployeeSchedule: reload,
-        didDeleteEmployeeSchedule: reload
+        didSaveEmployeeSchedule: reloadLists,
+        didDeleteEmployeeSchedule: reloadLists
       };
 
       // EmployeeTimeOffDelegate
       let timeOffDelegate = {
-        didSaveEmployeeTimeOff: reload,
-        didDeleteEmployeeTimeOff: reload
+        didSaveEmployeeTimeOff: reloadLists,
+        didDeleteEmployeeTimeOff: reloadLists
       };
 
       // --- Private helpers ---
 
       /**
-       * Load the employee and redraw everything they own.
+       * Fetches the employee, or `null` when they cannot be read.
        */
-      async function reload() {
-        let response;
+      async function fetchEmployee() {
         try {
-          response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/employee/${employeeId}`);
+          return await os.network.get(
+            `/api/io.bithead.scheduler/business/${businessId}/employee/${employeeId}`
+          );
         }
         catch {
           os.ui.showError("Failed to load the employee. Please try again later.");
+          return null;
+        }
+      }
+
+      /**
+       * Redraws working days, time off and job types from a fetched employee.
+       *
+       * Leaves the name and other fields this form is editing alone.
+       *
+       * @param {object} response - The employee as the server has them
+       */
+      function applyLists(response) {
+        renderSchedule(response.scheduleTemplate);
+        renderTimeOff(response.timeOff);
+        loadJobTypes(response.jobTypes);
+      }
+
+      /**
+       * Load the employee and fill the form.
+       */
+      async function reload() {
+        const response = await fetchEmployee();
+        if (response === null) {
           return;
         }
         win.input("first-name").value = response.firstName;
@@ -85,10 +109,18 @@
           win.input("include-in-schedule").checked = response.includeInSchedule;
         }
         win.input("can-manage-own-schedule").checked = response.canManageOwnSchedule;
+        applyLists(response);
+      }
 
-        renderSchedule(response.scheduleTemplate);
-        renderTimeOff(response.timeOff);
-        loadJobTypes(response.jobTypes);
+      /**
+       * Refreshes the lists after a working day or time-off window changes.
+       */
+      async function reloadLists() {
+        const response = await fetchEmployee();
+        if (response === null) {
+          return;
+        }
+        applyLists(response);
       }
 
       function renderSchedule(days) {
@@ -484,11 +516,11 @@
         </div>
         <div class="text-field">
           <label for="first-name">First Name</label>
-          <input type="text" name="first-name" autocomplete="new-password">
+          <input type="text" name="first-name">
         </div>
         <div class="text-field">
           <label for="last-name">Last Name</label>
-          <input type="text" name="last-name" autocomplete="new-password">
+          <input type="text" name="last-name">
         </div>
         <div class="hbox gap-10">
           <input type="checkbox" name="include-in-schedule" checked>
