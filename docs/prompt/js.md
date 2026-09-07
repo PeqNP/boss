@@ -1395,7 +1395,7 @@ view.ui.fragment("id")          // Clone of first child of <template id="id">
 view.ui.menu("name")            // UIMenu instance for <select name="name"> in ui-menus
 ```
 
-**Note on checkboxes:** Checkboxes (`<input type="checkbox">`) are accessed via `view.ui.input(name)`. There is no separate `checkbox()` method. Use `.checked` to read or write the checked state.
+**Note on checkboxes:** Markup is `<label class="checkbox">` with the input inside it. Access the input via `view.ui.input(name)`. There is no separate `checkbox()` method. Use `.checked` to read or write the checked state.
 
 **Additional window-only helpers:**
 
@@ -1426,6 +1426,7 @@ When mapping a data model property to a form field:
 | Single-select dropdown (compact, in a form or filter bar) | `<div class="ui-popup-menu" style="width: 160px;">` | See UIPopupMenu below |
 | Scrollable list of selectable items | `<div class="ui-list-box">` | See UIListBox below |
 | Multi-select list | `<div class="ui-list-box">` with `<select multiple>` | |
+| Boolean option | `<label class="checkbox">` | Input inside the label; the text toggles the box |
 
 > **`text-field` is for text inputs only.** Use `ui-popup-menu` or `ui-list-box` for `<select>` elements.
 
@@ -1469,6 +1470,22 @@ Rules:
   <input type="text" name="name" autocomplete="new-password">
 </div>
 ```
+
+### Checkbox
+
+The input lives inside the label. That is what makes the text tappable. A
+sibling `label for="…"` is not the pattern: `for` matches `id`, and two open
+windows cannot share an id.
+
+```html
+<label class="checkbox">
+  <input type="checkbox" name="notify">
+  Notify me
+</label>
+```
+
+Read and write the box with `view.ui.input("notify").checked`. Do not wrap it
+in `hbox gap-10`; `label.checkbox` is the row.
 
 ### Textarea (multi-line)
 ```html
@@ -2712,10 +2729,10 @@ BOSS's `.container` provides internal padding automatically. Do not add extra `p
     <fieldset>
       <legend>Options</legend>
       <div class="vbox gap-10">
-        <div class="hbox gap-10">
+        <label class="checkbox">
           <input type="checkbox" name="opt">
-          <label>Enable option</label>
-        </div>
+          Enable option
+        </label>
       </div>
     </fieldset>
     <div class="controls">

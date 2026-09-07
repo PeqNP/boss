@@ -881,12 +881,12 @@ function UI(os) {
     this.makeTextField = makeTextField;
 
     /**
-     * Create a checkbox with its label.
+     * Create a `label.checkbox` with its input inside it.
      *
      * @param {string} name - Name of the `input` element
      * @param {string} [label] - Label text shown beside the checkbox
      * @param {object} [config] - `{classes}`
-     * @returns {HTMLElement} The styled checkbox row
+     * @returns {HTMLElement} The styled `label.checkbox`
      */
     function makeCheckbox(name, label, config) {
         return makeComponentFromTemplate("UICheckbox", {
