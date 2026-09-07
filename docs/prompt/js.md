@@ -2691,6 +2691,10 @@ Add `hide-values` class to `ui-slider` to hide tick labels.
 | Between fields inside a fieldset or flat section | `gap-10` |
 | When a tab mixes a loose field group and fieldsets | outer `gap-20`; inner field group `gap-10` |
 
+A fieldset with the `disabled` attribute turns off every control in it. The OS
+styles `fieldset:disabled` so legends, labels, and pop-up menus look disabled
+too. Leave the fieldset visible.
+
 BOSS's `.container` provides internal padding automatically. Do not add extra `padding` on inner content divs.
 
 ```html

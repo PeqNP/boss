@@ -2015,6 +2015,28 @@ label.checkbox {
   cursor: pointer;
 }
 
+/* `disabled` on a fieldset turns off every control in it. These rules make
+ * labels and custom pop-up menus look as disabled as the native inputs. */
+fieldset:disabled legend,
+fieldset:disabled label,
+fieldset:disabled .read-only span {
+  color: #aaa;
+}
+fieldset:disabled label.checkbox {
+  cursor: default;
+}
+fieldset:disabled .ui-popup-container {
+  border: 1px solid #aaa;
+  box-shadow: none;
+}
+fieldset:disabled .ui-popup-label {
+  color: #ddd;
+  cursor: default;
+}
+fieldset:disabled .ui-popup-label:after {
+  border-color: #ddd transparent transparent transparent;
+}
+
 /** List Box **/
 
 .ui-list-box select {

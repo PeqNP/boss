@@ -300,6 +300,35 @@
       }
       this.pickIcon = pickIcon;
 
+      /**
+       * Enables Payment when Stripe is connected, and fills the product menu.
+       *
+       * @returns {boolean} Whether Stripe is ready for this business
+       */
+      async function configurePayment() {
+        let config;
+        try {
+          config = await os.network.get(
+            `/api/io.bithead.scheduler/business/${businessId}/config`
+          );
+        }
+        catch {
+          config = null;
+        }
+        const ready = !isEmpty(config)
+          && config.paymentVendorChosen === true
+          && !isEmpty(config.stripeAccountId);
+        const payment = win.fieldset("payment");
+        payment.disabled = !ready;
+        if (!ready) {
+          win.select("stripe-product").ui.disable();
+          return false;
+        }
+        win.select("stripe-product").ui.enable();
+        await loadStripeProducts();
+        return true;
+      }
+
       async function loadStripeProducts() {
         let response;
         try {
@@ -319,7 +348,6 @@
           })
         );
       }
-      this.loadStripeProducts = loadStripeProducts;
 
       function didChangeStripeProduct() {
         stripeProductId = win.select("stripe-product").ui.selectedValue();
@@ -462,11 +490,16 @@
         win.select("attributes").ui.setDefaultAction(editAttribute);
         win.select("contact-fields").ui.setDefaultAction(editContactField);
 
+        const stripeReady = await configurePayment();
         if (isEmpty(jobTypeId)) {
           await create();
-          return;
         }
-        await reload();
+        else {
+          await reload();
+        }
+        if (stripeReady && !isEmpty(stripeProductId)) {
+          win.select("stripe-product").ui.selectValue(stripeProductId);
+        }
       }
       this.viewDidLoad = viewDidLoad;
 
@@ -564,7 +597,7 @@
       </div>
     </fieldset>
 
-    <fieldset>
+    <fieldset name="payment">
       <legend>Payment</legend>
       <div class="vbox gap-10">
         <label class="checkbox">
@@ -575,14 +608,11 @@
           <input type="checkbox" name="deposit-required">
           Deposit required when scheduling
         </label>
-        <div class="hbox gap-10">
-          <div class="ui-popup-menu intrinsic" style="--popup-width: 260px;">
-            <label for="stripe-product">Stripe product</label>
-            <select name="stripe-product" onchange="$(this.controller).didChangeStripeProduct();">
-              <option>Choose a product</option>
-            </select>
-          </div>
-          <button class="primary" onclick="$(this.controller).loadStripeProducts();">Load</button>
+        <div class="ui-popup-menu intrinsic" style="--popup-width: 260px;">
+          <label for="stripe-product">Stripe product</label>
+          <select name="stripe-product" onchange="$(this.controller).didChangeStripeProduct();">
+            <option>Choose a product</option>
+          </select>
         </div>
         <div class="read-only">
           <label>Linked</label>
