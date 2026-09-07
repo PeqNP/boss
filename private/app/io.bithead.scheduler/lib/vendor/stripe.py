@@ -22,6 +22,8 @@ from .protocol import JobCharge, PaymentNotice
 
 
 STRIPE_API = "https://api.stripe.com/v1"
+STRIPE_API_V2 = "https://api.stripe.com/v2"
+STRIPE_VERSION = "2026-08-26.dahlia"
 
 
 class StripeVendor:
@@ -37,41 +39,87 @@ class StripeVendor:
         return key
 
     def _get(self, path: str, params: Optional[dict] = None) -> dict:
-        return self._call(
+        return self._v1(
             httpx.get,
             path,
             params=params or {}
         )
 
     def _post(self, path: str, data: dict) -> dict:
-        return self._call(httpx.post, path, data=data)
+        return self._v1(httpx.post, path, data=data)
 
-    def _call(self, method, path: str, **kwargs) -> dict:
-        response = method(
+    def _v1(self, method, path: str, **kwargs) -> dict:
+        return self._request(
+            method,
             f"{STRIPE_API}{path}",
             auth=(self._secret(), ""),
-            timeout=15.0,
             **kwargs
         )
+
+    def _v2_post(self, path: str, body: dict) -> dict:
+        return self._request(
+            httpx.post,
+            f"{STRIPE_API_V2}{path}",
+            headers={
+                "Authorization": f"Bearer {self._secret()}",
+                "Stripe-Version": STRIPE_VERSION
+            },
+            json=body
+        )
+
+    def _request(self, method, url: str, **kwargs) -> dict:
+        response = method(url, timeout=15.0, **kwargs)
         if response.is_error:
             message = _stripe_message(response)
-            logging.warning(f"Stripe {path} failed: {message}")
+            logging.warning(f"Stripe {url} failed: {message}")
             raise ValidationError(message)
         return response.json()
 
     def connect_url(self, business_id: int, return_url: str) -> str:
         """Start Connect onboarding for this business."""
-        account = self._post("/accounts", {"type": "standard"})
-        link = self._post(
-            "/account_links",
+        business = db.get_business(business_id)
+        body = {
+            "dashboard": "full",
+            "configuration": {
+                "merchant": {
+                    "capabilities": {
+                        "card_payments": {"requested": True}
+                    }
+                }
+            },
+            "defaults": {
+                "responsibilities": {
+                    "fees_collector": "stripe",
+                    "losses_collector": "stripe"
+                }
+            },
+            "identity": {"country": "us"}
+        }
+        if business and business.name:
+            body["display_name"] = business.name
+            body["identity"]["business_details"] = {
+                "registered_name": business.name
+            }
+        account = self._v2_post("/core/accounts", body)
+        account_id = account.get("id")
+        if not account_id:
+            raise ValidationError("Stripe did not return an account.")
+        link = self._v2_post(
+            "/core/account_links",
             {
-                "account": account["id"],
-                "refresh_url": return_url,
-                "return_url": (
-                    f"{return_url.split('?')[0]}"
-                    f"?{urlencode({'code': account['id']})}"
-                ),
-                "type": "account_onboarding"
+                "account": account_id,
+                "use_case": {
+                    "type": "account_onboarding",
+                    "account_onboarding": {
+                        "configurations": ["merchant"],
+                        "collection_options": {"fields": "eventually_due"},
+                        "refresh_url": return_url,
+                        "return_url": (
+                            f"{return_url.split('?')[0]}"
+                            f"?{urlencode({'code': account_id})}"
+                        )
+                    }
+                }
             }
         )
         url = link.get("url")
@@ -174,9 +222,12 @@ class StripeVendor:
 def _stripe_message(response: httpx.Response) -> str:
     """Stripe's own refusal, or a short fallback."""
     try:
-        message = (response.json().get("error") or {}).get("message")
-        if message:
-            return str(message)
+        payload = response.json()
+        error = payload.get("error")
+        if isinstance(error, dict) and error.get("message"):
+            return str(error["message"])
+        if payload.get("message"):
+            return str(payload["message"])
     except Exception:
         pass
     return f"Stripe request failed ({response.status_code})."

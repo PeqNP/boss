@@ -28,3 +28,7 @@ stripe listen --forward-to https://localhost/api/io.bithead.scheduler/webhooks/p
 ```
 
 When you start the listener, it will provide a webhook secret. That must be configured in the respective app's `Webhook secret` field.
+
+## Configuration
+
+BOSS calls the respective Stripe REST calls to generate payment links. It should not be necessary to create a checkout type (Full page, Embedded page).

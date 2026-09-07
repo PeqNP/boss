@@ -4906,7 +4906,10 @@ def test_stripe_connect_refusal():
 
     refused = httpx.Response(
         400,
-        request=httpx.Request("POST", "https://api.stripe.com/v1/accounts"),
+        request=httpx.Request(
+            "POST",
+            "https://api.stripe.com/v2/core/accounts"
+        ),
         json={"error": {"message": "Enable Connect on this account."}}
     )
     # describe: Stripe refuses to create a connected account
@@ -4916,6 +4919,56 @@ def test_stripe_connect_refusal():
             connect_url(business_id, "https://localhost/return")
         assert "Enable Connect" in str(err.value), \
             "it: names Stripe's reason"
+
+
+def test_stripe_connect_accounts_v2():
+    """Connect creates a v2 merchant account, then an onboarding link."""
+    fresh_database()
+    business_id = a_business()
+    set_vendor("payment", "stripe", {"secretKey": "sk_test_x"})
+    posts = []
+
+    def fake_post(url, **kwargs):
+        posts.append((url, kwargs))
+        request = httpx.Request("POST", url)
+        if url.endswith("/core/accounts"):
+            return httpx.Response(
+                200,
+                request=request,
+                json={"id": "acct_v2_1"}
+            )
+        return httpx.Response(
+            200,
+            request=request,
+            json={"url": "https://connect.stripe.com/setup/s/v2"}
+        )
+
+    # describe: Connect onboarding
+    with pytest.MonkeyPatch.context() as patched:
+        patched.setattr(httpx, "post", fake_post)
+        url = connect_url(business_id, "https://localhost/return")
+    assert url == "https://connect.stripe.com/setup/s/v2", \
+        "it: returns the Account Link URL"
+    assert posts[0][0] == "https://api.stripe.com/v2/core/accounts", \
+        "it: creates the account on Accounts v2"
+    account_body = posts[0][1]["json"]
+    assert account_body["dashboard"] == "full", \
+        "it: gives the connected account a full Stripe dashboard"
+    assert account_body["configuration"]["merchant"]["capabilities"][
+        "card_payments"
+    ]["requested"] is True, \
+        "it: requests card payments on the merchant configuration"
+    assert posts[1][0] == "https://api.stripe.com/v2/core/account_links", \
+        "it: opens onboarding with Account Links v2"
+    link_body = posts[1][1]["json"]
+    assert link_body["account"] == "acct_v2_1", \
+        "it: onboards the account just created"
+    assert link_body["use_case"]["type"] == "account_onboarding", \
+        "it: uses the onboarding use case"
+    assert "acct_v2_1" in link_body["use_case"]["account_onboarding"][
+        "return_url"
+    ], \
+        "it: puts the account id on the return URL"
 
 
 def test_payment_vendor():
