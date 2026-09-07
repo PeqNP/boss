@@ -24,8 +24,10 @@ Navigate through the wizard to select the correct account and environment.
 Forward Stripe events to your local server that accepts the hook. Below configures the Scheduler app to recieve the webhook.
 
 ```
-stripe listen --forward-to https://localhost/api/io.bithead.scheduler/webhooks/payment
+stripe listen --skip-verify --forward-to https://localhost/api/io.bithead.scheduler/webhooks/payment
 ```
+
+`--skip-verify` is required when the site is local HTTPS. The CLI is a Go binary and does not trust a certificate that is only in the macOS keychain. The webhook itself is public; this flag is TLS, not BOSS auth.
 
 When you start the listener, it will provide a webhook secret. That must be configured in the respective app's `Webhook secret` field.
 

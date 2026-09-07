@@ -16,7 +16,6 @@
 set -o pipefail
 cd "$(dirname "$0")/.." || exit 1
 
-echo "Restarting Swift..."
 SWIFT=0
 for arg in "$@"; do
     case "$arg" in
@@ -27,6 +26,7 @@ for arg in "$@"; do
 done
 
 if [[ $SWIFT -eq 1 ]]; then
+    echo "Restarting Swift..."
     export PATH="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin:$PATH"
     echo "Building Swift..."
     (cd server/web && swift build) || exit 1
