@@ -191,13 +191,15 @@
           <option>Choose a field</option>
         </select>
       </div>
-      <div class="hbox gap-10">
+      <label class="checkbox">
         <input type="checkbox" name="is-required" checked>
-        <label for="is-required">Required to schedule</label>
-      </div>
-      <div name="otp-group" class="hbox gap-10">
-        <input type="checkbox" name="require-otp">
-        <label for="require-otp">Verify with a one-time code</label>
+        Required to schedule
+      </label>
+      <div name="otp-group">
+        <label class="checkbox">
+          <input type="checkbox" name="require-otp">
+          Verify with a one-time code
+        </label>
       </div>
     </div>
 
