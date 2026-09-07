@@ -37,23 +37,24 @@ class StripeVendor:
         return key
 
     def _get(self, path: str, params: Optional[dict] = None) -> dict:
-        response = httpx.get(
-            f"{STRIPE_API}{path}",
-            params=params or {},
-            auth=(self._secret(), ""),
-            timeout=15.0
+        return self._call(
+            httpx.get,
+            path,
+            params=params or {}
         )
-        response.raise_for_status()
-        return response.json()
 
     def _post(self, path: str, data: dict) -> dict:
-        response = httpx.post(
+        return self._call(httpx.post, path, data=data)
+
+    def _call(self, method, path: str, **kwargs) -> dict:
+        response = method(
             f"{STRIPE_API}{path}",
-            data=data,
             auth=(self._secret(), ""),
-            timeout=15.0
+            timeout=15.0,
+            **kwargs
         )
-        response.raise_for_status()
+        if response.is_error:
+            raise ValidationError(_stripe_message(response))
         return response.json()
 
     def connect_url(self, business_id: int, return_url: str) -> str:
@@ -166,6 +167,17 @@ class StripeVendor:
             amount=amount,
             provider_ref=str(data.get("id") or "")
         )
+
+
+def _stripe_message(response: httpx.Response) -> str:
+    """Stripe's own refusal, or a short fallback."""
+    try:
+        message = (response.json().get("error") or {}).get("message")
+        if message:
+            return str(message)
+    except Exception:
+        pass
+    return f"Stripe request failed ({response.status_code})."
 
 
 def _signed(payload: bytes, header: str, secret: str) -> bool:

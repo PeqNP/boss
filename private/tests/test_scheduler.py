@@ -21,6 +21,7 @@
 import os
 import re
 
+import httpx
 import pytest
 
 from datetime import date, datetime, timedelta
@@ -4895,6 +4896,26 @@ def test_sms_send():
     none = deliver("sms", "+15552340000", "hello")
     assert none.sent is False
     assert none.reason
+
+
+def test_stripe_connect_refusal():
+    """A Stripe 400 is the operator's to read, not a 500."""
+    fresh_database()
+    business_id = a_business()
+    set_vendor("payment", "stripe", {"secretKey": "sk_test_x"})
+
+    refused = httpx.Response(
+        400,
+        request=httpx.Request("POST", "https://api.stripe.com/v1/accounts"),
+        json={"error": {"message": "Enable Connect on this account."}}
+    )
+    # describe: Stripe refuses to create a connected account
+    with pytest.MonkeyPatch.context() as patched:
+        patched.setattr(httpx, "post", lambda *a, **k: refused)
+        with pytest.raises(ValidationError) as err:
+            connect_url(business_id, "https://localhost/return")
+        assert "Enable Connect" in str(err.value), \
+            "it: names Stripe's reason"
 
 
 def test_payment_vendor():
