@@ -54,7 +54,9 @@ class StripeVendor:
             **kwargs
         )
         if response.is_error:
-            raise ValidationError(_stripe_message(response))
+            message = _stripe_message(response)
+            logging.warning(f"Stripe {path} failed: {message}")
+            raise ValidationError(message)
         return response.json()
 
     def connect_url(self, business_id: int, return_url: str) -> str:

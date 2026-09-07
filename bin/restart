@@ -16,6 +16,7 @@
 set -o pipefail
 cd "$(dirname "$0")/.." || exit 1
 
+echo "Restarting Swift..."
 SWIFT=0
 for arg in "$@"; do
     case "$arg" in

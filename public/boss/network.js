@@ -158,7 +158,7 @@ function Network(os) {
                 }
                 else if (!response.ok) {
                     try {
-                        return reponse.json();
+                        return response.json();
                     }
                     catch {
                         throw new NetworkError();
@@ -385,7 +385,7 @@ function Network(os) {
                 }
                 else if (!response.ok) {
                     try {
-                        return reponse.json();
+                        return response.json();
                     }
                     catch {
                         throw new NetworkError();
