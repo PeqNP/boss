@@ -1722,7 +1722,10 @@ would answer that signal with a rule instead of a conversation.
 A window that edits one record and offers Cancel, Delete and Save is a
 **document**. Declaring it hands those three actions to the OS: it asks before
 discarding or deleting, disables the controls while an action runs, gives Enter
-to the default button, and says "Saved" when a save succeeds.
+to the default button, and says "Saved" when a save succeeds. Save stays off
+until the form is dirty, except while creating — a draft that has never been
+saved over keeps Save on even with no edits. Cancel reads Close until the form
+is dirty, then Cancel.
 
 Which windows are documents is decided while planning, not while writing the
 controller — see
@@ -1738,6 +1741,8 @@ function $(this.id)(view, win) {
     "Permanently delete this business and all of its data?",
     null
   );
+  // A draft: Save stays on until the first successful save.
+  this.document.creating = true;
 
   /**
    * @returns {boolean} `true` only when something was written
@@ -1806,6 +1811,13 @@ Rules:
   list box is deliberately excluded — in this OS it is how a window offers
   things to open, so selecting a row is navigation rather than an edit;
   `select[multiple]` is a field and counts.
+- **Save is off until the document is dirty**, except while
+  `this.document.creating` is true. Set that when the window is a draft that
+  has never been saved over. The first successful save clears it. Editing an
+  existing record leaves it false, so Save waits for an edit.
+- **Cancel reads Close when the document is not dirty**, and Cancel when it
+  is. Markup may say either; the OS keeps the title. The action is still
+  `cancel`.
 - **A window that stays open has to stop creating.** After the first successful
   save of a new record, store the returned id so the next save updates rather
   than inserting a second one — and reveal Delete, which had nothing to delete

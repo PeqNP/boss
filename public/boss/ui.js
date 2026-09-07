@@ -57,6 +57,13 @@ function UIDocument(deleteMessage, discardMessage) {
                                     : deleteMessage);
     readOnly(this, "discardMessage",
              isEmpty(discardMessage) ? "Discard your changes?" : discardMessage);
+    // A draft that has never been saved over. Save stays enabled even with
+    // no edits; the first successful save clears it.
+    let creating = false;
+    property(this, "creating",
+        function() { return creating; },
+        function(value) { creating = value === true; }
+    );
 }
 
 /**
@@ -3433,6 +3440,7 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
      */
     function setDirty(dirty) {
         isDirty = dirty === true;
+        syncDocumentActions();
     }
     this.setDirty = setDirty;
 
@@ -3453,6 +3461,60 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
         let buttons = container.querySelectorAll(".controls button");
         for (let i = 0; i < buttons.length; i++) {
             buttons[i].disabled = disabled;
+        }
+        if (!disabled) {
+            syncDocumentActions();
+        }
+    }
+
+    /**
+     * Save waits for dirt except while creating. Cancel reads Close until then.
+     */
+    function syncDocumentActions() {
+        if (isEmpty(controller?.document)) {
+            return;
+        }
+        let creating = controller.document.creating === true;
+        let saveOn = isDirty || creating;
+        let saveBtn = container.querySelector(".controls button[doc-action='save']");
+        if (!isEmpty(saveBtn)) {
+            saveBtn.disabled = !saveOn;
+        }
+        setMenuActionEnabled("save", saveOn);
+        let leave = isDirty ? "Cancel" : "Close";
+        let cancelBtn = container.querySelector(".controls button[doc-action='cancel']");
+        if (!isEmpty(cancelBtn)) {
+            cancelBtn.textContent = leave;
+        }
+        setMenuActionLabel("cancel", leave);
+    }
+
+    function documentMenuOption(action) {
+        if (isEmpty(windowMenus)) {
+            return null;
+        }
+        return windowMenus.querySelector(`option[doc-action='${action}']`);
+    }
+
+    function setMenuActionEnabled(action, enabled) {
+        let option = documentMenuOption(action);
+        if (isEmpty(option)) {
+            return;
+        }
+        option.disabled = !enabled;
+        if (!isEmpty(option.ui)) {
+            option.ui.classList.toggle("disabled", !enabled);
+        }
+    }
+
+    function setMenuActionLabel(action, text) {
+        let option = documentMenuOption(action);
+        if (isEmpty(option)) {
+            return;
+        }
+        option.textContent = text;
+        if (!isEmpty(option.ui)) {
+            option.ui.textContent = text;
         }
     }
 
@@ -3498,6 +3560,7 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
         // `save` reports whether it wrote anything. A form that stopped at a
         // required field returns `false`, and is not congratulated for it.
         if (await controller.save() === true) {
+            controller.document.creating = false;
             setDirty(false);
             showMessage("Saved");
         }
@@ -3632,6 +3695,7 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
         }
 
         wireDocumentMenu(runners);
+        syncDocumentActions();
 
         // The close box is a way out too, and the least deliberate one. Route
         // it through the same asking, or a document loses work to a stray
