@@ -1879,7 +1879,7 @@ function UI(os) {
         }
 
         if (isEmpty(indeterminate)) {
-            indeteriminate = false;
+            indeterminate = false;
         }
 
         let app = await os.application("io.bithead.boss");
@@ -3019,7 +3019,7 @@ function UIApplication(id, config) {
 
     /** NOTICE
      *
-     * System applications will not recieve `applicationDidFocus` or
+     * System applications will not receive `applicationDidFocus` or
      * `applicationDidBlur` signals.
      *
      */
