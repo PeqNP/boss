@@ -5,6 +5,13 @@
       // The business this account works for, read from `/me` at start.
       let businessId = null;
 
+      // `applicationDidStart` is not awaited by the OS. A universal link
+      // must wait for `/me` before it opens a window that needs a business.
+      let resolveStarted;
+      const started = new Promise(function(resolve) {
+        resolveStarted = resolve;
+      });
+
       // --- Controller functions ---
 
       function quit() {
@@ -219,17 +226,22 @@
       // --- Lifecycle ---
 
       async function applicationDidStart() {
-        await os.network.stylesheet(`$(app.resourcePath)/scheduler.css`);
+        try {
+          await os.network.stylesheet(`$(app.resourcePath)/scheduler.css`);
 
-        // A guest is nobody yet, and every route here answers 401 for them.
-        // They get the welcome, which is the only thing this app has to say
-        // until they are someone.
-        if (os.isGuestUser(os.user)) {
-          const win = await $(this.controller).loadController("Welcome");
-          win.ui.show();
-          return;
+          // A guest is nobody yet, and every route here answers 401 for them.
+          // They get the welcome, which is the only thing this app has to say
+          // until they are someone.
+          if (os.isGuestUser(os.user)) {
+            const win = await $(this.controller).loadController("Welcome");
+            win.ui.show();
+            return;
+          }
+          await showMainWindow();
         }
-        await showMainWindow();
+        finally {
+          resolveStarted();
+        }
       }
       this.applicationDidStart = applicationDidStart;
 
@@ -241,6 +253,7 @@
       //   https://bithead.io/a/scheduler/appointment/{handle} → Appointment
       //   https://bithead.io/a/scheduler/config              → BusinessConfig, Payment
       this.openUniversalLink = async function(link) {
+        await started;
         const segments = link.path.split('/').filter(Boolean);
         if (segments.length === 0) {
           return;

@@ -375,6 +375,13 @@
       // --- Lifecycle ---
 
       async function viewDidLoad() {
+        if (isEmpty(businessId)) {
+          businessId = $(app.controller).getBusinessId();
+        }
+        if (isEmpty(businessId)) {
+          os.ui.showError("Failed to load settings. Please try again.");
+          return;
+        }
         let response;
         try {
           response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/config`);
