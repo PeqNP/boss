@@ -94,6 +94,7 @@ def fresh_database():
     db.set_database_name("test-scheduler.sqlite3")
     db.delete_database()
     db.start_database()
+    ensure_system_icons()
 
 
 def test_installation():
@@ -4603,18 +4604,23 @@ def test_business_icons():
         add_icon(business_id, "huge.png", b"x" * (media.MAX_ICON_BYTES + 1))
 
     # describe: the icons the platform ships
-    # The rows are added by hand rather than seeded, so the set starts empty.
-    assert get_icons(business_id, "system") == []
-
-    system = add_system_icon("scissors.svg")
-    assert system.isSystem is True
-    assert system.url == f"/boss/app/{BUNDLE}/img/scissors.svg", \
+    shipped = get_icons(business_id, "system")
+    assert shipped, "it: offers the files in the bundle"
+    assert all(i.isSystem for i in shipped)
+    scissors = [i for i in shipped if i.filename == "scissors.svg"]
+    assert scissors, "it: includes scissors.svg"
+    assert scissors[0].url == f"/boss/app/{BUNDLE}/img/scissors.svg", \
         "it: comes from the bundle, its URL worked out from the filename"
     assert os.path.isfile(os.path.join(REPO, "public", "boss", "app", BUNDLE,
                                        "img", "scissors.svg")), \
         "it: and the bundle carries the file"
-    assert [i.id for i in get_icons(other, "system")] == [system.id], \
+    assert [i.filename for i in get_icons(other, "system")] == \
+        [i.filename for i in shipped], \
         "it: is offered to every business at once"
+
+    extra = add_system_icon("extra.svg")
+    assert extra.isSystem is True
+    assert extra.filename in [i.filename for i in get_icons(other, "system")]
 
     # describe: a kind nobody offers
     with pytest.raises(ValidationError):
@@ -4637,7 +4643,7 @@ def test_business_icons():
     with pytest.raises(ValidationError):
         delete_icon(business_id, theirs.id)
     with pytest.raises(ValidationError):
-        delete_icon(business_id, system.id)
+        delete_icon(business_id, scissors[0].id)
 
 
 def test_business_template_is_remembered():

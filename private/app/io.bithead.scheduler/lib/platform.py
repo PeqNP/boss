@@ -17,7 +17,7 @@ from typing import Dict, List, Optional, Tuple
 
 import holidays
 
-from lib import media
+from lib import get_config, media
 
 from .. import db
 from ..model import *
@@ -33,6 +33,8 @@ SYSTEM_ICON_URL = f"/boss/app/{BUNDLE}/img"
 
 
 ICON_KINDS = ("system", "custom")
+
+_IMAGE_SUFFIXES = (".svg", ".png", ".gif", ".jpg", ".jpeg", ".webp")
 
 # Countries whose holidays this platform fills. US is live. Uncomment a row
 # to fill that country the same way.
@@ -60,6 +62,38 @@ def get_icons(business_id: int, kind: str) -> List[Icon]:
     rows = (db.get_system_icons() if kind == "system"
             else db.get_business_icons(business_id))
     return [_icon(r) for r in rows]
+
+
+def _system_icon_dir() -> str:
+    return os.path.join(
+        get_config().boss_path,
+        "public",
+        "boss",
+        "app",
+        BUNDLE,
+        "img"
+    )
+
+
+def ensure_system_icons() -> int:
+    """Record bundle icons that have no row yet.
+
+    The files live under the bundle's `img` directory. A row is what Choose
+    Icon lists; a file with no row is invisible.
+    """
+    directory = _system_icon_dir()
+    if not os.path.isdir(directory):
+        return 0
+    have = {row.filename for row in db.get_system_icons()}
+    wrote = 0
+    for name in sorted(os.listdir(directory)):
+        if not name.lower().endswith(_IMAGE_SUFFIXES):
+            continue
+        if name in have:
+            continue
+        add_system_icon(name)
+        wrote += 1
+    return wrote
 
 
 def add_system_icon(filename: str) -> Icon:

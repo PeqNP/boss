@@ -2463,6 +2463,7 @@ def start():
     start_database()
     lib.set_sender(_catalog_sender)
     lib.ensure_holidays()
+    lib.ensure_system_icons()
 
 
 def shutdown():
