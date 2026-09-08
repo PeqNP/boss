@@ -15,6 +15,7 @@ from typing import List, Optional
 
 from .. import db
 from ..model import *
+from .contact_fields import get_contact_field_type
 from .exception import Blocked, ValidationError
 from .transform import _job_type, _size
 
@@ -238,11 +239,14 @@ def delete_job_type_attribute(business_id: int, attribute_id: int) -> None:
 
 
 def _contact_field(row: "db.JobTypeContactFieldRow") -> JobTypeContactField:
+    catalog = get_contact_field_type(row.contact_field_type_id)
+    if catalog is None:
+        raise ValidationError("That contact field no longer exists.")
     return JobTypeContactField(
         id=row.id,
         contactFieldTypeId=row.contact_field_type_id,
-        name=row.name,
-        fieldType=row.field_type,
+        name=catalog.name,
+        fieldType=catalog.fieldType,
         isRequired=bool(row.is_required),
         requireOtp=bool(row.require_otp),
         sortOrder=row.sort_order
@@ -261,19 +265,19 @@ def _check_contact_field(
     whether verification can be asked for. The screen hides the checkbox for a
     type that cannot take one; this is what settles it.
     """
-    field_type = db.get_contact_field_type(contact_field_type_id)
-    if field_type is None:
+    catalog = get_contact_field_type(contact_field_type_id)
+    if catalog is None:
         raise ValidationError("That contact field no longer exists.")
-    if require_otp and not field_type.otp_capable:
+    if require_otp and not catalog.otpCapable:
         raise ValidationError(
-            f"{field_type.name} cannot receive a verification code.")
+            f"{catalog.name} cannot receive a verification code.")
 
     # One question per kind of detail. Asking twice puts two boxes for the same
     # thing on the form, and the second value overwrites the first.
     for existing in db.get_job_type_contact_fields(job_type_id):
         if existing.contact_field_type_id == contact_field_type_id \
                 and existing.id != field_id:
-            raise ValidationError(f"This already asks for {field_type.name}.")
+            raise ValidationError(f"This already asks for {catalog.name}.")
 
 
 def add_job_type_contact_field(

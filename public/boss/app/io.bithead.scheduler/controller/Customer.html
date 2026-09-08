@@ -72,8 +72,7 @@
         }
         hasBossAccount = response.hasBossAccount;
 
-        setField("first-name", response.firstName);
-        setField("last-name", response.lastName);
+        setField("name", response.name);
         setField("phone", response.phone);
         setField("email", response.email);
         setField("address-line1", response.addressLine1);
@@ -171,8 +170,7 @@
           return false;
         }
         const payload = {
-          firstName: win.input("first-name").value,
-          lastName: win.input("last-name").value,
+          name: win.input("name").value,
           phone: win.input("phone").value,
           email: win.input("email").value,
           addressLine1: win.input("address-line1").value,
@@ -244,12 +242,8 @@
       <legend>Contact Info</legend>
       <div class="vbox gap-10">
         <div class="text-field">
-          <label for="first-name">First Name</label>
-          <input type="text" name="first-name">
-        </div>
-        <div class="text-field">
-          <label for="last-name">Last Name</label>
-          <input type="text" name="last-name">
+          <label for="name">Full Name</label>
+          <input type="text" name="name">
         </div>
         <div class="text-field">
           <label for="phone">Phone</label>

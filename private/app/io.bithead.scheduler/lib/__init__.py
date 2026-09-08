@@ -33,6 +33,7 @@ from .job_type import *
 from .money import *
 from .platform import *
 from .templates import *
+from .contact_fields import *
 from .vendor import *
 
 from .customer import *

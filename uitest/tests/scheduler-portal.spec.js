@@ -80,10 +80,10 @@ test.describe("scheduler employee portal", () => {
 
     // Two jobs today, one each. The colleague's is what proves the narrowing.
     rosaJob = await book(page, businessId, what, today(), "09:00",
-                         { "First Name": "Jane", "Last Name": "Doe",
+                         { "Full Name": "Jane Doe",
                            "Phone": "555-0101" });
     colleagueJob = await book(page, businessId, what, today(), "14:00",
-                              { "First Name": "Marco", "Last Name": "Ruiz",
+                              { "Full Name": "Marco Ruiz",
                                 "Phone": "555-0202" });
     await assign(page, rosaJob, "09:00", [rosaId]);
     await assign(page, colleagueJob, "14:00", [what.employeeId]);

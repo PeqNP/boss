@@ -1,9 +1,10 @@
 #
 # Scheduler — the records the platform keeps, and every business draws from.
 #
-# Holidays, contact field types, vendors, the hold timeout, and the system
-# icon set: one copy each, maintained by whoever runs the platform and chosen
-# from by every business on it. Business templates are code, in `templates.py`.
+# Holidays, vendors, the hold timeout, and the system icon set: one copy
+# each, maintained by whoever runs the platform and chosen from by every
+# business on it. Business templates and contact field types are code, in
+# `templates.py` and `contact_fields.py`.
 #
 # A business never edits these. It picks from them, and what it picks is stored
 # against the business.
@@ -297,117 +298,6 @@ def delete_business(business_id: int) -> None:
         raise ValidationError(
             f"This business has {booked} appointment(s). Close it instead.")
     db.delete_business(business_id)
-
-
-# The kinds a screen knows how to draw.
-CONTACT_FIELD_TYPES = ("text", "phone", "email", "address_line",
-                       "city", "state", "zip")
-
-
-# A code reaches a phone or an inbox, and nothing else.
-OTP_REACHABLE = ("phone", "email")
-
-
-def _check_contact_field_type(
-    name: str,
-    field_type: str,
-    otp_capable: bool,
-    field_id: Optional[int] = None
-):
-    if not name.strip():
-        raise ValidationError("Please name the field.")
-    if field_type not in CONTACT_FIELD_TYPES:
-        raise ValidationError(
-            f"A field is one of: {', '.join(CONTACT_FIELD_TYPES)}.")
-    if otp_capable and field_type not in OTP_REACHABLE:
-        raise ValidationError(
-            f"A verification code reaches a {' or a '.join(OTP_REACHABLE)}.")
-
-    # Two fields of the same name are two boxes a customer cannot tell apart.
-    for existing in db.get_contact_field_types():
-        if existing.name.lower() == name.strip().lower() \
-                and existing.id != field_id:
-            raise ValidationError(f"There is already a {existing.name} field.")
-
-
-def add_contact_field_type(
-    name: str,
-    field_type: str,
-    otp_capable: bool = False
-) -> ContactFieldType:
-    """Offer every business one more kind of detail to ask for."""
-    _check_contact_field_type(name, field_type, otp_capable)
-    field_id = db.insert_contact_field_type(
-        name.strip(),
-        field_type,
-        1 if otp_capable else 0,
-        db.next_contact_field_type_sort_order()
-    )
-    return [f for f in get_contact_field_types() if f.id == field_id][0]
-
-
-def update_contact_field_type(
-    field_id: int,
-    name: str,
-    field_type: str,
-    otp_capable: bool = False
-) -> ContactFieldType:
-    if db.get_contact_field_type(field_id) is None:
-        raise ValidationError("That field no longer exists.")
-    _check_contact_field_type(name, field_type, otp_capable, field_id)
-    db.set_contact_field_type(
-        field_id,
-        name.strip(),
-        field_type,
-        1 if otp_capable else 0
-    )
-    return [f for f in get_contact_field_types() if f.id == field_id][0]
-
-
-def delete_contact_field_type(field_id: int) -> None:
-    """Stop offering it.
-
-    A field a job type is asking for stays: removing it would leave a booking
-    form asking for something the platform no longer has a name for.
-    """
-    if db.get_contact_field_type(field_id) is None:
-        raise ValidationError("That field no longer exists.")
-    asking = db.count_job_types_asking_for(field_id)
-    if asking:
-        raise ValidationError(
-            f"{asking} job type(s) ask for this field. Remove it from them first.")
-    db.delete_contact_field_type(field_id)
-
-
-def reorder_contact_field_types(field_ids: List[int]) -> List[ContactFieldType]:
-    """Ask for them in this order, everywhere.
-
-    The whole order arrives each time, as the job type's own reorder does.
-    """
-    current = [f.id for f in db.get_contact_field_types()]
-    if sorted(field_ids) != sorted(current):
-        raise ValidationError("That order no longer matches the fields there are.")
-    for position, field_id in enumerate(field_ids):
-        db.set_contact_field_type_sort_order(field_id, position)
-    return get_contact_field_types()
-
-
-def get_contact_field_types() -> List[ContactFieldType]:
-    """The kinds of contact information a job type may ask a customer for.
-
-    A business chooses from these rather than inventing them, which is why the
-    kiosk can trust that a field marked verifiable can receive a code.
-    """
-    return [
-        ContactFieldType(
-            id=r.id,
-            name=r.name,
-            fieldType=r.field_type,
-            otpCapable=bool(r.otp_capable),
-            sortOrder=r.sort_order
-        )
-        for r in db.get_contact_field_types()
-    ]
 
 
 def get_schedule_timeout_minutes() -> int:

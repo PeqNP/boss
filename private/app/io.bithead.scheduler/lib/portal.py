@@ -13,6 +13,7 @@ from .. import db
 from ..model import *
 from .employee import (get_employee, get_employee_job_types, get_time_off,
                        get_working_days, set_employee_job_types)
+from .contact_fields import typed_contact
 from .exception import ValidationError
 from .time import _end_time, display_date, display_time
 
@@ -112,7 +113,7 @@ def get_employee_today(
 
     jobs = []
     for job in db.get_jobs_for_employee(row.id, date):
-        typed = {c.name: c.value for c in db.get_job_contact(job.id)}
+        typed = typed_contact(db.get_job_contact(job.id))
         jobs.append(EmployeeTodayJob(
             id=job.id,
             jobCode=job.job_code,
@@ -121,8 +122,7 @@ def get_employee_today(
             endTime=_end_time(job.scheduled_time, job.duration_minutes),
             displayTime=display_time(job.scheduled_time),
             customer=EmployeeTodayJobCustomer(
-                firstName=typed.get("First Name", ""),
-                lastName=typed.get("Last Name", ""),
+                name=typed.get("Full Name", ""),
                 phone=typed.get("Phone", ""),
                 addressLine1=typed.get("Address Line 1", ""),
                 city=typed.get("City", ""),

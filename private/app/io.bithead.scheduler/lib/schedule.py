@@ -201,8 +201,7 @@ def get_schedule_day(
                 id=r.id,
                 jobCode=r.job_code,
                 jobType=r.job_type_name,
-                customerName=" ".join(
-                part for part in (r.first_name, r.last_name) if part),
+                customerName=r.name or "",
                 startTime=r.scheduled_time,
                 endTime=_end_time(r.scheduled_time, r.duration_minutes),
                 startMinuteOffset=to_minutes(r.scheduled_time),
@@ -229,8 +228,7 @@ def get_unassigned_jobs(business_id: int) -> List[JobsUnassignedJob]:
             id=r.id,
             jobCode=r.job_code,
             jobType=r.job_type_name,
-            customerName=" ".join(
-            part for part in (r.first_name, r.last_name) if part),
+            customerName=r.name or "",
             scheduledDate=r.scheduled_date,
             scheduledTime=r.scheduled_time,
             displayDate=display_date(r.scheduled_date),

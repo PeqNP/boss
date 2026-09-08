@@ -91,12 +91,6 @@
       }
       this.showBusinesses = showBusinesses;
 
-      async function showContactFields() {
-        const win = await $(this.controller).loadController("ContactFields");
-        win.ui.show();
-      }
-      this.showContactFields = showContactFields;
-
       async function showHolidays() {
         const win = await $(this.controller).loadController("Holidays");
         win.ui.show();
@@ -715,7 +709,6 @@
       <select name="superadmin-menu">
         <option>Admin</option>
         <option onclick="$(this.controller).showBusinesses();">Businesses</option>
-        <option onclick="$(this.controller).showContactFields();">Contact Fields</option>
         <option onclick="$(this.controller).showHolidays();">Holidays</option>
         <option onclick="$(this.controller).showTimeout();">Schedule Timeout</option>
         <option onclick="$(this.controller).showVendors();">Vendor Integrations</option>

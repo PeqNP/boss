@@ -93,12 +93,6 @@
         "ActiveBusiness": {
             "singleton": true
         },
-        "ContactFields": {
-            "singleton": true
-        },
-        "ContactField": {
-            "modal": true
-        },
         "Holidays": {
             "singleton": true
         },

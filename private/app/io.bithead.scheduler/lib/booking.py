@@ -20,6 +20,9 @@ from .exception import *
 from .availability import _duration_minutes
 from .business import get_business
 from .notify import channel_for, send, set_sender
+from .contact_fields import (
+    get_contact_field_type, get_contact_field_type_by_name, typed_contact
+)
 from .platform import get_schedule_timeout_minutes
 from .time import _stamp, display_date, display_time
 
@@ -134,14 +137,15 @@ def confirm_session(
     """
     row = _live_session(session_token, now)
     for key, value in (contact or {}).items():
-        field = (db.get_contact_field_type_for_job_type_field(key)
-                 if isinstance(
-                     key,
-                     int
-                 ) else db.get_contact_field_type_by_name(key))
-        if field is None:
+        if isinstance(key, int):
+            found = db.get_contact_field_type_for_job_type_field(key)
+            type_id = None if found is None else found[0]
+        else:
+            catalog = get_contact_field_type_by_name(key)
+            type_id = None if catalog is None else catalog.id
+        if type_id is None:
             raise ValidationError(f"There is no contact field ({key}).")
-        db.insert_job_contact(row.job_id, field[0], value)
+        db.insert_job_contact(row.job_id, type_id, value)
 
     for attribute_id, value in (attributes or {}).items():
         db.insert_job_attribute(
@@ -155,7 +159,7 @@ def confirm_session(
     # fields by id and a test keys them by name — this is where both are the
     # same thing again.
     job = db.get_scheduled_job(row.job_id)
-    typed = {c.name: c.value for c in db.get_job_contact(row.job_id)}
+    typed = typed_contact(db.get_job_contact(row.job_id))
     db.set_job_customer(
         row.job_id,
         find_or_create_customer(job.business_id, typed, user_id).id
@@ -296,17 +300,17 @@ def send_booking_confirmation(job_id: int) -> List[Delivery]:
     message = _confirmation_message(row)
 
     out = []
-    for field_type, channel in (("phone", "sms"), ("email", "email")):
+    given = typed_contact(db.get_job_contact(job_id))
+    for name, channel in (("Phone", "sms"), ("Email", "email")):
         if not wanted[channel]:
             continue
-        for contact in db.get_job_contact(job_id):
-            if contact.field_type == field_type and contact.value.strip():
-                send(channel, contact.value, message)
-                out.append(Delivery(
-                    channel=channel,
-                    sentTo=_mask(channel, contact.value)
-                ))
-                break
+        value = (given.get(name) or "").strip()
+        if value:
+            send(channel, value, message)
+            out.append(Delivery(
+                channel=channel,
+                sentTo=_mask(channel, value)
+            ))
     return out
 
 
@@ -320,6 +324,7 @@ def contact_value_for(session_token: str, field_type: str) -> str:
     if row is None:
         raise SessionExpired("Your session has expired. Please choose a time again.")
     for contact in db.get_job_contact(row.job_id):
-        if contact.field_type == field_type:
+        catalog = get_contact_field_type(contact.contact_field_type_id)
+        if catalog is not None and catalog.fieldType == field_type:
             return contact.value
     raise ValidationError(f"No {field_type} was given for this appointment.")

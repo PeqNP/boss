@@ -1277,9 +1277,9 @@ async def get_stripe_products(
 @router.get("/contact-fields", response_model=ContactFields)
 @handled
 async def get_contact_fields(request: Request):
-    # The kinds of detail a job type may ask for. Seeded once per installation
-    # and chosen from, so the kiosk can trust that a field marked `otpCapable`
-    # can receive a code.
+    # The kinds of detail a job type may ask for. A code catalog, chosen from,
+    # so the kiosk can trust that a field marked `otpCapable` can receive a
+    # code.
     return ContactFields(fields=lib.get_contact_field_types())
 
 
@@ -2088,54 +2088,6 @@ async def disable_business(business_id: int, boss_user: User, request: Request):
 async def superadmin_delete_business(business_id: int, request: Request):
     lib.delete_business(business_id)
     return Success(success=True)
-
-
-@router.post("/contact-field", response_model=ContactFieldType)
-@require_admin()
-@handled
-async def superadmin_create_contact_field(
-    request: Request,
-    body: ContactFieldTypeBody
-):
-    return lib.add_contact_field_type(
-        body.name,
-        body.fieldType,
-        body.otpCapable
-    )
-
-
-@router.put("/contact-field/{field_id}", response_model=ContactFieldType)
-@require_admin()
-@handled
-async def superadmin_update_contact_field(
-    field_id: int,
-    request: Request,
-    body: ContactFieldTypeBody
-):
-    return lib.update_contact_field_type(
-        field_id,
-        body.name,
-        body.fieldType,
-        body.otpCapable
-    )
-
-
-@router.delete("/contact-field/{field_id}", response_model=Success)
-@require_admin()
-@handled
-async def superadmin_delete_contact_field(field_id: int, request: Request):
-    lib.delete_contact_field_type(field_id)
-    return Success(success=True)
-
-
-@router.post("/contact-fields/reorder", response_model=ContactFields)
-@require_admin()
-@handled
-async def superadmin_reorder_contact_fields(
-    request: Request,
-    body: ReorderBody
-):
-    return ContactFields(fields=lib.reorder_contact_field_types(body.ids))
 
 
 @router.get("/system-holidays/years", response_model=SystemHolidayYears)

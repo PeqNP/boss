@@ -32,7 +32,7 @@ the model's name for a form, its plural for a list, no verb suffixes.
 | Employees | `Employees`, `Employee` | `EmployeeSchedule`, `EmployeeTimeOff` |
 | Customers | `Customers`, `Customer` | `CustomerNote` |
 | Employee portal | `EmployeeDashboard`, `EmployeeProfile` | |
-| Super admin | `Businesses`, `ActiveBusiness`, `BusinessConfig`, `ContactFields`, `Holidays`, `ScheduleTimeout`, `Vendors` | `ContactField` |
+| Super admin | `Businesses`, `ActiveBusiness`, `BusinessConfig`, `Holidays`, `ScheduleTimeout`, `Vendors` | |
 
 ### Documents
 
@@ -184,11 +184,10 @@ The children this app has, and the modal that edits each:
 | `Employee` | working days | `EmployeeSchedule` |
 | `Employee` | time off | `EmployeeTimeOff` |
 | `Customer` | notes | `CustomerNote` |
-| `ContactFields` | contact field types (ordered) | `ContactField` |
 
-`Customer` and the super-admin field-type list create nothing up front — a
-customer is created by scheduling, and a field type is a top-level record —
-so their Add button opens the modal with no parent to draft.
+
+`Customer` creates nothing up front — a customer is created by scheduling —
+so there is no Add on that window.
 
 ---
 
@@ -255,7 +254,6 @@ business, and that business is the one the caller runs.
 | Page | Reached by |
 |---|---|
 | `Businesses` → `ActiveBusiness` | the Admin menu; Edit sets the acting business |
-| `ContactFields` → `ContactField` | the Admin menu |
 | `Holidays` · `ScheduleTimeout` · `Vendors` | the Admin menu |
 
 **Shared** — two audiences, one page. Each row states which record the caller
@@ -822,7 +820,7 @@ Created as a draft on open, so the child lists work before anything is named.
 - `GET /api/io.bithead.scheduler/icons?type=system|custom` → icon list
 - `POST /api/io.bithead.scheduler/icons` → upload custom icon (multipart)
 - `GET /api/io.bithead.scheduler/stripe/products` → list Stripe products from connected account
-- `GET /api/io.bithead.scheduler/contact-fields` → system contact field types (from super admin config)
+- `GET /api/io.bithead.scheduler/contact-fields` → contact field catalog (`lib/contact_fields.py`)
 
 ---
 
@@ -1007,18 +1005,11 @@ Model form for creating and editing a business. Fields: name, owner name, phone,
 
 ---
 
-#### `ContactFields`
-System-wide contact field types, as an ordered list box. Add and Edit open `ContactField`; up and down post the whole order and the list is redrawn from what the server hands back. Delete lives in the modal.
-
-**Default fields (seeded on install):** first name, last name, phone, email, address line 1, address line 2, city, state, zip.
-**Field properties:** name, type (text/phone/email/address), validation supported (bool), OTP capable (bool).
-
-**Stub endpoints:**
-- `GET /api/io.bithead.scheduler/contact-fields` → ordered list
-- `POST /api/io.bithead.scheduler/contact-field` → create
-- `PUT /api/io.bithead.scheduler/contact-field/{id}` → update
-- `DELETE /api/io.bithead.scheduler/contact-field/{id}` → delete
-- `POST /api/io.bithead.scheduler/contact-fields/reorder` → `{ ids: [int] }`
+#### Contact field types
+A code catalog in `lib/contact_fields.py`, same shape as business types.
+Fixed ids. A job type picks from the list; it does not invent fields.
+Full Name, Phone, Email, address lines, City, State, Zip.
+`GET /api/io.bithead.scheduler/contact-fields` returns the catalog.
 
 ---
 
@@ -1148,14 +1139,6 @@ CREATE TABLE system_config (
     value TEXT NOT NULL
 );
 -- Seeded: ('schedule_timeout_minutes', '10')
-
-CREATE TABLE contact_field_types (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    field_type TEXT NOT NULL,       -- text | phone | email | address_line | city | state | zip
-    otp_capable INTEGER NOT NULL DEFAULT 0,
-    sort_order INTEGER NOT NULL
-);
 
 CREATE TABLE system_holidays (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1315,7 +1298,7 @@ CREATE TABLE job_type_employees (
 CREATE TABLE job_type_contact_fields (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     job_type_id INTEGER NOT NULL REFERENCES job_types(id),
-    contact_field_type_id INTEGER NOT NULL REFERENCES contact_field_types(id),
+    contact_field_type_id INTEGER NOT NULL,
     is_required INTEGER NOT NULL DEFAULT 1,
     require_otp INTEGER NOT NULL DEFAULT 0,
     sort_order INTEGER NOT NULL DEFAULT 0
@@ -1367,7 +1350,7 @@ CREATE TABLE job_employees (
 CREATE TABLE job_contact_info (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     job_id INTEGER NOT NULL REFERENCES scheduled_jobs(id),
-    contact_field_type_id INTEGER NOT NULL REFERENCES contact_field_types(id),
+    contact_field_type_id INTEGER NOT NULL,
     value TEXT NOT NULL
 );
 
@@ -1465,8 +1448,7 @@ CREATE TABLE customers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     business_id INTEGER NOT NULL REFERENCES businesses(id),
     user_id INTEGER,           -- NULL if no BOSS account
-    first_name TEXT NOT NULL,
-    last_name TEXT NOT NULL,
+    name TEXT NOT NULL,
     phone TEXT,
     email TEXT,
     address_line1 TEXT,
@@ -1655,7 +1637,7 @@ private/app/io.bithead.scheduler/
 ```
 
 ### `db.py` Responsibilities
-- `start_database()` — create tables, seed contact_field_types, seed system_config. Business types are code in `lib/templates.py`.
+- `start_database()` — create tables, seed system_config. Business types are code in `lib/templates.py`. Contact field types are code in `lib/contact_fields.py`.
 - One function per query; no business logic; returns typed model instances
 - `delete_database()` for test teardown
 
@@ -1731,7 +1713,7 @@ Replace each stub endpoint body with a call to the corresponding `lib.py` or `db
 - [x] Customer list + detail + notes
 - [x] Financial report + CSV export
 - [x] Search jobs
-- [x] Super admin: businesses, contact fields, holidays, timeout, vendors
+- [x] Super admin: businesses, holidays, timeout, vendors
 - [x] Employee portal: today view, calendar, profile self-management
 - [x] Background jobs: cleanup, recurrence materialization, reminders
 - [x] Booking confirmation by text and email through `lib/vendor/`
@@ -1768,8 +1750,9 @@ Extraction ran bottom-up, because a submodule cannot import the package that imp
 | 3 | `employee.py` | The people a business schedules, when each works, when they are away, and who is on a job. |
 | 3 | `job_type.py` | The work a business offers: sizes, attributes, and the contact fields the kiosk collects. |
 | 3 | `money.py` | What an appointment costs, what was paid, and what the business took over a period. |
-| 3 | `platform.py` | Holidays, contact field types, the hold timeout, the system icons. |
+| 3 | `platform.py` | Holidays, the hold timeout, the system icons. |
 | 3 | `templates.py` | The kinds of business an operator may start from. Code, not rows. |
+| 3 | `contact_fields.py` | The kinds of contact detail a job type may ask for. Code, not rows. |
 | 4 | `customer.py` | The people a business books work for, and matching one to a booking. |
 | 4 | `kiosk.py` | What a customer standing at the kiosk is shown, narrower than what an operator sees. |
 | 4 | `membership.py` | Which business somebody belongs to, and as what. Opens one, so it sits above `business`. |

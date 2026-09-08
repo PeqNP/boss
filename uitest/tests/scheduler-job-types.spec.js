@@ -156,7 +156,7 @@ test.describe("scheduler job types", () => {
   test("reorder job type contact fields", async ({ page }) => {
     const { win, jobTypeId } = await openSaved(page);
 
-    for (const kind of ["First Name", "Phone"]) {
+    for (const kind of ["Full Name", "Phone"]) {
       await action(win, "addContactField").click();
       const modal = windowByTitle(page, "Contact Field");
       await expect(modal).toBeVisible();
@@ -176,7 +176,7 @@ test.describe("scheduler job types", () => {
     await expect
       .poll(async () => (await detail(page, jobTypeId)).contactFields.map((f) => f.name),
             { message: "the order never reached the server" })
-      .toEqual(["Phone", "First Name"]);
+      .toEqual(["Phone", "Full Name"]);
   });
 
   test("delete job type size", async ({ page }) => {

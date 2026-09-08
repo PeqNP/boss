@@ -59,10 +59,10 @@ test.describe("scheduler customers", () => {
       .newContext({ ignoreHTTPSErrors: true });
     const anon = await stranger.newPage();
     await book(anon, businessId, what, tomorrow(), "10:00",
-               { "First Name": "Jane", "Last Name": "Doe",
+               { "Full Name": "Jane Doe",
                  "Phone": "555-0101" });
     await book(anon, businessId, what, tomorrow(), "13:00",
-               { "First Name": "Marco", "Last Name": "Ruiz",
+               { "Full Name": "Marco Ruiz",
                  "Phone": "555-0202" });
     await stranger.close();
 
@@ -80,10 +80,10 @@ test.describe("scheduler customers", () => {
     return (await response.json()).customers;
   }
 
-  /** The id of the customer whose last name is `lastName`. */
-  async function customerId(page, lastName) {
-    const found = (await customers(page)).find((c) => c.lastName === lastName);
-    expect(found, `the booking recorded no customer called ${lastName}`)
+  /** The id of the customer whose name includes `who`. */
+  async function customerId(page, who) {
+    const found = (await customers(page)).find((c) => c.name.includes(who));
+    expect(found, `the booking recorded no customer called ${who}`)
       .toBeTruthy();
     return found.id;
   }
@@ -150,7 +150,7 @@ test.describe("scheduler customers", () => {
   test("show customer appointments", async ({ page }) => {
     const win = await openCustomer(page, "Jane Doe");
 
-    await expect(win.locator("input[name='first-name']")).toHaveValue("Jane");
+    await expect(win.locator("input[name='name']")).toHaveValue("Jane Doe");
     await expect(win.locator("input[name='phone']")).toHaveValue("555-0101");
 
     // The appointment this customer holds, and only theirs. Marco booked the
@@ -179,12 +179,12 @@ test.describe("scheduler customers", () => {
     const id = await customerId(page, "Doe");
     const win = await openCustomer(page, "Jane Doe");
 
-    await win.locator("input[name='first-name']").fill("");
+    await win.locator("input[name='name']").fill("");
     await docAction(win, "save").click();
 
     await expect(win.locator(".ui-window-message"))
-      .toContainText("first and last name");
-    expect((await detail(page, id)).firstName).toBe("Jane");
+      .toContainText("Please provide a name");
+    expect((await detail(page, id)).name).toBe("Jane Doe");
   });
 
   test("add note", async ({ page }) => {
@@ -275,11 +275,11 @@ test.describe("scheduler customers", () => {
     await ensureAccount(page, holder);
     await signInAs(page, holder);
     await book(page, businessId, what, tomorrow(), "15:00",
-               { "First Name": "Ada", "Last Name": "Byron",
+               { "Full Name": "Ada Byron",
                  "Phone": "555-0303" });
 
     await signInAsOperator(page);
-    const ada = (await customers(page)).find((c) => c.lastName === "Byron");
+    const ada = (await customers(page)).find((c) => c.name === "Ada Byron");
     expect(ada, "the booking recorded no customer").toBeTruthy();
     expect(ada.hasBossAccount, "the account was not attached").toBe(true);
 
@@ -292,17 +292,17 @@ test.describe("scheduler customers", () => {
     // way to write over somebody's own record of themselves.
     await expect(win.locator("[name='boss-account-notice']")).toBeVisible();
     await expect(win.locator("button[name='save-btn']")).toBeHidden();
-    await expect(win.locator("input[name='first-name']"))
+    await expect(win.locator("input[name='name']"))
       .toHaveAttribute("readonly", "");
 
     // Refused on the server as well, so the hidden button is not the rule.
     const written = await page.request.put(
       `${API}/business/${businessId}/customer/${ada.id}`,
-      { data: { firstName: "Someone", lastName: "Else" } });
+      { data: { name: "Someone Else" } });
     expect(written.ok(), "an operator wrote over an account holder's details")
       .toBe(false);
-    expect((await detail(page, ada.id)).firstName, "the details changed")
-      .toBe("Ada");
+    expect((await detail(page, ada.id)).name, "the details changed")
+      .toBe("Ada Byron");
   });
 
   test("note scoping", async ({ page }) => {

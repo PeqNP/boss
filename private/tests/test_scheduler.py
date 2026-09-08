@@ -108,12 +108,14 @@ def test_installation():
     """
     fresh_database()
 
-    # describe: contact field types are seeded
+    # describe: contact field types are the catalog in code
     fields = get_contact_field_types()
     names = [f.name for f in fields]
-    assert names == ["First Name", "Last Name", "Phone", "Email", "Address Line 1",
+    assert names == ["Full Name", "Phone", "Email", "Address Line 1",
                      "Address Line 2", "City", "State", "Zip"], \
-        "it: seeds the fields a customer can be asked for, in the order asked"
+        "it: offers the fields a customer can be asked for, in the order asked"
+    assert [f.id for f in fields] == [1, 2, 3, 4, 5, 6, 7, 8], \
+        "it: keeps the ids fixed, so a stored choice still names the same field"
 
     verifiable = [f.name for f in fields if f.otpCapable]
     assert verifiable == ["Phone", "Email"], \
@@ -147,7 +149,7 @@ def test_installation_idempotent():
     db.start_database()
     db.start_database()
 
-    assert len(get_contact_field_types()) == 9, "it: seeds the field types once"
+    assert len(get_contact_field_types()) == 8, "it: still offers the same field types"
     assert len(get_business_templates()) == 6, "it: still offers the same six types"
 
 
@@ -1392,7 +1394,7 @@ def test_send_reminders():
     sent = sent_codes()
 
     business_id, job_type_id, size_id, alice, _ = a_scheduled_business()
-    contact = {"First Name": "Jane", "Phone": "555-0101"}
+    contact = {"Full Name": "Jane", "Phone": "555-0101"}
     tomorrow = book_at(business_id, job_type_id, size_id, "2026-09-02", "10:00",
                        [alice], contact=contact)
     later = book_at(business_id, job_type_id, size_id, "2026-09-03", "10:00",
@@ -2675,12 +2677,12 @@ def test_customers():
     fresh_database()
 
     business_id = a_business(increment=30)
-    jane = create_customer(business_id, "Jane", "Doe",
+    jane = create_customer(business_id, "Jane Doe",
                            phone="(555) 234-5678", email="jane@example.com")
-    create_customer(business_id, "John", "Smith", phone="(555) 345-6789")
+    create_customer(business_id, "John Smith", phone="(555) 345-6789")
 
     # describe: listing them
-    assert [f"{c.firstName} {c.lastName}" for c in get_customers(business_id)] == \
+    assert [c.name for c in get_customers(business_id)] == \
         ["Jane Doe", "John Smith"], "it: lists who has been served"
 
     # describe: another business
@@ -2688,9 +2690,9 @@ def test_customers():
     assert get_customers(other) == [], "it: never lists somebody else's customers"
 
     # describe: searching as the operator types
-    assert [c.lastName for c in get_customers(business_id, "smi")] == ["Smith"], \
+    assert [c.name for c in get_customers(business_id, "smi")] == ["John Smith"], \
         "it: finds them by name, whatever the case"
-    assert [c.firstName for c in get_customers(business_id, "234")] == ["Jane"], \
+    assert [c.name for c in get_customers(business_id, "234")] == ["Jane Doe"], \
         "it: and by any part of the phone number"
     assert get_customers(business_id, "zzz") == [], "it: or finds nobody"
 
@@ -2707,7 +2709,7 @@ def test_customers():
 
     # describe: a name that is blank
     with pytest.raises(ValidationError):
-        update_customer(business_id, jane.id, {"firstName": "  "})
+        update_customer(business_id, jane.id, {"name": "  "})
 
     # describe: a detail the customer form does not have
     with pytest.raises(ValidationError):
@@ -2725,7 +2727,7 @@ def test_customer_boss_account():
     fresh_database()
 
     business_id = a_business(increment=30)
-    linked = create_customer(business_id, "Ada", "Lovelace",
+    linked = create_customer(business_id, "Ada Lovelace",
                              phone="(555) 111-0000", user_id=42)
 
     assert get_customer(business_id, linked.id).hasBossAccount is True
@@ -2742,8 +2744,8 @@ def test_customer_notes():
     fresh_database()
 
     business_id = a_business(increment=30)
-    jane = create_customer(business_id, "Jane", "Doe", phone="(555) 234-5678")
-    john = create_customer(business_id, "John", "Smith")
+    jane = create_customer(business_id, "Jane Doe", phone="(555) 234-5678")
+    john = create_customer(business_id, "John Smith")
 
     # describe: writing one
     note = add_customer_note(business_id, jane.id, "Prefers morning appointments.", user_id=7)
@@ -2796,7 +2798,7 @@ def test_customer_appointment_history():
     business_id = a_business(increment=30)
     job_type_id, size_id = a_job_type(business_id, duration=60)
     an_employee(business_id, job_type_id)
-    jane = create_customer(business_id, "Jane", "Doe", phone="(555) 234-5678")
+    jane = create_customer(business_id, "Jane Doe", phone="(555) 234-5678")
 
     held = create_job_session(business_id, job_type_id, size_id, MONDAY, "09:00",
                               now=NOW)
@@ -2823,10 +2825,10 @@ def test_job_search_by_customer():
     jane = create_job_session(business_id, mowing, size, MONDAY, "10:00",
                               employee_ids=[alice])
     confirm_session(jane.sessionToken, contact={
-        "First Name": "Jane", "Last Name": "Doe", "Phone": "(555) 234-5678"})
+        "Full Name": "Jane Doe", "Phone": "(555) 234-5678"})
     john = create_job_session(business_id, mowing, size, TUESDAY, "10:00")
     confirm_session(john.sessionToken, contact={
-        "First Name": "John", "Last Name": "Smith", "Phone": "(555) 345-6789"})
+        "Full Name": "John Smith", "Phone": "(555) 345-6789"})
 
     # describe: the row the screen draws
     row = [j for j in search_jobs(business_id) if j.id == jane.jobId][0]
@@ -2866,13 +2868,13 @@ def test_operator_job_view():
     size_id = add_job_type_size(business_id, mowing, "Medium", 60, 80.0).id
     attribute = add_job_type_attribute(business_id, mowing, "Property Size (sq ft)", "number")
     alice = an_employee(business_id, mowing)
-    jane = create_customer(business_id, "Jane", "Doe",
+    jane = create_customer(business_id, "Jane Doe",
                            phone="(555) 234-5678", email="jane@example.com")
 
     held = create_job_session(business_id, mowing, size_id, MONDAY, "09:00",
                               employee_ids=[alice])
     confirm_session(held.sessionToken,
-                    contact={"First Name": "Jane", "Last Name": "Doe",
+                    contact={"Full Name": "Jane Doe",
                              "Phone": "+15552340000"},
                     attributes={attribute.id: 2500})
     link_job_to_customer(held.jobId, jane.id)
@@ -2945,15 +2947,15 @@ def test_operator_job_view_no_customer():
     job = get_job_detail(business_id, held.jobId)
     assert job.status == "pending", "it: is a held time, not a booking"
     assert job.customer.id == 0, "it: has no customer record behind it"
-    assert job.customer.firstName == "", "it: and nothing has been typed yet"
+    assert job.customer.name == "", "it: and nothing has been typed yet"
     assert job.employees == [], "it: with nobody assigned"
 
     # describe: the customer finishing
     confirm_session(held.sessionToken, contact={
-        "First Name": "Sam", "Last Name": "Reyes", "Phone": "(555) 777-1234"})
+        "Full Name": "Sam Reyes", "Phone": "(555) 777-1234"})
     job = get_job_detail(business_id, held.jobId)
     assert job.customer.id != 0, "it: is somebody the business has served now"
-    assert job.customer.firstName == "Sam"
+    assert job.customer.name == "Sam Reyes"
     assert job.customer.phone == "(555) 777-1234"
 
 
@@ -3029,17 +3031,17 @@ def test_booking_matches_customer():
 
     # describe: the first booking anyone makes
     first = a_booking_for(business_id, mowing, size_id, MONDAY, "09:00", {
-        "First Name": "Jane", "Last Name": "Doe",
+        "Full Name": "Jane Doe",
         "Email": "jane@example.com", "Phone": "(555) 234-5678"})
     jane = get_job_detail(business_id, first.jobId).customer
     assert jane.id != 0, "it: is recorded as a customer of this business"
-    assert jane.firstName == "Jane"
+    assert jane.name == "Jane Doe"
     assert [c.id for c in get_customers(business_id)] == [jane.id], \
         "it: and shows on the Customers screen"
 
     # describe: the same person booking again
     second = a_booking_for(business_id, mowing, size_id, TUESDAY, "09:00", {
-        "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
+        "Full Name": "Jane Doe", "Email": "jane@example.com"})
     assert get_job_detail(business_id, second.jobId).customer.id == jane.id, \
         "it: is the same customer, not a second record"
     assert len(get_customers(business_id)) == 1
@@ -3048,13 +3050,13 @@ def test_booking_matches_customer():
 
     # describe: the same address, spelled differently
     third = a_booking_for(business_id, mowing, size_id, MONDAY, "11:00", {
-        "First Name": "Jane", "Last Name": "Doe", "Email": "JANE@Example.com"})
+        "Full Name": "Jane Doe", "Email": "JANE@Example.com"})
     assert get_job_detail(business_id, third.jobId).customer.id == jane.id, \
         "it: matches an email whatever its case"
 
     # describe: somebody else entirely
     other = a_booking_for(business_id, mowing, size_id, MONDAY, "13:00", {
-        "First Name": "John", "Last Name": "Smith", "Email": "john@example.com"})
+        "Full Name": "John Smith", "Email": "john@example.com"})
     assert get_job_detail(business_id, other.jobId).customer.id != jane.id, \
         "it: is a different person, and a different record"
     assert len(get_customers(business_id)) == 2
@@ -3064,7 +3066,7 @@ def test_booking_matches_customer():
     hedging = create_job_type(elsewhere, "Hedge Trimming").id
     hedging_size = add_job_type_size(elsewhere, hedging, "Standard", 60, 80.0).id
     away = a_booking_for(elsewhere, hedging, hedging_size, MONDAY, "09:00", {
-        "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
+        "Full Name": "Jane Doe", "Email": "jane@example.com"})
     assert get_job_detail(elsewhere, away.jobId).customer.id != jane.id, \
         "it: keeps its own record — one business is not told who another serves"
 
@@ -3078,18 +3080,18 @@ def test_booking_matches_phone():
     size_id = add_job_type_size(business_id, mowing, "Standard", 60, 50.0).id
 
     first = a_booking_for(business_id, mowing, size_id, MONDAY, "09:00", {
-        "First Name": "Jane", "Last Name": "Doe", "Phone": "(555) 234-5678"})
+        "Full Name": "Jane Doe", "Phone": "(555) 234-5678"})
     jane = get_job_detail(business_id, first.jobId).customer.id
 
     # describe: booking again with the number written another way
     again = a_booking_for(business_id, mowing, size_id, TUESDAY, "09:00", {
-        "First Name": "Jane", "Last Name": "Doe", "Phone": "+1 555 234 5678"})
+        "Full Name": "Jane Doe", "Phone": "+1 555 234 5678"})
     assert get_job_detail(business_id, again.jobId).customer.id == jane, \
         "it: matches on the digits, not on how they were typed"
 
     # describe: a booking that gives an email the record does not have
     with_email = a_booking_for(business_id, mowing, size_id, MONDAY, "11:00", {
-        "First Name": "Jane", "Last Name": "Doe",
+        "Full Name": "Jane Doe",
         "Phone": "(555) 234-5678", "Email": "jane@example.com"})
     assert get_job_detail(business_id, with_email.jobId).customer.id == jane, \
         "it: still matches on the phone"
@@ -3098,7 +3100,7 @@ def test_booking_matches_phone():
 
     # describe: a booking whose email belongs to somebody else
     conflict = a_booking_for(business_id, mowing, size_id, MONDAY, "13:00", {
-        "First Name": "Someone", "Last Name": "Else",
+        "Full Name": "Someone Else",
         "Phone": "(555) 234-5678", "Email": "someone@example.com"})
     assert get_job_detail(business_id, conflict.jobId).customer.id != jane, \
         "it: an email nobody holds is a different person, whatever the phone says"
@@ -3108,17 +3110,17 @@ def test_booking_matches_phone():
     # describe: a booking that gives details the record already has, differently
     update_customer(business_id, jane, {"phone": "(555) 234-5678"})
     a_booking_for(business_id, mowing, size_id, TUESDAY, "13:00", {
-        "First Name": "Jane", "Last Name": "Doe",
+        "Full Name": "Jane Doe",
         "Phone": "555.234.5678", "Email": "jane@example.com"})
     assert get_customer(business_id, jane).phone == "(555) 234-5678", \
         "it: leaves the record spelling it the way the operator wrote it"
 
     # describe: a booking with neither
     anonymous = a_booking_for(business_id, mowing, size_id, TUESDAY, "11:00", {
-        "First Name": "Nobody", "Last Name": "Known"})
+        "Full Name": "Nobody Known"})
     assert get_job_detail(business_id, anonymous.jobId).customer.id != 0, \
         "it: is still recorded — the operator needs somebody to call it"
-    assert get_job_detail(business_id, anonymous.jobId).customer.firstName == "Nobody"
+    assert get_job_detail(business_id, anonymous.jobId).customer.name == "Nobody Known"
 
 
 def test_claim_prior_bookings():
@@ -3134,9 +3136,9 @@ def test_claim_prior_bookings():
 
     # describe: booking anonymously, at two businesses, long before signing up
     here = a_booking_for(business_id, mowing, size_id, MONDAY, "09:00", {
-        "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
+        "Full Name": "Jane Doe", "Email": "jane@example.com"})
     there = a_booking_for(elsewhere, hedging, hedging_size, MONDAY, "09:00", {
-        "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
+        "Full Name": "Jane Doe", "Email": "jane@example.com"})
     assert get_job_detail(business_id, here.jobId).customer.id != 0
     assert get_customer(business_id, get_job_detail(business_id, here.jobId).customer.id).hasBossAccount is False
 
@@ -3161,7 +3163,7 @@ def test_claim_prior_bookings():
 
     # describe: signing up, then booking
     after = a_booking_for(business_id, mowing, size_id, TUESDAY, "09:00", {
-        "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
+        "Full Name": "Jane Doe", "Email": "jane@example.com"})
     assert get_job_detail(business_id, after.jobId).customer.id == \
         get_job_detail(business_id, here.jobId).customer.id, \
         "it: still finds the record, which is hers now"
@@ -3178,7 +3180,7 @@ def test_signed_in_customer_identity():
     # describe: booking while signed in
     held = create_job_session(business_id, mowing, size_id, MONDAY, "09:00")
     confirm_session(held.sessionToken, user_id=42, contact={
-        "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
+        "Full Name": "Jane Doe", "Email": "jane@example.com"})
     jane = get_job_detail(business_id, held.jobId).customer.id
     assert get_customer(business_id, jane).hasBossAccount is True, \
         "it: is recorded as the account holder, with no email matching needed"
@@ -3192,14 +3194,14 @@ def test_signed_in_customer_identity():
     # describe: a job type that never asks for an email
     third = create_job_session(business_id, mowing, size_id, MONDAY, "11:00")
     confirm_session(third.sessionToken, user_id=42, contact={
-        "First Name": "Jane", "Last Name": "Doe", "Phone": "(555) 000-1111"})
+        "Full Name": "Jane Doe", "Phone": "(555) 000-1111"})
     assert get_job_detail(business_id, third.jobId).customer.id == jane, \
         "it: still knows them, where email matching could not"
 
     # describe: a different account
     other = create_job_session(business_id, mowing, size_id, TUESDAY, "11:00")
     confirm_session(other.sessionToken, user_id=99, contact={
-        "First Name": "Someone", "Last Name": "Else", "Email": "jane@example.com"})
+        "Full Name": "Someone Else", "Email": "jane@example.com"})
     assert get_job_detail(business_id, other.jobId).customer.id != jane, \
         "it: is a different person, whatever address they typed"
 
@@ -3223,14 +3225,14 @@ def test_booking_claims_customer():
 
     anonymous = create_job_session(business_id, mowing, size_id, MONDAY, "09:00")
     confirm_session(anonymous.sessionToken, contact={
-        "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
+        "Full Name": "Jane Doe", "Email": "jane@example.com"})
     jane = get_job_detail(business_id, anonymous.jobId).customer.id
     assert get_customer(business_id, jane).hasBossAccount is False
 
     # describe: booking again, this time signed in
     signed_in = create_job_session(business_id, mowing, size_id, TUESDAY, "09:00")
     confirm_session(signed_in.sessionToken, user_id=42, contact={
-        "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
+        "Full Name": "Jane Doe", "Email": "jane@example.com"})
     assert get_job_detail(business_id, signed_in.jobId).customer.id == jane, \
         "it: is the record they already had"
     assert get_customer(business_id, jane).hasBossAccount is True, \
@@ -3251,9 +3253,9 @@ def test_reconcile_user():
     hedging_size = add_job_type_size(elsewhere, hedging, "Standard", 60, 80.0).id
 
     here = a_booking_for(business_id, mowing, size_id, MONDAY, "09:00", {
-        "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
+        "Full Name": "Jane Doe", "Email": "jane@example.com"})
     there = a_booking_for(elsewhere, hedging, hedging_size, MONDAY, "09:00", {
-        "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
+        "Full Name": "Jane Doe", "Email": "jane@example.com"})
     jane_here = get_job_detail(business_id, here.jobId).customer.id
 
     # describe: the app opening for the first time after she signed up
@@ -3267,13 +3269,13 @@ def test_reconcile_user():
 
     # describe: booking anonymously at a shop's kiosk after signing up
     later = a_booking_for(business_id, mowing, size_id, TUESDAY, "13:00", {
-        "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com"})
+        "Full Name": "Jane Doe", "Email": "jane@example.com"})
     # Same address, so it lands on the record she already had.
     assert get_job_detail(business_id, later.jobId).customer.id == jane_here
 
     # describe: a record somebody else's account already holds
     taken = a_booking_for(business_id, mowing, size_id, TUESDAY, "15:00", {
-        "First Name": "Someone", "Last Name": "Else", "Email": "someone@example.com"})
+        "Full Name": "Someone Else", "Email": "someone@example.com"})
     someone = get_job_detail(business_id, taken.jobId).customer.id
     reconcile_boss_user(99, "someone@example.com")
     assert reconcile_boss_user(42, "someone@example.com") == 0, \
@@ -3308,9 +3310,9 @@ def test_email_matching():
     mowing = create_job_type(business_id, "Lawn Mowing").id
     size_id = add_job_type_size(business_id, mowing, "Standard", 60, 50.0).id
 
-    pat = create_customer(business_id, "Pat", "Ng", email="Pat@Example.COM")
+    pat = create_customer(business_id, "Pat Ng", email="Pat@Example.COM")
     booked = a_booking_for(business_id, mowing, size_id, MONDAY, "09:00", {
-        "First Name": "Pat", "Last Name": "Ng", "Email": "pat@example.com"})
+        "Full Name": "Pat Ng", "Email": "pat@example.com"})
 
     assert get_job_detail(business_id, booked.jobId).customer.id == pat.id, \
         "it: is the record they already had"
@@ -3326,13 +3328,13 @@ def test_job_type_contact_fields():
     types = {f.name: f for f in get_contact_field_types()}
 
     # describe: asking for a name
-    first = add_job_type_contact_field(business_id, mowing, types["First Name"].id)
-    assert first.name == "First Name", "it: is named as the field type is"
+    first = add_job_type_contact_field(business_id, mowing, types["Full Name"].id)
+    assert first.name == "Full Name", "it: is named as the field type is"
     assert first.fieldType == "text", "it: and carries the kind of input to draw"
     assert first.sortOrder == 0, "it: is asked first"
     assert first.isRequired is True, "it: and is required unless told otherwise"
 
-    last = add_job_type_contact_field(business_id, mowing, types["Last Name"].id, is_required=False)
+    last = add_job_type_contact_field(business_id, mowing, types["Email"].id, is_required=False)
     assert last.sortOrder == 1, "it: the next is asked after it"
     assert last.isRequired is False, "it: and may be optional"
 
@@ -3354,7 +3356,7 @@ def test_job_type_contact_fields():
 
     # describe: listing them
     assert [f.name for f in get_job_type_contact_fields(mowing)] == \
-        ["First Name", "Last Name", "Phone"], "it: reads in the order they are asked"
+        ["Full Name", "Email", "Phone"], "it: reads in the order they are asked"
 
     # describe: changing one
     changed = update_job_type_contact_field(business_id, last.id, types["Email"].id,
@@ -3388,7 +3390,7 @@ def test_job_type_contact_fields():
     # describe: no longer asking
     delete_job_type_contact_field(business_id, changed.id)
     assert [f.name for f in get_job_type_contact_fields(mowing)] == \
-        ["First Name", "Phone"], "it: is no longer asked"
+        ["Full Name", "Phone"], "it: is no longer asked"
 
 
 def test_reorder_contact_fields():
@@ -3400,20 +3402,20 @@ def test_reorder_contact_fields():
     hedging = create_job_type(business_id, "Hedge Trimming").id
     types = {f.name: f for f in get_contact_field_types()}
 
-    first = add_job_type_contact_field(business_id, mowing, types["First Name"].id)
+    first = add_job_type_contact_field(business_id, mowing, types["Full Name"].id)
     phone = add_job_type_contact_field(business_id, mowing, types["Phone"].id)
     email = add_job_type_contact_field(business_id, mowing, types["Email"].id)
 
     # describe: moving one up
     after = reorder_job_type_contact_fields(business_id, mowing, [phone.id, first.id, email.id])
-    assert [f.name for f in after] == ["Phone", "First Name", "Email"], \
+    assert [f.name for f in after] == ["Phone", "Full Name", "Email"], \
         "it: is asked in the order given"
     assert [f.sortOrder for f in after] == [0, 1, 2], \
         "it: renumbered from the top, whatever the order arrived as"
 
     # describe: reading it back
     assert [f.name for f in get_job_type_contact_fields(mowing)] == \
-        ["Phone", "First Name", "Email"], "it: stays that way"
+        ["Phone", "Full Name", "Email"], "it: stays that way"
 
     # describe: an order missing one of them
     with pytest.raises(ValidationError):
@@ -3424,11 +3426,11 @@ def test_reorder_contact_fields():
         reorder_job_type_contact_fields(business_id, mowing, [phone.id, phone.id, first.id])
 
     # describe: an order naming another job type's field
-    stray = add_job_type_contact_field(business_id, hedging, types["First Name"].id)
+    stray = add_job_type_contact_field(business_id, hedging, types["Full Name"].id)
     with pytest.raises(ValidationError):
         reorder_job_type_contact_fields(business_id, mowing, [phone.id, first.id, stray.id])
     assert [f.name for f in get_job_type_contact_fields(mowing)] == \
-        ["Phone", "First Name", "Email"], "it: keeps the order it had"
+        ["Phone", "Full Name", "Email"], "it: keeps the order it had"
 
 
 def test_job_type_detail():
@@ -3906,9 +3908,9 @@ def test_schedule_day():
 
     business_id, job_type_id, size_id, alice, bob = a_scheduled_business()
     first = book_at(business_id, job_type_id, size_id, "2026-07-13", "09:00", [alice],
-                    contact={"First Name": "Jane", "Last Name": "Doe"})
+                    contact={"Full Name": "Jane Doe"})
     book_at(business_id, job_type_id, size_id, "2026-07-13", "09:15", [bob],
-            contact={"First Name": "John", "Last Name": "Smith"})
+            contact={"Full Name": "John Smith"})
     book_at(business_id, job_type_id, size_id, "2026-07-13", "14:00", [alice])
 
     day = get_schedule_day(business_id, "2026-07-13")
@@ -3972,7 +3974,7 @@ def test_unassigned_jobs():
     business_id, job_type_id, size_id, alice, _ = a_scheduled_business()
 
     lonely = book_at(business_id, job_type_id, size_id, "2026-07-13", "10:00",
-                     contact={"First Name": "Robert", "Last Name": "Chen"})
+                     contact={"Full Name": "Robert Chen"})
     book_at(business_id, job_type_id, size_id, "2026-07-14", "10:00", [alice])
     cancelled = book_at(business_id, job_type_id, size_id, "2026-07-15", "10:00")
     cancel_appointment(cancelled, as_operator=True)
@@ -4196,7 +4198,7 @@ def test_employee_today():
     held = create_job_session(business_id, job_type_id, size_id,
                               "2026-09-14", "10:00", [alice, bob])
     confirm_session(held.sessionToken,
-                    contact={"First Name": "Jane", "Last Name": "Doe",
+                    contact={"Full Name": "Jane Doe",
                              "Phone": "(555) 234-5678",
                              "Address Line 1": "456 Garden Blvd"},
                     attributes={attribute.id: "1234"})
@@ -4213,7 +4215,7 @@ def test_employee_today():
 
     job = day.jobs[0]
     assert job.startTime == "10:00" and job.endTime == "11:00"
-    assert job.customer.firstName == "Jane"
+    assert job.customer.name == "Jane Doe"
     assert job.customer.phone == "(555) 234-5678", "it: so they can call ahead"
     assert job.customer.addressLine1 == "456 Garden Blvd", "it: and drive there"
     assert [f"{c.firstName} {c.lastName}" for c in job.coWorkers] == ["Bob Torres"], \
@@ -4226,85 +4228,6 @@ def test_employee_today():
 
     # describe: somebody who works nowhere
     assert get_employee_today(999, "2026-09-14") is None
-
-
-def test_platform_contact_fields():
-    """What every business chooses from when asking a customer for details."""
-    fresh_database()
-
-    seeded = get_contact_field_types()
-    assert [f.name for f in seeded][:3] == ["First Name", "Last Name", "Phone"], \
-        "it: arrives seeded, in the order the installer set"
-
-    # describe: adding one
-    company = add_contact_field_type("Company", "text")
-    assert company.otpCapable is False
-    assert company.sortOrder > max(f.sortOrder for f in seeded), \
-        "it: is asked last until moved"
-
-    # describe: one that can receive a code
-    mobile = add_contact_field_type("Mobile", "phone", otp_capable=True)
-    assert mobile.otpCapable is True
-
-    # describe: a kind of field a code cannot reach
-    with pytest.raises(ValidationError):
-        add_contact_field_type("Nickname", "text", otp_capable=True)
-
-    # describe: a kind of field nothing knows how to draw
-    with pytest.raises(ValidationError):
-        add_contact_field_type("Colour", "colour-picker")
-
-    # describe: a name that is blank, or one already taken
-    with pytest.raises(ValidationError):
-        add_contact_field_type("  ", "text")
-    with pytest.raises(ValidationError):
-        add_contact_field_type("Company", "text")
-
-    # describe: changing one
-    changed = update_contact_field_type(company.id, "Company Name", "text")
-    assert changed.name == "Company Name"
-    assert changed.sortOrder == company.sortOrder, "it: keeps its place"
-
-    # describe: saving it with the name it already has
-    # The modal posts every field each time, so a type change arrives carrying
-    # the same name — which is the field colliding with itself.
-    same = update_contact_field_type(changed.id, "Company Name", "phone")
-    assert same.fieldType == "phone", "it: takes the change it was called for"
-
-    # describe: changing one onto a name already taken
-    with pytest.raises(ValidationError):
-        update_contact_field_type(company.id, "Mobile", "text")
-
-    # describe: reordering them
-    order = [f.id for f in get_contact_field_types()]
-    moved = reorder_contact_field_types([order[-1]] + order[:-1])
-    assert moved[0].name == "Mobile", "it: is asked first now"
-    assert [f.sortOrder for f in moved] == list(range(len(moved))), \
-        "it: renumbered from the top"
-
-    # describe: an order that has drifted
-    with pytest.raises(ValidationError):
-        reorder_contact_field_types(order[:-1])
-
-    # describe: removing one
-    delete_contact_field_type(company.id)
-    assert "Company Name" not in [f.name for f in get_contact_field_types()]
-
-    # describe: removing one a job type asks for
-    business_id = a_business(increment=30)
-    job_type_id = create_job_type(business_id, "Lawn Mowing").id
-    phone = [f for f in get_contact_field_types() if f.name == "Phone"][0]
-    add_job_type_contact_field(business_id, job_type_id, phone.id)
-    with pytest.raises(ValidationError):
-        delete_contact_field_type(phone.id)
-    assert "Phone" in [f.name for f in get_contact_field_types()], \
-        "it: stays, because a business is asking for it"
-
-    # describe: one that is not there
-    with pytest.raises(ValidationError):
-        update_contact_field_type(9999, "Anything", "text")
-    with pytest.raises(ValidationError):
-        delete_contact_field_type(9999)
 
 
 def test_platform_timeout():
@@ -5227,15 +5150,15 @@ def test_customer_scoping():
 
     mine = a_business(increment=30)
     theirs = a_business(increment=30)
-    rosa = create_customer(theirs, "Rosa", "Alvarez", "rosa@example.com", "")
+    rosa = create_customer(theirs, "Rosa Alvarez")
 
     assert get_customer(theirs, rosa.id) is not None
     assert get_customer(mine, rosa.id) is None, \
         "it: is absent from a business they never booked with"
 
     with pytest.raises(ValidationError):
-        update_customer(mine, rosa.id, {"firstName": "Intruder"})
-    assert get_customer(theirs, rosa.id).firstName == "Rosa"
+        update_customer(mine, rosa.id, {"name": "Intruder"})
+    assert get_customer(theirs, rosa.id).name == "Rosa Alvarez"
 
 
 def test_job_scoping():

@@ -9,7 +9,7 @@
 #
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from .. import db
 from ..model import *
@@ -19,8 +19,7 @@ from .time import display_date, display_time
 
 
 CUSTOMER_FIELDS = {
-    "firstName": "first_name",
-    "lastName": "last_name",
+    "name": "name",
     "phone": "phone",
     "email": "email",
     "addressLine1": "address_line1",
@@ -31,14 +30,13 @@ CUSTOMER_FIELDS = {
 }
 
 
-CUSTOMER_REQUIRED = {"firstName", "lastName"}
+CUSTOMER_REQUIRED = {"name"}
 
 
 def _customer(row: "db.CustomerRow") -> Customer:
     return Customer(
         id=row.id,
-        firstName=row.first_name,
-        lastName=row.last_name,
+        name=row.name,
         phone=row.phone or "",
         email=row.email or "",
         hasBossAccount=row.user_id is not None,
@@ -59,19 +57,17 @@ def _note(row: "db.CustomerNoteRow") -> Note:
 
 def create_customer(
     business_id: int,
-    first_name: str,
-    last_name: str,
+    name: str,
     phone: Optional[str] = None,
     email: Optional[str] = None,
     user_id: Optional[int] = None
 ) -> Customer:
     """Record somebody this business has served."""
-    if not first_name.strip():
-        raise ValidationError("Please provide a first name.")
+    if not name.strip():
+        raise ValidationError("Please provide a name.")
     customer_id = db.insert_customer(
         business_id,
-        first_name.strip(),
-        last_name.strip(),
+        name.strip(),
         phone,
         email,
         user_id
@@ -96,8 +92,7 @@ def get_customer(
         return None
     return CustomerDetail(
         id=row.id,
-        firstName=row.first_name,
-        lastName=row.last_name,
+        name=row.name,
         phone=row.phone or "",
         email=row.email or "",
         addressLine1=row.address_line1 or "",
@@ -150,7 +145,7 @@ def update_customer(
         if field in CUSTOMER_REQUIRED:
             value = str(value).strip()
             if not value:
-                raise ValidationError("Please provide a first and last name.")
+                raise ValidationError("Please provide a name.")
         columns[CUSTOMER_FIELDS[field]] = value
 
     db.set_customer(customer_id, columns)
@@ -250,8 +245,7 @@ def find_or_create_customer(
 
     return create_customer(
         business_id,
-        contact.get("First Name") or "Customer",
-        contact.get("Last Name") or "",
+        contact.get("Full Name") or "Customer",
         phone=phone or None,
         email=email or None,
         user_id=user_id,

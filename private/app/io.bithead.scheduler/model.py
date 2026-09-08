@@ -266,8 +266,7 @@ class Note(Model):
 #   GET /admin/customer/{customer_id}
 class CustomerDetail(Model):
     id: int
-    firstName: str
-    lastName: str
+    name: str
     phone: str
     email: str
     addressLine1: str
@@ -282,8 +281,7 @@ class CustomerDetail(Model):
 
 class Customer(Model):
     id: int
-    firstName: str
-    lastName: str
+    name: str
     phone: str
     email: str
     hasBossAccount: bool
@@ -428,8 +426,7 @@ class JobAttribute(Model):
 
 class JobCustomer(Model):
     id: int
-    firstName: str
-    lastName: str
+    name: str
     phone: str
     email: str
     addressLine1: str
@@ -645,8 +642,7 @@ class CoWorker(Model):
 
 
 class EmployeeTodayJobCustomer(Model):
-    firstName: str
-    lastName: str
+    name: str
     phone: str
     addressLine1: str
     city: str
@@ -1351,8 +1347,7 @@ class CustomerBody(Model):
     Optional throughout: the form saves the fields it has, and an absent one is
     a field nobody touched.
     """
-    firstName: Optional[str] = None
-    lastName: Optional[str] = None
+    name: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
     addressLine1: Optional[str] = None
@@ -1431,13 +1426,6 @@ class AssignBody(Model):
 class EmployeeProfileBody(Model):
     """The work an employee says they take."""
     jobTypeIds: List[int] = []
-
-
-class ContactFieldTypeBody(Model):
-    """One kind of detail every business may ask a customer for."""
-    name: str
-    fieldType: str
-    otpCapable: bool = False
 
 
 class PlatformBusinessBody(Model):

@@ -227,7 +227,7 @@
         // Customer
         if (!isEmpty(response.customer)) {
           const c = response.customer;
-          win.span("customer-name").textContent = `${c.firstName} ${c.lastName}`;
+          win.span("customer-name").textContent = c.name;
           win.span("customer-phone").textContent = c.phone || "—";
           win.span("customer-address").textContent =
             [c.addressLine1, c.city, c.state].filter(Boolean).join(", ");

@@ -61,7 +61,7 @@ export async function readyToBook(page, businessId) {
   // outstanding and the kiosk draws its not-configured step.
   const fields = await (await page.request.get(`${API}/contact-fields`)).json();
   const asks = {};
-  for (const name of ["First Name", "Last Name", "Phone"]) {
+  for (const name of ["Full Name", "Phone"]) {
     const field = fields.fields.find((f) => f.name === name);
     expect(field, `the platform seeds no contact field called ${name}`)
       .toBeTruthy();
@@ -119,7 +119,7 @@ export async function book(page, businessId, what, date, time, contact) {
   // reached about — the lookup has nowhere to send a code, and a reminder has
   // nowhere to go.
   const given = Object.assign(
-    { "First Name": "Jane", "Last Name": "Doe", "Phone": "555-0101" },
+    { "Full Name": "Jane Doe", "Phone": "555-0101" },
     contact || {}
   );
   const contactData = Object.entries(what.asks || {})

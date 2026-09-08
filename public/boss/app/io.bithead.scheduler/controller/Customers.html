@@ -53,7 +53,7 @@
       }
 
       function customerOption(c) {
-        const label = `${c.firstName} ${c.lastName}${(isEmpty(c.phone) ? "" : " — " + c.phone)}`;
+        const label = `${c.name}${(isEmpty(c.phone) ? "" : " — " + c.phone)}`;
         return {
           id: String(c.id),
           // The mark says this customer has a BOSS account, which is worth
@@ -70,7 +70,7 @@
         const filtered = isEmpty(term)
           ? customers
           : customers.filter(function(c) {
-              const hay = `${c.firstName} ${c.lastName} ${c.phone ?? ""}`.toLowerCase();
+              const hay = `${c.name} ${c.phone ?? ""}`.toLowerCase();
               return hay.includes(term);
             });
         list.addNewOptions(filtered.map(customerOption));

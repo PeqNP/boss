@@ -171,16 +171,6 @@ def create_version_1_0_0(conn, version):
     """)
 
     cursor.execute("""
-        CREATE TABLE contact_field_types (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            field_type TEXT NOT NULL,       -- text | phone | email | address_line | city | state | zip
-            otp_capable INTEGER NOT NULL DEFAULT 0,
-            sort_order INTEGER NOT NULL
-        )
-    """)
-
-    cursor.execute("""
         CREATE TABLE system_holidays (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             country_code TEXT NOT NULL,
@@ -367,7 +357,7 @@ def create_version_1_0_0(conn, version):
         CREATE TABLE job_type_contact_fields (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             job_type_id INTEGER NOT NULL REFERENCES job_types(id),
-            contact_field_type_id INTEGER NOT NULL REFERENCES contact_field_types(id),
+            contact_field_type_id INTEGER NOT NULL,
             is_required INTEGER NOT NULL DEFAULT 1,
             require_otp INTEGER NOT NULL DEFAULT 0,
             sort_order INTEGER NOT NULL DEFAULT 0
@@ -430,7 +420,7 @@ def create_version_1_0_0(conn, version):
         CREATE TABLE job_contact_info (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             job_id INTEGER NOT NULL REFERENCES scheduled_jobs(id),
-            contact_field_type_id INTEGER NOT NULL REFERENCES contact_field_types(id),
+            contact_field_type_id INTEGER NOT NULL,
             value TEXT NOT NULL
         )
     """)
@@ -535,8 +525,7 @@ def create_version_1_0_0(conn, version):
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             business_id INTEGER NOT NULL REFERENCES businesses(id),
             user_id INTEGER,           -- NULL if no BOSS account
-            first_name TEXT NOT NULL,
-            last_name TEXT NOT NULL,
+            name TEXT NOT NULL,
             phone TEXT,
             email TEXT,
             address_line1 TEXT,
@@ -562,11 +551,10 @@ def create_version_1_0_0(conn, version):
     _create_indexes(cursor)
 
     _seed_system_config(cursor)
-    _seed_contact_field_types(cursor)
 
     cursor.execute(
         "INSERT INTO versions (version) VALUES (?)",
-        (CURRENT_VERSION,)
+        ("1.0.0",)
     )
     conn.commit()
     cursor.close()
@@ -679,8 +667,7 @@ def _create_indexes(cursor):
 # Seeds
 #
 # What every installation starts with. Seeded once, as part of creating the
-# schema, so a business that has configured nothing still has field types to
-# choose from. Business types live in `lib/templates.py`, not here.
+# schema. Contact field types and business types live in `lib/`, not here.
 # =========================================================================
 
 
@@ -692,32 +679,6 @@ def _seed_system_config(cursor):
             # How long a customer has to finish scheduling before the time
             # they are holding is released.
             ("schedule_timeout_minutes", "10")
-        ]
-    )
-
-
-def _seed_contact_field_types(cursor):
-    """The kinds of contact information a job type may ask a customer for.
-
-    A business chooses from these; it does not invent them. `otp_capable`
-    marks the two that can receive a code, which is what a job type needs
-    before it can ask for one to be verified.
-    """
-    cursor.executemany(
-        """
-        INSERT INTO contact_field_types (name, field_type, otp_capable, sort_order)
-        VALUES (?, ?, ?, ?)
-        """,
-        [
-            ("First Name",     "text",          0, 1),
-            ("Last Name",      "text",          0, 2),
-            ("Phone",          "phone",         1, 3),
-            ("Email",          "email",         1, 4),
-            ("Address Line 1", "address_line",  0, 5),
-            ("Address Line 2", "address_line",  0, 6),
-            ("City",           "city",          0, 7),
-            ("State",          "state",         0, 8),
-            ("Zip",            "zip",           0, 9)
         ]
     )
 
@@ -808,8 +769,7 @@ class CustomerRow(BaseModel):
     id: int
     business_id: int
     user_id: Optional[int]
-    first_name: str
-    last_name: str
+    name: str
     phone: Optional[str]
     email: Optional[str]
     address_line1: Optional[str]
@@ -1256,30 +1216,29 @@ def observe_holiday(business_id: int, holiday_id: int, year: int) -> int:
 # --- Customers -----------------------------------------------------------
 
 CUSTOMER_COLUMNS = """
-    id, business_id, user_id, first_name, last_name, phone, email,
+    id, business_id, user_id, name, phone, email,
     address_line1, address_line2, city, state, zip
 """
 
 CUSTOMER_WRITABLE = frozenset({
-    "first_name", "last_name", "phone", "email", "address_line1",
+    "name", "phone", "email", "address_line1",
     "address_line2", "city", "state", "zip"
 })
 
 
 def insert_customer(
     business_id: int,
-    first_name: str,
-    last_name: str,
+    name: str,
     phone: Optional[str] = None,
     email: Optional[str] = None,
     user_id: Optional[int] = None
 ) -> int:
     return insert(
         """
-        INSERT INTO customers (business_id, user_id, first_name, last_name, phone, email)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO customers (business_id, user_id, name, phone, email)
+        VALUES (?, ?, ?, ?, ?)
         """,
-        (business_id, user_id, first_name, last_name, phone, email)
+        (business_id, user_id, name, phone, email)
     )
 
 
@@ -1320,7 +1279,7 @@ def get_customers(
         return _all_as(
             CustomerRow,
             f"SELECT {CUSTOMER_COLUMNS} FROM customers"
-            " WHERE business_id = ? ORDER BY last_name, first_name",
+            " WHERE business_id = ? ORDER BY name",
             (business_id,)
         )
     like = f"%{term.lower()}%"
@@ -1329,13 +1288,11 @@ def get_customers(
         f"""
                    SELECT {CUSTOMER_COLUMNS} FROM customers
                    WHERE business_id = ?
-                     AND (LOWER(first_name) LIKE ?
-                          OR LOWER(last_name) LIKE ?
-                          OR LOWER(first_name || ' ' || last_name) LIKE ?
+                     AND (LOWER(name) LIKE ?
                           OR IFNULL(phone, '') LIKE ?)
-                   ORDER BY last_name, first_name
+                   ORDER BY name
                    """,
-        (business_id, like, like, like, like)
+        (business_id, like, like)
     )
 
 
@@ -1640,8 +1597,7 @@ def get_jobs_for_employee(employee_id: int, date: str) -> List[ScheduleJobRow]:
                    SELECT j.id, j.job_code, jt.name AS job_type_name,
                           j.scheduled_date, j.scheduled_time, j.duration_minutes,
                           j.status, j.payment_status,
-                          {CONTACT_VALUE('First Name')} AS first_name,
-                          {CONTACT_VALUE('Last Name')} AS last_name
+                          {CONTACT_VALUE(1)} AS name
                    FROM scheduled_jobs j
                    JOIN job_types jt ON jt.id = j.job_type_id
                    JOIN job_employees je ON je.job_id = j.id
@@ -1825,67 +1781,6 @@ def insert_job_session(job_id: int, session_token: str, expires_at: str) -> int:
 
 
 # --- Seeded platform records ---------------------------------------------
-
-class ContactFieldTypeRow(BaseModel):
-    id: int
-    name: str
-    field_type: str
-    otp_capable: int
-    sort_order: int
-
-
-def get_contact_field_types() -> List[ContactFieldTypeRow]:
-    return _all_as(
-        ContactFieldTypeRow,
-        "SELECT id, name, field_type, otp_capable, sort_order"
-        " FROM contact_field_types ORDER BY sort_order"
-    )
-
-
-def insert_contact_field_type(
-    name: str,
-    field_type: str,
-    otp_capable: int,
-    sort_order: int
-) -> int:
-    return insert(
-        "INSERT INTO contact_field_types (name, field_type, otp_capable, sort_order)"
-        " VALUES (?, ?, ?, ?)",
-        (name, field_type, otp_capable, sort_order)
-    )
-
-
-def set_contact_field_type(
-    field_id: int,
-    name: str,
-    field_type: str,
-    otp_capable: int
-) -> int:
-    return update(
-        "UPDATE contact_field_types SET name = ?, field_type = ?, otp_capable = ?"
-        " WHERE id = ?",
-        (name, field_type, otp_capable, field_id)
-    )
-
-
-def set_contact_field_type_sort_order(field_id: int, sort_order: int) -> int:
-    return update(
-        "UPDATE contact_field_types SET sort_order = ? WHERE id = ?",
-        (sort_order, field_id)
-    )
-
-
-def delete_contact_field_type(field_id: int) -> int:
-    return update("DELETE FROM contact_field_types WHERE id = ?", (field_id,))
-
-
-def next_contact_field_type_sort_order() -> int:
-    row = _one(
-        "SELECT IFNULL(MAX(sort_order), -1) + 1 FROM contact_field_types",
-        ()
-    )
-    return row[0] if row else 0
-
 
 def count_job_types_asking_for(field_id: int) -> int:
     """How many job types ask a customer for this kind of detail."""
@@ -2265,8 +2160,7 @@ def set_otp_verified(session_token: str) -> int:
 
 
 class JobContactRow(BaseModel):
-    field_type: str
-    name: str
+    contact_field_type_id: int
     value: str
 
 
@@ -2283,22 +2177,17 @@ def insert_job_contact(
 
 
 def get_job_contact(job_id: int) -> List[JobContactRow]:
-    """What the customer gave, with the kind of thing each value is."""
+    """What the customer gave, keyed by catalog id."""
     return _all_as(
         JobContactRow,
         """
-                   SELECT t.field_type, t.name, c.value
-                   FROM job_contact_info c
-                   JOIN contact_field_types t ON t.id = c.contact_field_type_id
-                   WHERE c.job_id = ?
-                   ORDER BY t.sort_order
+                   SELECT contact_field_type_id, value
+                   FROM job_contact_info
+                   WHERE job_id = ?
+                   ORDER BY id
                    """,
         (job_id,)
     )
-
-
-def get_contact_field_type_by_name(name: str):
-    return _one("SELECT id FROM contact_field_types WHERE name = ?", (name,))
 
 
 def get_job_by_code(job_code: str) -> Optional[ScheduledJobRow]:
@@ -2578,8 +2467,7 @@ class UnassignedJobRow(BaseModel):
     scheduled_date: str
     scheduled_time: str
     is_recurring: int
-    first_name: Optional[str]
-    last_name: Optional[str]
+    name: Optional[str]
 
 
 def get_unassigned_jobs(business_id: int) -> List[UnassignedJobRow]:
@@ -2590,8 +2478,7 @@ def get_unassigned_jobs(business_id: int) -> List[UnassignedJobRow]:
                    SELECT j.id, j.job_code, j.job_type_id, j.job_type_size_id,
                           jt.name AS job_type_name,
                           j.scheduled_date, j.scheduled_time, j.is_recurring,
-                          {CONTACT_VALUE('First Name')} AS first_name,
-                          {CONTACT_VALUE('Last Name')} AS last_name
+                          {CONTACT_VALUE(1)} AS name
                    FROM scheduled_jobs j
                    JOIN job_types jt ON jt.id = j.job_type_id
                    LEFT JOIN job_employees je ON je.job_id = j.id
@@ -2851,9 +2738,8 @@ class JobSearchRow(BaseModel):
     status: str
     payment_status: str
     # What the customer typed when they booked. A job may carry no name at all
-    # — a job type need not ask for one — so both halves are optional.
-    first_name: Optional[str]
-    last_name: Optional[str]
+    # — a job type need not ask for one.
+    name: Optional[str]
 
 
 class JobEmployeeRow(BaseModel):
@@ -2881,15 +2767,16 @@ def get_employees_for_jobs(job_ids: List[int]) -> List[JobEmployeeRow]:
     )
 
 
-def CONTACT_VALUE(field_name: str) -> str:
+def CONTACT_VALUE(field_id: int) -> str:
     """A scalar subquery reading one of the job's contact details.
 
     Written as a subquery rather than a join so a job missing the detail — or
-    carrying several — is still exactly one row.
+    carrying several — is still exactly one row. `field_id` is a catalog id
+    from `lib.contact_fields`.
     """
     return (f"(SELECT ci.value FROM job_contact_info ci"
-            f" JOIN contact_field_types cf ON cf.id = ci.contact_field_type_id"
-            f" WHERE ci.job_id = j.id AND cf.name = '{field_name}' LIMIT 1)")
+            f" WHERE ci.job_id = j.id AND ci.contact_field_type_id = {int(field_id)}"
+            f" LIMIT 1)")
 
 
 def search_jobs(
@@ -2923,26 +2810,22 @@ def search_jobs(
 
     # Name and phone are what the customer typed when they booked, which lives
     # on the job rather than on a customer record — a booking never requires
-    # one. Matched with EXISTS so a job with several contact details is still
-    # one row.
+    # one. Catalog ids 1 Full Name and 2 Phone, copied so this module does not
+    # import the catalog. Matched with EXISTS so a job with several contact
+    # details is still one row.
     if name:
         where.append("""
             EXISTS (SELECT 1 FROM job_contact_info ci
-                    JOIN contact_field_types cf ON cf.id = ci.contact_field_type_id
                     WHERE ci.job_id = j.id
-                      AND cf.name IN ('First Name', 'Last Name')
+                      AND ci.contact_field_type_id = 1
                       AND LOWER(ci.value) LIKE ?)
-            OR LOWER(IFNULL(""" + CONTACT_VALUE("First Name") + """, '')
-                     || ' '
-                     || IFNULL(""" + CONTACT_VALUE("Last Name") + """, '')) LIKE ?
         """)
         like = f"%{name.lower()}%"
-        params.extend([like, like])
+        params.append(like)
     if phone:
         where.append("""
             EXISTS (SELECT 1 FROM job_contact_info ci
-                    JOIN contact_field_types cf ON cf.id = ci.contact_field_type_id
-                    WHERE ci.job_id = j.id AND cf.name = 'Phone'
+                    WHERE ci.job_id = j.id AND ci.contact_field_type_id = 2
                       AND ci.value LIKE ?)
         """)
         params.append(f"%{phone}%")
@@ -2958,8 +2841,7 @@ def search_jobs(
                    SELECT j.id, j.job_code, jt.name AS job_type_name,
                           j.scheduled_date, j.scheduled_time, j.duration_minutes,
                           j.status, j.payment_status,
-                          {CONTACT_VALUE('First Name')} AS first_name,
-                          {CONTACT_VALUE('Last Name')} AS last_name
+                          {CONTACT_VALUE(1)} AS name
                    FROM scheduled_jobs j
                    JOIN job_types jt ON jt.id = j.job_type_id
                    WHERE {' AND '.join(f'({w})' for w in where)}
@@ -3001,8 +2883,7 @@ class ScheduleJobRow(BaseModel):
     duration_minutes: int
     status: str
     payment_status: str
-    first_name: Optional[str]
-    last_name: Optional[str]
+    name: Optional[str]
 
 
 def get_scheduled_jobs(
@@ -3021,8 +2902,7 @@ def get_scheduled_jobs(
                    SELECT j.id, j.job_code, jt.name AS job_type_name,
                           j.scheduled_date, j.scheduled_time, j.duration_minutes,
                           j.status, j.payment_status,
-                          {CONTACT_VALUE('First Name')} AS first_name,
-                          {CONTACT_VALUE('Last Name')} AS last_name
+                          {CONTACT_VALUE(1)} AS name
                    FROM scheduled_jobs j
                    JOIN job_types jt ON jt.id = j.job_type_id
                    WHERE j.business_id = ?
@@ -3158,30 +3038,21 @@ class JobTypeContactFieldRow(BaseModel):
     id: int
     job_type_id: int
     contact_field_type_id: int
-    name: str
-    field_type: str
-    otp_capable: int
     is_required: int
     require_otp: int
     sort_order: int
 
 
 CONTACT_FIELD_COLUMNS = """
-    f.id, f.job_type_id, f.contact_field_type_id, t.name, t.field_type,
-    t.otp_capable, f.is_required, f.require_otp, f.sort_order
-"""
-
-CONTACT_FIELD_FROM = """
-    FROM job_type_contact_fields f
-    JOIN contact_field_types t ON t.id = f.contact_field_type_id
+    id, job_type_id, contact_field_type_id, is_required, require_otp, sort_order
 """
 
 
 def get_job_type_contact_fields(job_type_id: int) -> List[JobTypeContactFieldRow]:
     return _all_as(
         JobTypeContactFieldRow,
-        f"SELECT {CONTACT_FIELD_COLUMNS} {CONTACT_FIELD_FROM}"
-        " WHERE f.job_type_id = ? ORDER BY f.sort_order, f.id",
+        f"SELECT {CONTACT_FIELD_COLUMNS} FROM job_type_contact_fields"
+        " WHERE job_type_id = ? ORDER BY sort_order, id",
         (job_type_id,)
     )
 
@@ -3189,18 +3060,9 @@ def get_job_type_contact_fields(job_type_id: int) -> List[JobTypeContactFieldRow
 def get_job_type_contact_field(field_id: int) -> Optional[JobTypeContactFieldRow]:
     return _one_as(
         JobTypeContactFieldRow,
-        f"SELECT {CONTACT_FIELD_COLUMNS} {CONTACT_FIELD_FROM}"
-        " WHERE f.id = ?",
+        f"SELECT {CONTACT_FIELD_COLUMNS} FROM job_type_contact_fields"
+        " WHERE id = ?",
         (field_id,)
-    )
-
-
-def get_contact_field_type(contact_field_type_id: int) -> Optional[ContactFieldTypeRow]:
-    return _one_as(
-        ContactFieldTypeRow,
-        "SELECT id, name, field_type, otp_capable, sort_order"
-        " FROM contact_field_types WHERE id = ?",
-        (contact_field_type_id,)
     )
 
 

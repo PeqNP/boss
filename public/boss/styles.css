@@ -2064,8 +2064,7 @@ div.text-field.intrinsic input {
 .checkbox-field label { }
 .radio-field { }
 
-/* The input lives inside the label so a click on the text toggles the box.
- * Do not add `hbox gap-10`; the component is the row. */
+/* The input lives inside the label so a click on the text toggles the box. */
 label.checkbox {
   display: flex;
   align-items: center;

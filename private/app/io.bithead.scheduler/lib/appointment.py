@@ -16,6 +16,7 @@ from typing import Dict, List, Optional
 from .. import db
 from ..model import *
 from .code import _access_handle, _hash_code, _mask
+from .contact_fields import typed_contact
 from .employee import _crew_for
 from .exception import *
 from .business import get_business
@@ -133,8 +134,7 @@ def _job_customer(row: "db.JobDetailRow") -> JobCustomer:
         if c is not None:
             return JobCustomer(
                 id=c.id,
-                firstName=c.first_name,
-                lastName=c.last_name,
+                name=c.name,
                 phone=c.phone or "",
                 email=c.email or "",
                 addressLine1=c.address_line1 or "",
@@ -143,11 +143,10 @@ def _job_customer(row: "db.JobDetailRow") -> JobCustomer:
                 zip=c.zip or ""
             )
 
-    typed = {c.name: c.value for c in db.get_job_contact(row.id)}
+    typed = typed_contact(db.get_job_contact(row.id))
     return JobCustomer(
         id=0,
-        firstName=typed.get("First Name", ""),
-        lastName=typed.get("Last Name", ""),
+        name=typed.get("Full Name", ""),
         phone=typed.get("Phone", ""),
         email=typed.get("Email", ""),
         addressLine1=typed.get("Address Line 1", ""),
@@ -279,11 +278,11 @@ def _contact_channel(job_id: int):
     A text reaches somebody standing at a counter; an email may not be read
     for hours.
     """
-    contact = db.get_job_contact(job_id)
-    for field_type, channel in (("phone", "sms"), ("email", "email")):
-        for row in contact:
-            if row.field_type == field_type and row.value.strip():
-                return channel, row.value
+    contact = typed_contact(db.get_job_contact(job_id))
+    if (contact.get("Phone") or "").strip():
+        return "sms", contact["Phone"]
+    if (contact.get("Email") or "").strip():
+        return "email", contact["Email"]
     return None, None
 
 
@@ -456,11 +455,13 @@ def _lock_and_notify(job, moment: str) -> None:
         return
     # Every channel they gave, not the preferred one: this is the message that
     # explains why nothing works any more, and it should be hard to miss.
-    for row in db.get_job_contact(job.id):
-        if row.field_type in ("phone", "email") and row.value.strip():
+    given = typed_contact(db.get_job_contact(job.id))
+    for name, channel in (("Phone", "sms"), ("Email", "email")):
+        value = (given.get(name) or "").strip()
+        if value:
             send(
-                "sms" if row.field_type == "phone" else "email",
-                row.value,
+                channel,
+                value,
                 "Your appointment has been locked after too many"
                 " incorrect verification attempts. Please contact the"
                 " business to make a change."
@@ -560,8 +561,7 @@ def search_jobs(
             id=r.id,
             jobCode=r.job_code,
             jobType=r.job_type_name,
-            customerName=" ".join(
-            part for part in (r.first_name, r.last_name) if part),
+            customerName=r.name or "",
             scheduledDate=r.scheduled_date,
             scheduledTime=r.scheduled_time,
             displayDate=display_date(r.scheduled_date),
