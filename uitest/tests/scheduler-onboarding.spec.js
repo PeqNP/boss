@@ -44,6 +44,12 @@ test.describe("scheduler onboarding", () => {
     const assistant = windowByTitle(page, "Setup Assistant");
     await expect(assistant).toBeVisible();
     await settled(assistant);
+    await expect(assistant).toHaveClass(/pin-bottom-right/);
+    await expect(assistant.locator(":scope > .container")).toHaveCSS("width", "400px");
+    const desktop = await page.locator("#desktop").boundingBox();
+    const box = await assistant.boundingBox();
+    expect((desktop.y + desktop.height) - (box.y + box.height)).toBeCloseTo(10, 0);
+    expect((desktop.x + desktop.width) - (box.x + box.width)).toBeCloseTo(10, 0);
     await expect(assistant).toContainText("Give your business a name");
 
     // The session was minted before the business existed. Reaching an
