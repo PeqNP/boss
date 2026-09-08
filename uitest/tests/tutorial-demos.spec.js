@@ -64,9 +64,12 @@ test.describe("Tutorial — demos", () => {
     await expect(win).toHaveClass(/pin-top-right/);
     await expect(win.locator("label.checkbox")).toHaveCount(4);
 
+    const before = await win.boundingBox();
     await win.locator(".collapse-button").click();
     await expect(win).toHaveClass(/collapsed/);
     await expect(win.locator(":scope > .container")).toBeHidden();
+    const collapsed = await win.boundingBox();
+    expect(collapsed.width).toBeCloseTo(before.width, 0);
     await win.locator(".collapse-button").click();
     await expect(win.locator(":scope > .container")).toBeVisible();
   });

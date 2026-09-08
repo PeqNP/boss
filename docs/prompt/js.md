@@ -2942,8 +2942,8 @@ When a row mixes a `text-field`, a `UIPopupMenu`, and action buttons, use `hbox 
 ```
 
 `.collapse-button` is WindowShade: it hides `.container` and leaves the title
-bar. It sits to the left of `.zoom-button`. Omit either control if the window
-should not have it.
+bar at the window's current width. It sits 10px to the left of `.zoom-button`.
+Omit either control if the window should not have it.
 
 ### Pinned windows
 

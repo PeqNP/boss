@@ -35,10 +35,20 @@ test.describe("Tutorial — Example", () => {
 
   test("collapse hides the window body @collapse", async ({ page }) => {
     const win = windowByTitle(page, "UI Components");
-    await win.locator(".collapse-button").click();
+    const collapse = win.locator(".collapse-button");
+    const zoom = win.locator(".zoom-button");
+    const collapseBox = await collapse.boundingBox();
+    const zoomBox = await zoom.boundingBox();
+    expect(zoomBox.x - (collapseBox.x + collapseBox.width)).toBeCloseTo(10, 0);
+
+    const before = await win.boundingBox();
+    await collapse.click();
     await expect(win).toHaveClass(/collapsed/);
     await expect(win.locator(":scope > .container")).toBeHidden();
-    await win.locator(".collapse-button").click();
+    const collapsed = await win.boundingBox();
+    expect(collapsed.width).toBeCloseTo(before.width, 0);
+
+    await collapse.click();
     await expect(win).not.toHaveClass(/collapsed/);
     await expect(win.locator(":scope > .container")).toBeVisible();
   });

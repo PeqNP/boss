@@ -3293,6 +3293,7 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
     let leftPosition = null;
     let containerWidth = null;
     let containerHeight = null;
+    let windowWidth = null;
 
     /**
      * Prepare the window for display, load controller source, etc.
@@ -3394,8 +3395,21 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
                 collapseButton.addEventListener("click", function (e) {
                     e.stopPropagation();
                     let win = container.querySelector(".ui-window");
-                    if (!isEmpty(win)) {
-                        win.classList.toggle("collapsed");
+                    if (isEmpty(win)) {
+                        return;
+                    }
+                    if (win.classList.contains("collapsed")) {
+                        win.classList.remove("collapsed");
+                        win.style.width = windowWidth;
+                        windowWidth = null;
+                    }
+                    else {
+                        // Hiding `.container` would otherwise shrink the
+                        // window to the title text. Lock the current width
+                        // and put it back when the body returns.
+                        windowWidth = win.style.width;
+                        win.style.width = `${win.clientWidth}px`;
+                        win.classList.add("collapsed");
                     }
                 });
             }
