@@ -34,6 +34,9 @@ test.describe("Tutorial — Example", () => {
   });
 
   test("collapse hides the window body @collapse", async ({ page }) => {
+    const errors = [];
+    page.on("pageerror", (err) => errors.push(err.message));
+
     const win = windowByTitle(page, "UI Components");
     const collapse = win.locator(".collapse-button");
     const zoom = win.locator(".zoom-button");
@@ -51,6 +54,7 @@ test.describe("Tutorial — Example", () => {
     await collapse.click();
     await expect(win).not.toHaveClass(/collapsed/);
     await expect(win.locator(":scope > .container")).toBeVisible();
+    expect(errors).toEqual([]);
   });
 
   test("open a modal from Example @modal", async ({ page }) => {

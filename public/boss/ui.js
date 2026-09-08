@@ -635,6 +635,7 @@ function UI(os) {
         return win.classList.contains("pin-top-right")
             || win.classList.contains("pin-bottom-right");
     }
+    this.isPinnedWindow = isPinnedWindow;
 
     function addPinnedWindow(container) {
         let zIndex = PINNED_START_ZINDEX + pinnedIndices.length;
@@ -3430,7 +3431,7 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
                     return;
                 }
                 os.ui.focusWindow(container);
-                if (!isPinnedWindow(container)) {
+                if (!os.ui.isPinnedWindow(container)) {
                     os.ui.dragWindow(container);
                 }
             };
