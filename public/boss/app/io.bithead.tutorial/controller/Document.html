@@ -8,10 +8,12 @@
       // the File menu, and says "Saved" when a save succeeds.
       //
       // The second message is what Cancel asks when there are unsaved changes.
-      // `null` takes "Discard your changes?".
+      // `null` takes "Discard your changes?". The third argument is
+      // `returnSaves`: Return in a text field is Save.
       this.document = new UIDocument(
         "Permanently delete this note?",
-        null
+        null,
+        true
       );
       this.document.creating = true;
 
@@ -83,7 +85,8 @@
        to prevent double-clicking.</p>
 
     <p>In addition to this, the OS automatically sets the form as dirty when a form field
-       changes its value.</p>
+       changes its value. With `returnSaves`, Return in a text field is the same as Save,
+       and the field blurs so you can see the change took.</p>
 
     <fieldset>
       <legend>Note</legend>

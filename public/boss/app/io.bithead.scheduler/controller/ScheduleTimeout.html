@@ -2,8 +2,6 @@
   <script type="text/javascript">
     function $(this.id)(view, win) {
 
-      // A document: the window owns Save, asks before discarding a change
-      // nobody saved, and says "Saved". There is nothing here to delete.
       this.document = new UIDocument(null, null);
 
       // --- Controller functions ---
@@ -43,8 +41,6 @@
       }
       this.viewDidLoad = viewDidLoad;
 
-      // Enter is the window's to wire: a document gives it to the default
-      // control, so `didHitEnter` is not declared here.
     }
   </script>
 
@@ -59,8 +55,6 @@
       <label for="timeout-minutes">Timeout (minutes)</label>
       <input type="number" name="timeout-minutes" value="10" min="1" style="width: 80px;">
     </div>
-    <!-- No onclick: a document's controls are wired by the window, which asks
-         before discarding and disables them all while one runs. -->
     <div class="controls">
       <button class="default" doc-action="save">Save</button>
     </div>

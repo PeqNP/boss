@@ -2,7 +2,6 @@
   <script type="text/javascript">
     function $(this.id)(view, win) {
 
-      // The business this window acts on, held by the app from `/me`.
       const businessId = $(app.controller).getBusinessId();
 
       // `null` until `create` makes one. An employee exists from the moment
@@ -23,18 +22,12 @@
 
       const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-      // A document: the window owns Cancel, Delete and Save, asks before
-      // discarding or deleting, and says "Saved".
-      //
-      // The discard question speaks of the employee rather than of changes,
-      // because leaving an unsaved draft does not merely lose edits — it
-      // throws away the employee this window created to hang working days on.
+      // Leaving a draft throws away the employee, so Cancel asks that.
       this.document = new UIDocument(
         "Remove this employee? Jobs they are assigned to become unassigned.",
         "Discard this employee?"
       );
 
-      // EmployeeDelegate
       let delegate = protocol(
         "EmployeeDelegate", this, "delegate",
         [
@@ -493,8 +486,6 @@
         };
       }
 
-      // Enter is the window's to wire: a document gives it to the default
-      // control, so `didHitEnter` is not declared here.
     }
   </script>
 
@@ -576,8 +567,6 @@
       </div>
     </fieldset>
 
-    <!-- No onclick: a document's controls are wired by the window, which asks
-         before discarding or deleting and disables them all while one runs. -->
     <div class="controls">
       <button class="primary" doc-action="cancel">Cancel</button>
       <button class="primary" doc-action="delete">Delete</button>

@@ -18,7 +18,7 @@ surface only.
 
 ### `UIDocument`
 
-`deleteMessage` · `discardMessage` · `creating`
+`deleteMessage` · `discardMessage` · `returnSaves` · `creating`
 
 ### `UIControllerConfig`
 

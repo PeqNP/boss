@@ -2,21 +2,13 @@
   <script type="text/javascript">
     function $(this.id)(view, win) {
 
-      // The business this window acts on, held by the app from `/me`.
       const businessId = $(app.controller).getBusinessId();
 
-      // This employee's own record. The child modals act on it through the
-      // same routes an operator uses; who may call them is the service's
-      // question, not this screen's.
+      // This employee's record. Child modals use the same routes an operator uses.
       let employeeId = null;
 
       const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-      // A document: the window owns the two controls, asks before discarding,
-      // and says "Saved". The leaving one reads "Close" rather than "Cancel",
-      // because most of this screen has already saved itself — but it is the
-      // same action, so it carries the same `doc-action`. Nobody deletes their
-      // own employment here.
       this.document = new UIDocument(null, null);
 
       // EmployeeScheduleDelegate
@@ -212,8 +204,6 @@
       }
       this.viewDidLoad = viewDidLoad;
 
-      // Enter is the window's to wire: a document gives it to the default
-      // control, so `didHitEnter` is not declared here.
     }
   </script>
 
@@ -272,8 +262,6 @@
       </div>
     </fieldset>
 
-    <!-- No onclick: a document's controls are wired by the window, which asks
-         before discarding and disables them all while one runs. -->
     <div class="controls">
       <button class="primary" doc-action="cancel">Close</button>
       <button class="default" doc-action="save">Save</button>

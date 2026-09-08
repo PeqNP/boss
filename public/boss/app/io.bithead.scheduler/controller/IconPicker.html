@@ -2,10 +2,8 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
-      // The business this window acts on, held by the app from `/me`.
       const businessId = $(app.controller).getBusinessId();
 
-      // IconPickerDelegate
       let delegate = protocol(
         "IconPickerDelegate", this, "delegate",
         [DelegateMethod("didSelectIcon", true)]

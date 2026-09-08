@@ -36,9 +36,10 @@ function optionLabelParts(label) {
 }
 
 /**
- * Declares a window as a document, and configures how it says goodbye.
+ * Declares a window as a document, and configures how the document should behave
+ * in different contexts.
  *
- * A controller opts in by setting `this.document = new UIDocument({…})`. From
+ * A controller opts in by setting `this.document = new UIDocument(...)`. From
  * then on the window wires its own Cancel, Delete and Save: it asks before
  * discarding or deleting, disables every control while an action runs, and
  * says "Saved" when one succeeds. The controller supplies the three functions
@@ -50,13 +51,16 @@ function optionLabelParts(label) {
  * @param {string?} discardMessage - What Cancel asks when there are unsaved
  *  changes. The question is the same everywhere, so `null` is the normal
  *  answer.
+ * @param {boolean?} returnSaves - Return in a text field is Save, and the
+ *  field blurs. Off unless `true`.
  */
-function UIDocument(deleteMessage, discardMessage) {
+function UIDocument(deleteMessage, discardMessage, returnSaves) {
     readOnly(this, "deleteMessage",
              isEmpty(deleteMessage) ? "Are you sure you want to delete this?"
                                     : deleteMessage);
     readOnly(this, "discardMessage",
              isEmpty(discardMessage) ? "Discard your changes?" : discardMessage);
+    readOnly(this, "returnSaves", returnSaves === true);
     // A draft that has never been saved over. Save stays enabled even with
     // no edits; the first successful save clears it.
     let creating = false;
@@ -3676,6 +3680,9 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
      * here — the key belongs to the default button, the way it does in every
      * other window — and if the controls cannot say which button that is, it
      * is unwired rather than guessed at.
+     *
+     * Return in a text field is Save only when `returnSaves` is set; the field
+     * then blurs. Without that, typing Return does not save.
      */
 
     /**
@@ -3821,7 +3828,53 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
             controller.didHitEnter = null;
             return;
         }
-        controller.didHitEnter = defaults[0].onclick;
+        let saveOnEnter = defaults[0].onclick;
+        controller.didHitEnter = async function() {
+            let field = focusedTextField();
+            if (!isEmpty(field)) {
+                if (controller.document.returnSaves !== true) {
+                    return;
+                }
+                // Same as tapping Save: a disabled button does nothing.
+                if (defaults[0].disabled) {
+                    return;
+                }
+                await saveOnEnter();
+                // Blur only when the save took — a failed required field
+                // keeps focus so they can keep typing.
+                if (!isDirty) {
+                    field.blur();
+                }
+                return;
+            }
+            await saveOnEnter();
+        };
+    }
+
+    /**
+     * The text field this window is typing in, or nothing.
+     *
+     * Checkboxes, radios, and file inputs are not text fields. A textarea
+     * is not either.
+     */
+    function focusedTextField() {
+        let el = document.activeElement;
+        if (isEmpty(el) || el.tagName !== "INPUT") {
+            return null;
+        }
+        if (!container.contains(el)) {
+            return null;
+        }
+        let type = (el.getAttribute("type") || "text").toLowerCase();
+        let notText = {
+            checkbox: true, radio: true, file: true, hidden: true,
+            button: true, submit: true, reset: true, image: true,
+            range: true, color: true
+        };
+        if (notText[type]) {
+            return null;
+        }
+        return el;
     }
 
     /**

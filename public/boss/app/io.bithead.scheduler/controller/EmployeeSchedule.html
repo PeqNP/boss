@@ -12,12 +12,10 @@
 
     function $(this.id)(view) {
 
-      // The business this window acts on, held by the app from `/me`.
       const businessId = $(app.controller).getBusinessId();
 
       let config = null;
 
-      // EmployeeScheduleDelegate
       let delegate = protocol(
         "EmployeeScheduleDelegate", this, "delegate",
         [

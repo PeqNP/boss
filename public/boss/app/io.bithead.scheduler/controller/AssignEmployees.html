@@ -2,10 +2,8 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
-      // The business this window acts on, held by the app from `/me`.
       const businessId = $(app.controller).getBusinessId();
 
-      // AssignEmployeesDelegate
       let delegate = protocol(
         "AssignEmployeesDelegate", this, "delegate",
         ["didAssignEmployees"]

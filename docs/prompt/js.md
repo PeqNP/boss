@@ -1796,10 +1796,16 @@ Rules:
 - **One `div.controls` per document.** The OS disables every control in the
   window while an action runs and reads the default from that set; a second row
   makes both of those ambiguous. Also an error in `bin/validate-app`.
-- **Exactly one `default` button**, and it is the one Enter presses. With none
-  or with two, Enter is unwired rather than guessed at.
-- **Enter belongs to the default control**, wired by the window. Leave
-  `didHitEnter` to the OS; a document replaces whatever the controller sets.
+- **Exactly one `default` button**, and it is the one Enter presses when a
+  text field is not focused. With none or with two, Enter is unwired rather
+  than guessed at.
+- **Enter belongs to the default control** when a text field is not
+  focused, wired by the window. Leave `didHitEnter` to the OS; a document
+  replaces whatever the controller sets.
+- **`returnSaves`**: Return in a text field is Save, and the field blurs.
+  Off unless the third argument is `true`:
+  `new UIDocument(deleteMessage, discardMessage, true)`. A textarea is
+  not a text field.
 - **`save()` returns `true` only when it wrote something.** A form that stopped
   at a required field returns `false`. Throwing counts as failure too, and marks
   an unexpected state — report an expected failure with

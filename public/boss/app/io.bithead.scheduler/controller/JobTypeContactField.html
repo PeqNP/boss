@@ -12,15 +12,12 @@
 
     function $(this.id)(view) {
 
-      // The business this window acts on, held by the app from `/me`.
       const businessId = $(app.controller).getBusinessId();
 
       let config = null;
 
-      // The catalog of contact fields a job type may ask for, as last loaded.
       let fieldTypes = [];
 
-      // JobTypeContactFieldDelegate
       let delegate = protocol(
         "JobTypeContactFieldDelegate", this, "delegate",
         [

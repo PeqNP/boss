@@ -2,21 +2,15 @@
   <script type="text/javascript">
     function $(this.id)(view, win) {
 
-      // The business this window acts on, held by the app from `/me`.
       const businessId = $(app.controller).getBusinessId();
 
       let customerId = null;
 
-      // A customer who signed in owns their own contact information, so this
-      // form shows it and does not offer to change it.
+      // Customers who have a BOSS account can not have their information changed.
       let hasBossAccount = false;
 
-      // A document: the window owns Cancel and Save, asks before discarding,
-      // and says "Saved". There is no Delete — a customer with appointments
-      // behind them is not this form's to remove.
       this.document = new UIDocument(null, null);
 
-      // CustomerDelegate
       let delegate = protocol(
         "CustomerDelegate", this, "delegate",
         [
@@ -165,8 +159,6 @@
        */
       async function save() {
         if (hasBossAccount) {
-          // Their contact information is theirs. The Save button is hidden in
-          // this case; this is the door being locked as well as shut.
           return false;
         }
         const payload = {
@@ -220,8 +212,6 @@
       }
       this.viewDidLoad = viewDidLoad;
 
-      // Enter is the window's to wire: a document gives it to the default
-      // control, so `didHitEnter` is not declared here.
     }
   </script>
 
@@ -310,12 +300,9 @@
       </table>
     </fieldset>
 
-    <!-- No onclick: a document's controls are wired by the window, which asks
-         before discarding and disables them all while one runs. -->
     <div class="controls">
       <button class="primary" doc-action="cancel">Cancel</button>
       <button name="save-btn" class="default" doc-action="save">Save</button>
     </div>
-
   </div>
 </div>

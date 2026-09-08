@@ -2,8 +2,7 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
-      // The business this window acts on, held by the app from `/me`, or
-      // from `setBusinessId` after an admin taps Edit on Businesses.
+      // Acting business: `/me`, or `setBusinessId` after an admin taps Edit.
       let businessId = $(app.controller).getBusinessId();
 
       let currentTab = "general";

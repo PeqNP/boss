@@ -2,7 +2,6 @@
   <script type="text/javascript">
     function $(this.id)(view, win) {
 
-      // The business this window acts on, held by the app from `/me`.
       const businessId = $(app.controller).getBusinessId();
 
       // `null` until `create` makes one. A job type exists from the moment
@@ -25,22 +24,14 @@
       let stripePriceId = null;
       let stripeProducts = [];
 
-      // Contact fields as last loaded. Order here is the order the customer is
-      // asked for them, and is what a reorder is computed against.
+      // Contact fields to ask customer when requesting job type.
       let contactFields = [];
 
-      // A document: the window owns Cancel, Delete and Save, asks before
-      // discarding or deleting, and says "Saved".
-      //
-      // The discard question speaks of the job type rather than of changes,
-      // because leaving an unsaved draft does not merely lose edits — it
-      // throws away the job type this window created to hang sizes on.
       this.document = new UIDocument(
         "Delete this job type? Jobs already scheduled against it are kept.",
         "Discard this job type?"
       );
 
-      // JobTypeDelegate
       let delegate = protocol(
         "JobTypeDelegate", this, "delegate",
         [
@@ -508,8 +499,6 @@
       }
       this.viewDidAppear = viewDidAppear;
 
-      // Enter is the window's to wire: a document gives it to the default
-      // control, so `didHitEnter` is not declared here.
     }
   </script>
 
