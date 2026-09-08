@@ -92,6 +92,8 @@ class JobTypeSize(Model):
     name: str
     durationMinutes: int
     cost: float
+    stripeProductId: Optional[str] = None
+    stripePriceId: Optional[str] = None
     sortOrder: int
 
 
@@ -382,6 +384,8 @@ class JobTypeSizeDetail(Model):
     name: str
     durationMinutes: int
     cost: float
+    stripeProductId: Optional[str] = None
+    stripePriceId: Optional[str] = None
     sortOrder: int
 
 
@@ -396,9 +400,6 @@ class JobTypeDetail(Model):
     depositType: Optional[str] = None
     depositAmount: Optional[float] = None
     depositNonrefundable: bool
-    # Stripe's own ids, which are strings: `prod_...`, `price_...`.
-    stripeProductId: Optional[str] = None
-    stripePriceId: Optional[str] = None
     isActive: bool
     sizes: List[JobTypeSizeDetail] = []
     attributes: List[JobTypeAttribute] = []
@@ -1231,14 +1232,14 @@ class JobTypeBody(Model):
     depositRequired: Optional[bool] = None
     depositType: Optional[str] = None
     depositAmount: Optional[float] = None
-    stripeProductId: Optional[str] = None
-    stripePriceId: Optional[str] = None
 
 
 class JobTypeSizeBody(Model):
     name: str
     durationMinutes: int
     cost: float
+    stripeProductId: Optional[str] = None
+    stripePriceId: Optional[str] = None
 
 
 class VendorChoice(Model):

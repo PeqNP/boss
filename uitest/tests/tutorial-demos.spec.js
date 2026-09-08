@@ -78,17 +78,4 @@ test.describe("Tutorial — demos", () => {
     await topWin.locator(".collapse-button").click();
     await expect(topWin.locator(":scope > .container")).toBeVisible();
   });
-
-  test("document Return in a text field saves and blurs @document", async ({ page }) => {
-    await openController(page, TUTORIAL, "Document");
-    const win = windowByTitle(page, "Document");
-    await expect(win).toBeVisible();
-
-    const title = win.locator("input[name='title']");
-    await title.fill("Weekly notes");
-    await title.press("Enter");
-
-    await expect(win.locator(".ui-window-message")).toContainText("Saved");
-    await expect(title).not.toBeFocused();
-  });
 });

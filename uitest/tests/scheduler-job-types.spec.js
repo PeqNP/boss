@@ -18,6 +18,7 @@ import { signInAsAdmin, signInAsOperator, ensureOperator, bootBOSS,
          openApplication, openController, windowByTitle, settled,
          docAction, action, selectPopupOption, closeAll } from "../lib/boss.js";
 import { resetDatabase } from "../lib/seed.js";
+import { chooseVendor } from "../lib/scheduler.js";
 
 const API = "/api/io.bithead.scheduler";
 
@@ -109,6 +110,52 @@ test.describe("scheduler job types", () => {
 
     await expect(win.locator(".ui-list-box .option", { hasText: "Long hair" }))
       .toBeVisible();
+  });
+
+  test("return in the name field saves the job type", async ({ page }) => {
+    await openController(page, "io.bithead.scheduler", "JobType");
+    const win = windowByTitle(page, "Job Type");
+    await expect(win).toBeVisible();
+    await settled(win);
+
+    const name = win.locator("input[name='name']");
+    await name.fill("Fade");
+    await name.press("Enter");
+
+    await expect(win.locator(".ui-window-message")).toContainText("Saved");
+    await expect.poll(async () => (await jobTypes(page)).map((j) => j.name),
+                      { message: "Return never saved the job type" })
+      .toContain("Fade");
+  });
+
+  test("link a stripe product to a job type size", async ({ page }) => {
+    await signInAsAdmin(page);
+    await chooseVendor(page, "payment", "mock");
+    await signInAsOperator(page);
+    const connected = await page.request.get(
+      `${API}/business/${businessId}/config/stripe/callback?code=mock`
+    );
+    expect(connected.ok(), `could not connect Stripe: ${await connected.text()}`)
+      .toBe(true);
+
+    const { win, jobTypeId } = await openSaved(page);
+    await action(win, "addSize").click();
+    const modal = windowByTitle(page, "Size");
+    await expect(modal).toBeVisible();
+    await modal.locator("input[name='size-name']").fill("Long hair");
+    await modal.locator("input[name='duration-minutes']").fill("90");
+    await selectPopupOption(modal, "stripe-product", "Mock service — Small");
+    await expect(modal.locator("input[name='cost']")).toBeDisabled();
+    await expect(modal.locator("input[name='cost']")).toHaveValue("50.00");
+    await action(modal, "save").click();
+
+    await expect
+      .poll(async () => (await detail(page, jobTypeId)).sizes[0]?.stripeProductId,
+            { message: "the Stripe product never reached the server" })
+      .toBe("prod_mock_1");
+    const size = (await detail(page, jobTypeId)).sizes[0];
+    expect(size.cost, "the size did not take the product's price").toBe(50);
+    expect(size.stripePriceId).toBe("price_mock_1");
   });
 
   test("save job type attribute", async ({ page }) => {

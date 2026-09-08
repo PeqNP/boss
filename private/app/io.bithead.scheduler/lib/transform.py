@@ -63,6 +63,8 @@ def _size(row: db.JobTypeSizeRow) -> JobTypeSize:
         name=row.name,
         durationMinutes=row.duration_minutes,
         cost=row.cost,
+        stripeProductId=row.stripe_product_id,
+        stripePriceId=row.stripe_price_id,
         sortOrder=row.sort_order
     )
 

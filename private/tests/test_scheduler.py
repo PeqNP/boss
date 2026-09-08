@@ -2243,6 +2243,20 @@ def test_job_type_sizes():
     changed = update_job_type_size(business_id, small.id, "Small", 45, 60.0)
     assert changed.durationMinutes == 45 and changed.cost == 60.0
 
+    # describe: a stripe product
+    priced = add_job_type_size(
+        business_id, job_type.id, "Stripe", 60, 50.0,
+        stripe_product_id="prod_1", stripe_price_id="price_1"
+    )
+    assert priced.stripeProductId == "prod_1"
+    assert priced.stripePriceId == "price_1"
+    assert priced.cost == 50.0
+    cleared = update_job_type_size(
+        business_id, priced.id, "Stripe", 60, 55.0
+    )
+    assert cleared.stripeProductId is None
+    assert cleared.cost == 55.0
+
     # describe: a duration of nothing
     with pytest.raises(ValidationError):
         update_job_type_size(business_id, small.id, "Small", 0, 60.0)
@@ -2253,7 +2267,7 @@ def test_job_type_sizes():
 
     # describe: removing one nothing was booked against
     delete_job_type_size(business_id, small.id)
-    assert [s.name for s in get_job_type_sizes(job_type.id)] == ["Large"]
+    assert [s.name for s in get_job_type_sizes(job_type.id)] == ["Large", "Stripe"]
 
     # describe: removing one an appointment used
     large = get_job_type_sizes(job_type.id)[0]

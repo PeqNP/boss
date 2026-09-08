@@ -15,6 +15,9 @@
       const businessId = $(app.controller).getBusinessId();
 
       let config = null;
+      let stripeProducts = [];
+      let stripeProductId = null;
+      let stripePriceId = null;
 
       let delegate = protocol(
         "JobTypeSizeDelegate", this, "delegate",
@@ -32,6 +35,66 @@
 
       // --- Controller functions ---
 
+      function applyProduct(productId) {
+        stripeProductId = isEmpty(productId) ? null : productId;
+        const product = stripeProducts.find(function(p) {
+          return p.id === stripeProductId;
+        });
+        stripePriceId = isEmpty(product) ? null : product.priceId;
+        const cost = view.ui.input("cost");
+        if (isEmpty(product)) {
+          cost.disabled = false;
+          return;
+        }
+        cost.value = (product.unitAmount / 100).toFixed(2);
+        cost.disabled = true;
+      }
+
+      function didChangeStripeProduct() {
+        applyProduct(view.ui.select("stripe-product").ui.selectedValue());
+      }
+      this.didChangeStripeProduct = didChangeStripeProduct;
+
+      async function configureStripe() {
+        let cfg;
+        try {
+          cfg = await os.network.get(
+            `/api/io.bithead.scheduler/business/${businessId}/config`
+          );
+        }
+        catch {
+          cfg = null;
+        }
+        const ready = !isEmpty(cfg)
+          && cfg.paymentVendorChosen === true
+          && !isEmpty(cfg.stripeAccountId);
+        const menu = view.ui.select("stripe-product");
+        if (!ready) {
+          menu.ui.disable();
+          return;
+        }
+        menu.ui.enable();
+        let response;
+        try {
+          response = await os.network.get(
+            `/api/io.bithead.scheduler/business/${businessId}/stripe/products`
+          );
+        }
+        catch {
+          os.ui.showError("Failed to load the Stripe products. Please try again later.");
+          return;
+        }
+        stripeProducts = response.products || [];
+        menu.ui.addNewOptions(
+          [{ id: "", name: "None" }].concat(stripeProducts.map(function(p) {
+            return {
+              id: p.id,
+              name: `${p.name} ($${(p.unitAmount / 100).toFixed(2)})`
+            };
+          }))
+        );
+      }
+
       async function save() {
         const name = view.ui.inputValue("size-name", "Please provide a name.");
         if (isEmpty(name)) {
@@ -47,7 +110,13 @@
           os.ui.showAlert("Please provide what this size costs.");
           return;
         }
-        const payload = { name, durationMinutes: duration, cost };
+        const payload = {
+          name,
+          durationMinutes: duration,
+          cost,
+          stripeProductId,
+          stripePriceId
+        };
         let response;
         try {
           if (isEmpty(config.sizeId)) {
@@ -108,6 +177,7 @@
         if (isEmpty(config?.jobTypeId)) {
           throw new Error("JobTypeSize: jobTypeId is required");
         }
+        await configureStripe();
         // Creating: there is nothing to load, and no size to delete.
         if (isEmpty(config.sizeId)) {
           view.ui.button("delete-btn").remove();
@@ -130,6 +200,10 @@
         view.ui.input("size-name").value = size.name;
         view.ui.input("duration-minutes").value = size.durationMinutes;
         view.ui.input("cost").value = size.cost.toFixed(2);
+        if (!isEmpty(size.stripeProductId)) {
+          view.ui.select("stripe-product").ui.selectValue(size.stripeProductId);
+          applyProduct(size.stripeProductId);
+        }
       }
       this.viewDidLoad = viewDidLoad;
 
@@ -146,7 +220,7 @@
 
   <div class="title">Size</div>
 
-  <div class="container vbox gap-20" style="width: 380px;">
+  <div class="container vbox gap-20" style="width: 420px;">
 
     <div class="vbox gap-10">
       <div class="text-field">
@@ -157,8 +231,14 @@
         <label for="duration-minutes">Duration (minutes)</label>
         <input type="number" name="duration-minutes" value="30">
       </div>
+      <div class="ui-popup-menu intrinsic" style="--popup-width: 260px;">
+        <label for="stripe-product">Stripe product</label>
+        <select name="stripe-product" onchange="$(this.controller).didChangeStripeProduct();">
+          <option>None</option>
+        </select>
+      </div>
       <div class="text-field">
-        <label for="cost">Cost</label>
+        <label for="cost">Price</label>
         <input type="number" name="cost" step="0.01" value="0.00">
       </div>
     </div>

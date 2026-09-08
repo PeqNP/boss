@@ -791,7 +791,7 @@ Filters: status, customer name/phone, date range, job type, employee. Max 50 res
 List of job types; add/edit/delete.
 
 #### `JobType`
-Own fields: name, icon (picker modal), employees needed, active flag, Stripe product link, payment settings (required toggle, deposit amount/type fixed-or-percent, non-refundable checkbox).
+Own fields: name, icon (picker modal), employees needed, active flag, payment settings (required toggle, deposit amount/type fixed-or-percent, non-refundable checkbox). A Stripe product is chosen on a size, not on the job type.
 
 Three child lists — sizes, attributes, contact fields — each a list box with Add and Edit, each edited in its own modal. The contact field list is ordered: the up and down buttons post the whole order and the list is redrawn from what the server hands back.
 
@@ -1271,8 +1271,6 @@ CREATE TABLE job_types (
     deposit_type TEXT,              -- fixed | percent
     deposit_amount REAL,
     deposit_nonrefundable INTEGER NOT NULL DEFAULT 0,
-    stripe_product_id TEXT,
-    stripe_price_id TEXT,
     -- 0, not 1: this row exists from the moment the form opens, and an
     -- `Untitled` job type must not reach a customer while it is still being
     -- typed. The first real save sends what the Active checkbox says.
@@ -1285,6 +1283,8 @@ CREATE TABLE job_type_sizes (
     name TEXT NOT NULL,
     duration_minutes INTEGER NOT NULL,
     cost REAL NOT NULL,
+    stripe_product_id TEXT,
+    stripe_price_id TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0
 );
 

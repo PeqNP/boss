@@ -324,8 +324,6 @@ def create_version_1_0_0(conn, version):
             deposit_type TEXT,              -- fixed | percent
             deposit_amount REAL,
             deposit_nonrefundable INTEGER NOT NULL DEFAULT 0,
-            stripe_product_id TEXT,
-            stripe_price_id TEXT,
             -- 0, not 1: this row exists from the moment the form opens, and an
             -- `Untitled` job type must not reach a customer while it is still being
             -- typed. The first real save sends what the Active checkbox says.
@@ -340,6 +338,8 @@ def create_version_1_0_0(conn, version):
             name TEXT NOT NULL,
             duration_minutes INTEGER NOT NULL,
             cost REAL NOT NULL,
+            stripe_product_id TEXT,
+            stripe_price_id TEXT,
             sort_order INTEGER NOT NULL DEFAULT 0
         )
     """)
@@ -818,6 +818,8 @@ class JobTypeSizeRow(BaseModel):
     name: str
     duration_minutes: int
     cost: float
+    stripe_product_id: Optional[str] = None
+    stripe_price_id: Optional[str] = None
     sort_order: int
 
 
@@ -1500,8 +1502,6 @@ class JobTypeDetailRow(BaseModel):
     deposit_type: Optional[str]
     deposit_amount: Optional[float]
     deposit_nonrefundable: int
-    stripe_product_id: Optional[str]
-    stripe_price_id: Optional[str]
     is_active: int
 
 
@@ -1511,8 +1511,7 @@ def get_job_type_detail(job_type_id: int) -> Optional[JobTypeDetailRow]:
         """
                    SELECT id, business_id, name, icon_id, min_employees,
                           payment_required, deposit_required, deposit_type,
-                          deposit_amount, deposit_nonrefundable,
-                          stripe_product_id, stripe_price_id, is_active
+                          deposit_amount, deposit_nonrefundable, is_active
                    FROM job_types WHERE id = ?
                    """,
         (job_type_id,)
@@ -1533,11 +1532,16 @@ def set_job_type_active(job_type_id: int, is_active: int) -> int:
     )
 
 
+SIZE_COLUMNS = (
+    "id, job_type_id, name, duration_minutes, cost,"
+    " stripe_product_id, stripe_price_id, sort_order"
+)
+
+
 def get_job_type_size(size_id: int) -> Optional[JobTypeSizeRow]:
     return _one_as(
         JobTypeSizeRow,
-        "SELECT id, job_type_id, name, duration_minutes, cost, sort_order"
-        " FROM job_type_sizes WHERE id = ?",
+        f"SELECT {SIZE_COLUMNS} FROM job_type_sizes WHERE id = ?",
         (size_id,)
     )
 
@@ -1556,15 +1560,19 @@ def insert_job_type_size(
     name: str,
     duration_minutes: int,
     cost: float,
-    sort_order: int = 0
+    sort_order: int = 0,
+    stripe_product_id: Optional[str] = None,
+    stripe_price_id: Optional[str] = None
 ) -> int:
     return insert(
         """
         INSERT INTO job_type_sizes
-            (job_type_id, name, duration_minutes, cost, sort_order)
-        VALUES (?, ?, ?, ?, ?)
+            (job_type_id, name, duration_minutes, cost, sort_order,
+             stripe_product_id, stripe_price_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-        (job_type_id, name, duration_minutes, cost, sort_order)
+        (job_type_id, name, duration_minutes, cost, sort_order,
+         stripe_product_id, stripe_price_id)
     )
 
 
@@ -3293,9 +3301,7 @@ def set_job_type_payment(
     payment_required: int,
     deposit_required: int,
     deposit_type: Optional[str],
-    deposit_amount: Optional[float],
-    stripe_product_id: Optional[str],
-    stripe_price_id: Optional[str]
+    deposit_amount: Optional[float]
 ) -> int:
     return update(
         """
@@ -3304,9 +3310,7 @@ def set_job_type_payment(
                payment_required = ?,
                deposit_required = ?,
                deposit_type = ?,
-               deposit_amount = ?,
-               stripe_product_id = ?,
-               stripe_price_id = ?
+               deposit_amount = ?
          WHERE id = ?
         """,
         (
@@ -3315,8 +3319,6 @@ def set_job_type_payment(
             deposit_required,
             deposit_type,
             deposit_amount,
-            stripe_product_id,
-            stripe_price_id,
             job_type_id
         )
     )
@@ -3350,8 +3352,7 @@ def delete_job_type(job_type_id: int) -> int:
 def get_job_type_sizes(job_type_id: int) -> List[JobTypeSizeRow]:
     return _all_as(
         JobTypeSizeRow,
-        "SELECT id, job_type_id, name, duration_minutes, cost, sort_order"
-        " FROM job_type_sizes WHERE job_type_id = ?"
+        f"SELECT {SIZE_COLUMNS} FROM job_type_sizes WHERE job_type_id = ?"
         " ORDER BY sort_order, id",
         (job_type_id,)
     )
@@ -3361,12 +3362,16 @@ def update_job_type_size(
     size_id: int,
     name: str,
     duration_minutes: int,
-    cost: float
+    cost: float,
+    stripe_product_id: Optional[str] = None,
+    stripe_price_id: Optional[str] = None
 ) -> int:
     return update(
-        "UPDATE job_type_sizes SET name = ?, duration_minutes = ?, cost = ?"
+        "UPDATE job_type_sizes SET name = ?, duration_minutes = ?, cost = ?,"
+        " stripe_product_id = ?, stripe_price_id = ?"
         " WHERE id = ?",
-        (name, duration_minutes, cost, size_id)
+        (name, duration_minutes, cost, stripe_product_id, stripe_price_id,
+         size_id)
     )
 
 

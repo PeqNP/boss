@@ -1,6 +1,6 @@
 # Session Memory — Scheduler
 
-Every stage of `plan.md` is finished. Mock vendors are offered only when `env` is `dev`. US holidays fill from `python-holidays` when a year is empty. Contact field types are code in `lib/contact_fields.py`. A customer has one `name`. Employees still have first and last name.
+Every stage of `plan.md` is finished. Mock vendors are offered only when `env` is `dev`. US holidays fill from `python-holidays` when a year is empty. Contact field types are code in `lib/contact_fields.py`. A customer has one `name`. Employees still have first and last name. A Stripe product is chosen on a job-type size; its price fills the size's cost.
 
 ## Watch out for
 

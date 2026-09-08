@@ -11,7 +11,7 @@
 
 import json
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from .. import db
 from ..model import *
@@ -134,8 +134,6 @@ def get_job_type_detail(
         depositType=row.deposit_type,
         depositAmount=row.deposit_amount,
         depositNonrefundable=bool(row.deposit_nonrefundable),
-        stripeProductId=row.stripe_product_id,
-        stripePriceId=row.stripe_price_id,
         isActive=bool(row.is_active),
         sizes=get_job_type_sizes(job_type_id),
         attributes=get_job_type_attributes(job_type_id),
@@ -379,9 +377,7 @@ def update_job_type(
     payment_required: Optional[bool] = None,
     deposit_required: Optional[bool] = None,
     deposit_type: Optional[str] = None,
-    deposit_amount: Optional[float] = None,
-    stripe_product_id: Optional[str] = None,
-    stripe_price_id: Optional[str] = None
+    deposit_amount: Optional[float] = None
 ) -> Optional[JobType]:
     current = get_job_type(business_id, job_type_id)
     if current is None:
@@ -401,7 +397,7 @@ def update_job_type(
     detail = db.get_job_type_detail(job_type_id)
     if detail is not None and any(value is not None for value in (
         icon_id, payment_required, deposit_required, deposit_type,
-        deposit_amount, stripe_product_id, stripe_price_id
+        deposit_amount
     )):
         db.set_job_type_payment(
             job_type_id,
@@ -418,14 +414,6 @@ def update_job_type(
             (
                 detail.deposit_amount if deposit_amount is None
                 else deposit_amount
-            ),
-            (
-                detail.stripe_product_id if stripe_product_id is None
-                else stripe_product_id
-            ),
-            (
-                detail.stripe_price_id if stripe_price_id is None
-                else stripe_price_id
             )
         )
     return get_job_type(business_id, job_type_id)
@@ -454,12 +442,26 @@ def get_job_type_sizes(job_type_id: int) -> List[JobTypeSize]:
     return [_size(r) for r in db.get_job_type_sizes(job_type_id)]
 
 
+def _stripe_ids(
+    stripe_product_id: Optional[str],
+    stripe_price_id: Optional[str]
+) -> Tuple[Optional[str], Optional[str]]:
+    """Empty strings are no product, not a Stripe id."""
+    product = (stripe_product_id or "").strip() or None
+    price = (stripe_price_id or "").strip() or None
+    if product is None:
+        price = None
+    return product, price
+
+
 def update_job_type_size(
     business_id: int,
     size_id: int,
     name: str,
     duration_minutes: int,
-    cost: float
+    cost: float,
+    stripe_product_id: Optional[str] = None,
+    stripe_price_id: Optional[str] = None
 ) -> Optional[JobTypeSize]:
     if not name or not name.strip():
         raise ValidationError("A size needs a name.")
@@ -468,8 +470,11 @@ def update_job_type_size(
     if cost < 0:
         raise ValidationError("A size cannot cost less than nothing.")
     _business_size(business_id, size_id)
+    product_id, price_id = _stripe_ids(stripe_product_id, stripe_price_id)
 
-    db.update_job_type_size(size_id, name.strip(), duration_minutes, cost)
+    db.update_job_type_size(
+        size_id, name.strip(), duration_minutes, cost, product_id, price_id
+    )
     return _size(db.get_job_type_size(size_id))
 
 
@@ -506,16 +511,21 @@ def add_job_type_size(
     job_type_id: int,
     name: str,
     duration_minutes: int,
-    cost: float
+    cost: float,
+    stripe_product_id: Optional[str] = None,
+    stripe_price_id: Optional[str] = None
 ) -> JobTypeSize:
     """A size is what carries the duration and the price."""
     _business_job_type(business_id, job_type_id)
+    product_id, price_id = _stripe_ids(stripe_product_id, stripe_price_id)
     return _size(db.get_job_type_size(
         db.insert_job_type_size(
             job_type_id,
             name,
             duration_minutes,
             cost,
-            db.next_size_sort_order(job_type_id)
+            db.next_size_sort_order(job_type_id),
+            product_id,
+            price_id
         )
     ))

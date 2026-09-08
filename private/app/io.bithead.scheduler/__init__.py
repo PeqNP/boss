@@ -960,9 +960,7 @@ async def update_job_type(
         body.paymentRequired,
         body.depositRequired,
         body.depositType,
-        body.depositAmount,
-        body.stripeProductId,
-        body.stripePriceId
+        body.depositAmount
     )
     return Success(success=True)
 
@@ -1007,7 +1005,9 @@ async def create_job_type_size(
         job_type_id,
         body.name,
         body.durationMinutes,
-        body.cost
+        body.cost,
+        body.stripeProductId,
+        body.stripePriceId
     )
 
 
@@ -1031,7 +1031,9 @@ async def update_job_type_size(
         size_id,
         body.name,
         body.durationMinutes,
-        body.cost
+        body.cost,
+        body.stripeProductId,
+        body.stripePriceId
     )
 
 
