@@ -6,7 +6,8 @@
 
 import { test, expect } from "@playwright/test";
 import {
-  bootBOSS, openApplication, openController, windowByTitle, settled, named
+  bootBOSS, openApplication, openController, windowByTitle, settled, named,
+  clickMenuItem
 } from "../lib/boss.js";
 
 const TUTORIAL = "io.bithead.tutorial";
@@ -58,19 +59,35 @@ test.describe("Tutorial — demos", () => {
   });
 
   test("a pinned window stays in the corner and collapses @pinned", async ({ page }) => {
-    await openController(page, TUTORIAL, "Pinned");
-    const win = windowByTitle(page, "Getting started");
-    await expect(win).toBeVisible();
-    await expect(win).toHaveClass(/pin-top-right/);
-    await expect(win.locator("label.checkbox")).toHaveCount(4);
+    await clickMenuItem(page, "demos-menu", "Pinned window");
 
-    const before = await win.boundingBox();
-    await win.locator(".collapse-button").click();
-    await expect(win).toHaveClass(/collapsed/);
-    await expect(win.locator(":scope > .container")).toBeHidden();
-    const collapsed = await win.boundingBox();
+    const desktop = await page.locator("#desktop").boundingBox();
+    const topWin = windowByTitle(page, "Getting started");
+    const bottomWin = windowByTitle(page, "Bottom right");
+
+    await expect(topWin).toBeVisible();
+    await expect(topWin).toHaveClass(/pin-top-right/);
+    await expect(topWin.locator("label.checkbox")).toHaveCount(4);
+
+    await expect(bottomWin).toBeVisible();
+    await expect(bottomWin).toHaveClass(/pin-bottom-right/);
+    await expect(bottomWin.locator("p")).toHaveText("Pinned window on bottom right.");
+
+    const topBox = await topWin.boundingBox();
+    expect(topBox.y - desktop.y).toBeCloseTo(10, 0);
+    expect((desktop.x + desktop.width) - (topBox.x + topBox.width)).toBeCloseTo(10, 0);
+
+    const bottomBox = await bottomWin.boundingBox();
+    expect((desktop.y + desktop.height) - (bottomBox.y + bottomBox.height)).toBeCloseTo(10, 0);
+    expect((desktop.x + desktop.width) - (bottomBox.x + bottomBox.width)).toBeCloseTo(10, 0);
+
+    const before = await topWin.boundingBox();
+    await topWin.locator(".collapse-button").click();
+    await expect(topWin).toHaveClass(/collapsed/);
+    await expect(topWin.locator(":scope > .container")).toBeHidden();
+    const collapsed = await topWin.boundingBox();
     expect(collapsed.width).toBeCloseTo(before.width, 0);
-    await win.locator(".collapse-button").click();
-    await expect(win.locator(":scope > .container")).toBeVisible();
+    await topWin.locator(".collapse-button").click();
+    await expect(topWin.locator(":scope > .container")).toBeVisible();
   });
 });

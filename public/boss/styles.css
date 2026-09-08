@@ -443,6 +443,8 @@ body {
   margin-left: 10px;
   width: 18px;
   height: 18px;
+  /* Covers the title-bar shade lines so the control sits off the chrome. */
+  background-color: #fff;
   background-image: url("/boss/img/close-button.svg");
   background-position: center;
   background-repeat: no-repeat;
@@ -470,9 +472,9 @@ body {
 
 #desktop .ui-window .collapse-button {
   position: relative;
-  top: 2px;
+  top: 1px;
   width: 18px;
-  height: 18px;
+  height: 20px;
   /* 10px from `.zoom-button`, or from the title-bar edge when zoom is omitted. */
   margin-right: 10px;
   /* Covers the title-bar shade lines so the control sits off the chrome. */
@@ -480,6 +482,7 @@ body {
   background-image: url("/boss/img/collapse-button.svg");
   background-position: center;
   background-repeat: no-repeat;
+  background-size: 18px 20px;
   flex-shrink: 0;
 }
 
@@ -489,6 +492,8 @@ body {
   width: 18px;
   height: 18px;
   margin-right: 10px;
+  /* Covers the title-bar shade lines so the control sits off the chrome. */
+  background-color: #fff;
   background-image: url("/boss/img/zoom-button.svg");
   background-position: center;
   background-repeat: no-repeat;
@@ -502,7 +507,16 @@ body {
   display: none;
 }
 
-/* Pinned to a desktop corner. Position is on the OS `ui-container`. */
+/* Pinned to a desktop corner. Position is on the OS `ui-container`.
+ * `.ui-window` is `position: absolute`, so the container would otherwise
+ * collapse to 0×0 and `right` / `bottom` would pin the window's top-left.
+ * In-flow, the container wraps the window and those edges are the named
+ * corner. */
+#desktop .ui-container:has(> .ui-window.pin-top-right) > .ui-window,
+#desktop .ui-container:has(> .ui-window.pin-bottom-right) > .ui-window {
+  position: relative;
+}
+
 #desktop .ui-container:has(> .ui-window.pin-top-right) {
   top: 10px;
   right: 10px;

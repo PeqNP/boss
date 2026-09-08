@@ -42,6 +42,9 @@
         "Pinned": {
             "singleton": true
         },
+        "PinnedBottom": {
+            "singleton": true
+        },
         "Settings": { },
         "Singleton": {
             "singleton": true

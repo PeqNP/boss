@@ -70,7 +70,13 @@
       this.showClipboard = function() { return showDemo.call(this, "Clipboard"); };
       this.showLinks = function() { return showDemo.call(this, "Links"); };
       this.showSingleton = function() { return showDemo.call(this, "Singleton"); };
-      this.showPinned = function() { return showDemo.call(this, "Pinned"); };
+      async function showPinned() {
+        const top = await $(this.controller).loadController("Pinned");
+        top.ui.show();
+        const bottom = await $(this.controller).loadController("PinnedBottom");
+        bottom.ui.show();
+      }
+      this.showPinned = showPinned;
 
       async function applicationDidStart() {
         await showExample();
