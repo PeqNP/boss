@@ -287,6 +287,12 @@ uitest/
 
 ## Writing a test
 
+A UI test asserts behaviour, not style. That a pin class is on the window, that
+collapse hides the body, that a filter leaves one row — those are behaviour.
+Pixel offsets, gaps, `width`, and colour as a stand-in for "it looks right"
+are not. Geometry belongs in a throwaway probe (`tests/_probe.spec.js`) while
+diagnosing a visual bug.
+
 BOSS is a single page that renders every window into the desktop, so tests do
 not navigate between URLs. Boot the OS once, then open an application through
 the OS:

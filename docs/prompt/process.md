@@ -440,7 +440,7 @@ The two suites answer different questions, and each stays with its own.
 
 **UI tests** prove the **wiring** — that a screen calls the right endpoint and puts the answer in the right place. Keep them to happy flows plus a little edge-case cover. Business logic is settled by the private suite: that a requeue jumps the queue is answered there, faster.
 
-A UI test earns its place by catching the class of defect the private suite is blind to — a renamed field, a call sent to the wrong path, a response nobody reads. It clicks Save and checks the row appeared.
+A UI test earns its place by catching the class of defect the private suite is blind to — a renamed field, a call sent to the wrong path, a response nobody reads. It clicks Save and checks the row appeared. It does not assert size, position, or other style — that rule is in [`uitest/README.md`](../../uitest/README.md) § "Writing a test".
 
 ## Test-First Approach
 

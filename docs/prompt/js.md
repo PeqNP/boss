@@ -2957,8 +2957,16 @@ dragged and is not staggered. Its first position is that corner, 10px in.
 
 Pinned windows stack above ordinary windows and below modals.
 
+A pinned window's title bar has `.close-button` and `.collapse-button` by
+default. It does not have `.zoom-button` — fullscreen fights the pin.
+
 ```html
 <div class="ui-window pin-top-right">
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Title</span></div>
+    <div class="collapse-button"></div>
+  </div>
 ```
 
 ---
