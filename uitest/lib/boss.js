@@ -560,7 +560,11 @@ export async function selectedValue(page, name) {
 export async function hasUIInterface(page, name) {
   return page.evaluate((n) => {
     const select = document.querySelector(`select[name="${n}"]`);
-    return !!select && !!select.ui;
+    if (select) {
+      return !!select.ui;
+    }
+    const input = document.querySelector(`input[name="${n}"]`);
+    return !!input && !!input.ui;
   }, name);
 }
 

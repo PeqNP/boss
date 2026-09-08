@@ -47,6 +47,22 @@ test.describe("Tutorial — Example", () => {
     // regresses, these are the first things to break.
     expect(await hasUIInterface(page, "option-1")).toBe(true);
     expect(await hasUIInterface(page, "option-6")).toBe(true);
+    expect(await hasUIInterface(page, "filter-1")).toBe(true);
+  });
+
+  test("a UIFilter filters a list box as you type @filter", async ({ page }) => {
+    const win = windowByTitle(page, "UI Components");
+    const listBox = component(win, "ui-list-box", "filter-1-list");
+    await listBox.scrollIntoViewIfNeeded();
+    await expect(listBox.locator(".option")).toHaveCount(3);
+
+    const filter = named(win, "input", "filter-1");
+    await filter.fill("Harry");
+    await expect(listBox.locator(".option")).toHaveCount(1);
+    await expect(listBox.locator(".option")).toHaveText("Harry Potter");
+
+    await filter.fill("");
+    await expect(listBox.locator(".option")).toHaveCount(3);
   });
 
   test.describe("components created after render", () => {

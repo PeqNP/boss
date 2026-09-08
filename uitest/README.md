@@ -326,8 +326,10 @@ through `view.ui.<accessor>(name)`. That keeps a test coupled to the same
 contract the application code uses, rather than to markup structure.
 
 To verify a component was **styled** and not merely inserted, check that its
-`select` has a `ui` interface — `hasUIInterface(page, name)`. Only components
-that went through the render-time pass or a `os.ui.make*` factory have one.
+named control has a `ui` interface — `hasUIInterface(page, name)`. That is the
+backing `<select>` for menus and list boxes, or the `<input>` for `UIFilter`.
+Only components that went through the render-time pass or a `os.ui.make*`
+factory have one.
 
 Two rules, both learned by getting them wrong:
 

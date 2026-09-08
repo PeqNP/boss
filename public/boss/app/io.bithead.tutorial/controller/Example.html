@@ -234,6 +234,18 @@
       </div>
 
       <div>
+        <p>UIFilter: Filters a visible list as you type. It does not search the server and does not show a drop-down. That is UISearchMenu.</p>
+        <div class="vbox gap-10" style="width: 200px;">
+          <div class="ui-filter">
+            <input name="filter-1" type="text" placeholder="Filter employees…">
+          </div>
+          <div class="ui-list-box" style="width: 200px; height: 90px;">
+            <select name="filter-1-list"></select>
+          </div>
+        </div>
+      </div>
+
+      <div>
         <p>UITokenMenu: Searchable multi-select token pop-up menu list.</p>
         <div class="ui-token-menu" style="width: auto;">
           <label for="token-1">Assignees<label>
@@ -549,6 +561,7 @@
 
          - ui-list-box: UIListBox class. Access via view.ui.select("name").ui.removeAllOptions(), .addNewOptions([{id, name}, ...])
          - ui-popup-menu: UIPopupMenu class. Similar to UIListBox for select operations.
+         - ui-filter: UIFilter class. Access via view.ui.input("name").ui.term(), .clear(), .delegate.didChangeFilter
          - ui-progress-bar: UIProgressBar class. Use .setProgress(value) to update.
          - Other elements follow similar patterns; check ui.js for full API details.
     -->

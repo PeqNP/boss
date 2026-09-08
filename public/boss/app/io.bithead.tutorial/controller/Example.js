@@ -140,6 +140,30 @@ export default function Example(view, app) {
             }
         };
 
+        const filterItems = [
+            { id: "1", name: "Harry Potter" },
+            { id: "2", name: "Tasty Treat" },
+            { id: "3", name: "Crash Adams" }
+        ];
+        function applyFilter1() {
+            let list = view.ui.select("filter-1-list").ui;
+            let selected = list.selectedValue();
+            let term = view.ui.input("filter-1").ui.term().toLowerCase();
+            let filtered = isEmpty(term)
+                ? filterItems
+                : filterItems.filter(function(item) {
+                    return String(item.name).toLowerCase().includes(term);
+                });
+            list.addNewOptions(filtered);
+            if (!isEmpty(selected)) {
+                list.selectValue(selected);
+            }
+        }
+        view.ui.input("filter-1").ui.delegate = {
+            didChangeFilter: applyFilter1
+        };
+        applyFilter1();
+
         let searchMenu = view.ui.select("search-1").ui;
         searchMenu.delegate = {
             didFocusSearchMenu: async function(initialize) {
