@@ -44,7 +44,7 @@ The OS comes with several convenient UI modals including:
 
 - `Alert` via `os.ui.showAlert(msg: str)`: Display an alert to a user
 - `Delete` via `os.ui.showDelete(msg: str, cancel: function, ok: function)`: Display a modal that asks the user if they want to delete something
-- `Error` via `os.ui.showError(msg: str)`: Display an error message
+- `Error` via `os.ui.showError(error: Error | str)`: Display an error message. An `Error` is unwrapped to `error.message`.
 - `Info` via `os.ui.showInfo(msg: str)`: Display an alert to a user. This has the option of being `await`ed until dismissed.
 - `ProgressBar` via `os.ui.showProgressBar(title: str, fn: function, indeterminate: bool=false)`: Display a progress bar with an optional `fn` that is called when the `Stop` button is pressed.
 

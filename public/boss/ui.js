@@ -1565,16 +1565,20 @@ function UI(os) {
     /**
      * Show an error modal above all other content.
      *
+     * Accepts an `Error` or a string. The Error controller is configured
+     * with `error.message` or the string.
+     *
      * @param {Error|string} error - The error to show to end-user.
      */
     async function showError(error) {
         if (!os.isLoaded()) {
             return console.error(error);
         }
+        let message = error instanceof Error ? error.message : error;
         let app = os.application("io.bithead.boss");
         let modal = await app.loadController("Error");
         modal.ui.show(function(ctrl) {
-            ctrl.configure(error);
+            ctrl.configure(message);
         });
     }
     this.showError = showError;

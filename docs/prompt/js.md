@@ -115,8 +115,8 @@ The container's content is what stretches the window chrome — the chrome wraps
         try {
           await os.network.post("/my-app/item", { itemId, name });
         }
-        catch {
-          os.ui.showError("Failed to save. Please try again later.");
+        catch (error) {
+          os.ui.showError(error);
           return;
         }
         view.ui.close();
@@ -301,8 +301,8 @@ Use this template when a controller edits an **existing model** (load, save, del
             await os.network.post("/my-app/item", { name });
           }
         }
-        catch {
-          os.ui.showError("Failed to save. Please try again later.");
+        catch (error) {
+          os.ui.showError(error);
           return;
         }
         delegate.didSaveMyItem();
@@ -315,8 +315,8 @@ Use this template when a controller edits an **existing model** (load, save, del
           try {
             await os.network.delete(`/my-app/item/${itemId}`);
           }
-          catch {
-            os.ui.showError("Failed to delete. Please try again later.");
+          catch (error) {
+            os.ui.showError(error);
             return;
           }
           delegate.didDeleteMyItem();
@@ -348,8 +348,8 @@ Use this template when a controller edits an **existing model** (load, save, del
         try {
           response = await os.network.get(`/my-app/item/${itemId}`);
         }
-        catch {
-          os.ui.showError("Failed to load item. Please try again later.");
+        catch (error) {
+          os.ui.showError(error);
           return;
         }
         view.ui.input("name").value = response.name;
@@ -576,11 +576,11 @@ async function create() {
   try {
     response = await os.network.post("/api/my-app/pool", { name: DRAFT_NAME });
   }
-  catch {
+  catch (error) {
     // Deliberately not awaited. `viewDidLoad` cannot close its own window —
     // the lifecycle has to finish first — so the close is hung off the alert
     // and runs once the user has read it.
-    os.ui.showAlert("Failed to create the pool. Please try again later.")
+    os.ui.showAlert(error.message)
          .then(function() { view.ui.close(); });
     return;
   }
@@ -1574,8 +1574,8 @@ function _delete() {
     try {
       await os.network.delete(`/my-app/item/${itemId}`);
     }
-    catch {
-      os.ui.showError("Failed to delete. Please try again later.");
+    catch (error) {
+      os.ui.showError(error);
       return;
     }
     delegate.didDeleteMyItem();
@@ -2993,7 +2993,7 @@ os.ui.close()                         // Close the current app
 os.ui.focusWindow(container)          // Focus a window
 os.ui.makeController("Name")          // Create a controller (does not show it)
 os.ui.showAlert("Message")            // Show an alert modal
-os.ui.showError("Error message")      // Show an error modal
+os.ui.showError(error)                // Show an error modal (`Error` or string)
 await os.ui.showInfo("Info message")  // Show info modal; awaitable until dismissed
 os.ui.showDelete("Are you sure?", cancelFn, okFn)  // Confirmation delete modal
 os.ui.hideBusy()                      // Hide spinner
@@ -3035,8 +3035,8 @@ os.ui.showDelete("Are you sure you want to delete this item?", null, async funct
   try {
     await os.network.delete(`/my-app/item/${itemId}`);
   }
-  catch {
-    os.ui.showError("Failed to delete. Please try again.");
+  catch (error) {
+    os.ui.showError(error);
     return;
   }
   delegate.didDeleteMyItem();
@@ -3064,9 +3064,14 @@ All network functions are async. Always `await` them unless fire-and-forget is i
 
 ```javascript
 // GET with JSON response
-const result = await os.network.get("/api/items");
-if (result.error) { os.ui.showError(result.error); return; }
-const items = result.value;
+let items;
+try {
+  items = await os.network.get("/api/items");
+}
+catch (error) {
+  os.ui.showError(error);
+  return;
+}
 
 // POST — create a new resource
 const result = await os.network.post("/api/item", { name, status });
@@ -3096,7 +3101,7 @@ async function save() {
     }
   }
   catch (error) {
-    os.ui.showError(error.message);
+    os.ui.showError(error);
     return;
   }
   delegate.didSaveMyItem();
@@ -3110,13 +3115,13 @@ exists by the time `save` runs, so `save` is always a `PUT`. See
 [A form that owns a list creates its model up front](#a-form-that-owns-a-list-creates-its-model-up-front).
 
 **Error handling rules:**
-- When a network call throws, display `error.message` — the server returns structured error messages that should be shown verbatim. `error.message` is always present on network errors.
+- When a network call throws, pass the error to `os.ui.showError(error)`. `showError` unwraps an `Error` or a string and configures the Error controller with the message. Do not pass `error.message`. A string is still valid for a message that is not an exception.
 ```javascript
 try {
   response = await os.network.get(`/lean/intake-queue/${intakeQueueId}`);
 }
 catch (error) {
-  os.ui.showError(error.message);
+  os.ui.showError(error);
   return;
 }
 ```

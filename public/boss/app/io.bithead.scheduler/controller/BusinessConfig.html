@@ -293,7 +293,7 @@
           response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/config/stripe/connect`);
         }
         catch (error) {
-          os.ui.showError(error.message || "Failed to start Stripe Connect. Please try again.");
+          os.ui.showError(error);
           return;
         }
         if (isEmpty(response) || isEmpty(response.connectUrl)) {
@@ -544,9 +544,7 @@
           );
         }
         catch (error) {
-          os.ui.showError(
-            error.message || "Failed to finish Stripe Connect. Please try again."
-          );
+          os.ui.showError(error);
           return;
         }
         sessionStorage.removeItem("io.bithead.scheduler.stripeConnectCode");

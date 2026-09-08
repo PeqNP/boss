@@ -1,15 +1,22 @@
 <div class="ui-modal">
   <script type="text/javascript">
     function $(this.id)(view) {
+      var msg;
+
       function close() {
         view.ui.close();
       }
       this.close = close;
 
-      function configure(msg) {
-        view.ui.pByClassName("message").innerHTML = msg;
+      function configure(_msg) {
+        msg = _msg;
       }
       this.configure = configure;
+
+      function viewDidLoad() {
+        view.ui.pByClassName("message").innerHTML = msg;
+      }
+      this.viewDidLoad = viewDidLoad;
 
       this.didHitEnter = close;
     }

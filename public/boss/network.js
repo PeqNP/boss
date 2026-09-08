@@ -36,21 +36,52 @@ class NetworkError extends Error {
 function Network(os) {
 
     /**
-     * Convenience
+     * Every network failure the caller catches is an `Error` with `message`.
+     * `TypeError` from `fetch` becomes `NetworkError`. A string becomes
+     * `Error(string)`. Anything else without a message becomes
+     * `"Request failed"`.
      *
-     * Always throws, but will transform `error` into `NetworkError` if `error`
-     * is a `TypeError`.
+     * @param {mixed} error
+     * @returns {Error}
+     */
+    function asError(error) {
+        if (error instanceof TypeError) {
+            return new NetworkError();
+        }
+        if (error instanceof Error) {
+            if (isEmpty(error.message)) {
+                error.message = "Request failed";
+            }
+            return error;
+        }
+        if (typeof error === "string" && !isEmpty(error)) {
+            return new Error(error);
+        }
+        return new Error("Request failed");
+    }
+
+    /**
+     * Always throws. Callers display `error.message`.
      *
-     * @param {Error} error - The error being handled
+     * @param {mixed} error - The error being handled
      */
     function handleError(error) {
         console.log(`Server threw error: ${error}`);
-        if (error instanceof TypeError) {
-            throw new NetworkError();
+        throw asError(error);
+    }
+
+    /**
+     * Throw the server's user-facing text from `{ error: { status, message } }`.
+     * Uses `message` only — never stringifies the envelope. A bare string is
+     * accepted for older payloads.
+     *
+     * @param {mixed} error - `data.error` from a server response
+     */
+    function throwIfErrorEnvelope(error) {
+        if (isEmpty(error)) {
+            return;
         }
-        else {
-            throw error;
-        }
+        throw asError(!isEmpty(error.message) ? error.message : error);
     }
 
     /**
@@ -84,9 +115,7 @@ function Network(os) {
                 console.log("Attempting to decode JSON object that wasn't JSON.");
             }
 
-            if (!isEmpty(obj?.error)) {
-                throw new Error(obj.error.message);
-            }
+            throwIfErrorEnvelope(obj?.error);
 
             return data; // Return raw string
         }
@@ -98,13 +127,15 @@ function Network(os) {
             // `Error` yields the message "[object Object]", so the reason is
             // lifted into the message and the whole thing kept on `.detail` —
             // a caller that wants to show the refusal has something to show.
-            let error = new Error(data.detail.reason ?? data.detail);
+            let message = data.detail.reason;
+            if (isEmpty(message) && typeof data.detail === "string") {
+                message = data.detail;
+            }
+            let error = asError(message);
             error.detail = data.detail;
             throw error;
         }
-        if (!isEmpty(data.error)) {
-            throw new Error(data.error.message);
-        }
+        throwIfErrorEnvelope(data.error);
 
         return data;
     }

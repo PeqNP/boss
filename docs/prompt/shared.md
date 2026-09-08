@@ -586,8 +586,8 @@ let response;
 try {
   response = await os.network.put(`/lean/supply/${supplyId}`, { name, theme, amount });
 }
-catch {
-  os.ui.showError("Failed to save supply. Please try again later.");
+catch (error) {
+  os.ui.showError(error);
   return;
 }
 delegate.didSaveSupply(response);

@@ -54,7 +54,13 @@
           verified: verified,
           enabled: enabled
         };
-        await os.network.post('/account/user', request);
+        try {
+          await os.network.post('/account/user', request);
+        }
+        catch (error) {
+          os.ui.showError(error);
+          return;
+        }
         delegate.didSaveUser();
         view.ui.close();
       }
