@@ -2952,7 +2952,7 @@ dragged and is not staggered. Its first position is that corner, 10px in.
 
 | Class | Corner |
 |---|---|
-| `pin-top-right` | The window's top-right corner, 10px from the desktop top and right |
+| `pin-top-right` | The window's top-right corner, 10px below the OS bar and 10px from the desktop right |
 | `pin-bottom-right` | The window's bottom-right corner, 10px from the desktop bottom and right |
 
 Pinned windows stack above ordinary windows and below modals.

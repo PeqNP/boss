@@ -524,7 +524,8 @@ body {
 }
 
 #desktop .ui-container:has(> .ui-window.pin-top-right) {
-  top: 10px;
+  /* OS bar is 26px; sit 10px below it. */
+  top: 36px;
   right: 10px;
   left: auto;
 }

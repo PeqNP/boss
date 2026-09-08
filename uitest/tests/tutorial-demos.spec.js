@@ -74,7 +74,8 @@ test.describe("Tutorial — demos", () => {
     await expect(bottomWin.locator("p")).toHaveText("Pinned window on bottom right.");
 
     const topBox = await topWin.boundingBox();
-    expect(topBox.y - desktop.y).toBeCloseTo(10, 0);
+    const osBar = await page.locator("#os-bar").boundingBox();
+    expect(topBox.y - (osBar.y + osBar.height)).toBeCloseTo(10, 0);
     expect((desktop.x + desktop.width) - (topBox.x + topBox.width)).toBeCloseTo(10, 0);
 
     const bottomBox = await bottomWin.boundingBox();
