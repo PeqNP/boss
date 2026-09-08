@@ -771,7 +771,7 @@ The same reasoning applies to a menu declared in HTML — see the seeded-placeho
 
 Templates live in `/public/boss/app/io.bithead.boss/controller/Application.html`. To support a new component, add a template there and a factory beside the others in `ui.js`.
 
-**Observing changes.** Use the component's delegate — `UIListBox`, `UITabs`, `UISlider`, `UISearchMenu`, and `UITokenMenu` all have one, and it is the idiom for every event-driven action:
+**Observing changes.** Use the component's delegate — `UIListBox`, `UITabs`, `UISlider`, `UISearchMenu`, `UIFilter`, and `UITokenMenu` all have one, and it is the idiom for every event-driven action:
 
 ```javascript
 view.ui.select("steps").ui.delegate = {
@@ -1425,6 +1425,7 @@ When mapping a data model property to a form field:
 | FK ID displayed as a label, or any read-only value | `<div class="read-only"><span name="...">` | Populate via `view.ui.span("field").textContent = value` |
 | Single-select dropdown (compact, in a form or filter bar) | `<div class="ui-popup-menu" style="width: 160px;">` | See UIPopupMenu below |
 | Scrollable list of selectable items | `<div class="ui-list-box">` | See UIListBox below |
+| Filter a visible list as the user types | `<div class="ui-filter">` | See UIFilter below. Not UISearchMenu — that is a drop-down picker. |
 | Multi-select list | `<div class="ui-list-box">` with `<select multiple>` | |
 | Boolean option | `<label class="checkbox">` | Input inside the label; the text toggles the box |
 
@@ -2497,6 +2498,73 @@ async function viewDidLoad() {
   };
 }
 ```
+
+### UIFilter
+
+A filter field. Spyglass on the left and a placeholder; no drop-down. It
+delegates every keystroke. The consumer filters its own list — locally, not
+via a search route.
+
+```html
+<div class="ui-filter">
+  <input name="users-filter" type="text" placeholder="Filter users…">
+</div>
+```
+
+Sit it above the list it filters, spanning the list and the controls beside
+that list:
+
+```html
+<div class="vbox gap-10">
+  <div class="ui-filter">
+    <input name="items-filter" type="text" placeholder="Filter items…">
+  </div>
+  <div class="hbox gap-10">
+    <div class="ui-list-box" style="width: 300px; height: 220px;">
+      <select name="items"></select>
+    </div>
+    <div class="controls-right separated">…</div>
+  </div>
+</div>
+```
+
+**Delegate protocol: `UIFilterDelegate`**
+
+| Method | Parameter | Returns | When called |
+|---|---|---|---|
+| `didChangeFilter` | `term: string` | — | On every keystroke. `term` is trimmed. Empty means show all. |
+
+No debounce. `UISearchMenu.didSearchForTerm` is the delayed, server-backed
+call; this is not that.
+
+Access the instance on the input: `view.ui.input("users-filter").ui`.
+
+```javascript
+let items = [];
+
+function applyItemFilter() {
+  const list = view.ui.select("items").ui;
+  const selected = list.selectedValue();
+  const term = view.ui.input("items-filter").ui.term().toLowerCase();
+  const filtered = isEmpty(term)
+    ? items
+    : items.filter(function(item) {
+        return String(item.name).toLowerCase().includes(term);
+      });
+  list.addNewOptions(filtered);
+  if (!isEmpty(selected)) {
+    list.selectValue(selected);
+  }
+}
+
+view.ui.input("items-filter").ui.delegate = {
+  didChangeFilter: applyItemFilter
+};
+```
+
+**`term()`** — the current value, trimmed.
+
+**`clear()`** — empty the field and fire `didChangeFilter("")`.
 
 ### UITokenMenu
 

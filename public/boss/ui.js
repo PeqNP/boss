@@ -5151,6 +5151,7 @@ function styleUIComponents(element) {
     styleAllUITabs(element);
     styleAllUIProgressBars(element);
     styleAllUISearchMenus(element);
+    styleAllUIFilters(element);
     styleAllUITokenMenus(element);
     styleAllUIHelpBalloons(element);
 }
@@ -7281,6 +7282,119 @@ function styleAllUISearchMenus(elem) {
     let searches = elem.getElementsByClassName("ui-search-menu");
     for (let i = 0; i < searches.length; i++) {
         styleUISearchMenu(searches[i]);
+    }
+}
+
+/**
+ * A filter field. Spyglass and placeholder, no drop-down. Delegates every
+ * keystroke; the consumer filters its own list.
+ *
+ * Markup:
+ * ```html
+ * <div class="ui-filter">
+ *   <input name="users-filter" type="text" placeholder="Filter users…">
+ * </div>
+ * ```
+ *
+ * @param {HTMLElement} filterEl - The `.ui-filter` root element
+ * @param {HTMLInputElement} input - The filter `<input>`
+ */
+function UIFilter(filterEl, input) {
+
+    let delegate = protocol(
+        "UIFilterDelegate", this, "delegate",
+        [
+            /**
+             * The filter text changed.
+             *
+             * @param {string} term - The current value, trimmed. Empty means show all.
+             */
+            "didChangeFilter"
+        ]
+    );
+
+    /**
+     * The current filter text, trimmed.
+     *
+     * @returns {string}
+     */
+    function term() {
+        return input.value.trim();
+    }
+    this.term = term;
+
+    /**
+     * Clear the field and fire `didChangeFilter` with an empty term.
+     */
+    function clear() {
+        if (input.value === "") {
+            return;
+        }
+        input.value = "";
+        delegate.didChangeFilter("");
+    }
+    this.clear = clear;
+
+    // Private API
+
+    input.classList.add("ui-filter-input");
+    input.type = "text";
+    input.setAttribute("autocomplete", "off");
+
+    let innerEl = document.createElement("div");
+    innerEl.classList.add("ui-filter-inner");
+    if (filterEl.style.width) {
+        innerEl.style.width = filterEl.style.width;
+        filterEl.style.width = "";
+    }
+
+    let spyglassEl = document.createElement("img");
+    spyglassEl.src = "/boss/img/spyglass.svg";
+    spyglassEl.classList.add("ui-filter-spyglass");
+
+    innerEl.appendChild(spyglassEl);
+    input.parentNode.insertBefore(innerEl, input);
+    innerEl.appendChild(input);
+
+    input.addEventListener("input", function() {
+        delegate.didChangeFilter(term());
+    });
+
+    input.addEventListener("keydown", function(e) {
+        if (e.key === "Escape") {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!isEmpty(input.value)) {
+                clear();
+            }
+            else {
+                input.blur();
+            }
+            return;
+        }
+        if (e.key === "Enter") {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+    });
+}
+
+function styleUIFilter(filterEl) {
+    let input = filterEl.querySelector("input");
+    if (isEmpty(input?.name)) {
+        throw new Error("A UIFilter element must contain an <input> with a name attribute");
+    }
+    if (!isEmpty(input.ui)) {
+        return;
+    }
+    filterEl.classList.add(`ui-filter-${input.name}`);
+    input.ui = new UIFilter(filterEl, input);
+}
+
+function styleAllUIFilters(elem) {
+    let filters = elem.getElementsByClassName("ui-filter");
+    for (let i = 0; i < filters.length; i++) {
+        styleUIFilter(filters[i]);
     }
 }
 

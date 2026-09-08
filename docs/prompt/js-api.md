@@ -18,7 +18,7 @@ surface only.
 
 ### `UIDocument`
 
-`deleteMessage` · `discardMessage`
+`deleteMessage` · `discardMessage` · `creating`
 
 ### `UIControllerConfig`
 
@@ -122,11 +122,17 @@ surface only.
 
 `selectOption(choice)` · `clearSelectedValue()`
 
+### `UIFilter`
+
+**Delegate methods:** `didChangeFilter`
+
+`term()` · `clear()`
+
 ### `UITokenMenu`
 
 **Delegate methods:** `didAddToken`, `didFocusTokenMenu`, `didRemoveToken`, `didSearchForTerm`
 
-`setTokens(choices)`
+`setTokens(choices)` · `holds(id)`
 
 ---
 
