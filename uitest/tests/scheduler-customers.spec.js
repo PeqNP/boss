@@ -5,7 +5,7 @@
  *
  * A customer record is made by a booking rather than by an operator typing one
  * in, so these tests start at the kiosk and pick the record up afterwards: the
- * list, the search that finds one among many, the detail with what they have
+ * list, the filter that finds one among many, the detail with what they have
  * booked, and the notes an operator keeps against them.
  *
  * The bookings are made from a browser with no session. A booking made while
@@ -132,17 +132,17 @@ test.describe("scheduler customers", () => {
   test("search customers", async ({ page }) => {
     const win = await openCustomers(page);
 
-    await win.locator("input[name='search-query']").fill("Marco");
+    await win.locator("input[name='customers-filter']").fill("Marco");
     await expect(win.locator(".ui-list-box .option")).toHaveCount(1);
     await expect(win.locator(".ui-list-box .option")).toContainText("Marco Ruiz");
 
     // A phone finds them too. It is the mark an operator reads off a missed
     // call, where a name has to be spelled the way it was typed.
-    await win.locator("input[name='search-query']").fill("555-0101");
+    await win.locator("input[name='customers-filter']").fill("555-0101");
     await expect(win.locator(".ui-list-box .option")).toHaveCount(1);
     await expect(win.locator(".ui-list-box .option")).toContainText("Jane Doe");
 
-    await win.locator("input[name='search-query']").fill("Nobody");
+    await win.locator("input[name='customers-filter']").fill("Nobody");
     await expect(win.locator(".ui-list-box .option")).toHaveCount(0);
     await expect(win.locator("button[name='view-btn']")).toBeDisabled();
   });

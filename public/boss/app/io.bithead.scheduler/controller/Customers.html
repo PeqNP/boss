@@ -5,27 +5,12 @@
       // The business this window acts on, held by the app from `/me`.
       const businessId = $(app.controller).getBusinessId();
 
-      // Long enough that a search is not sent per keystroke, short enough that
-      // the list keeps up with typing. Same delay `UISearchMenu` uses.
-      const SEARCH_DELAY = 333;
-
       // The BOSS mark, in the form `UIListBox` reads as an option's icon.
       const BOSS_MARK = "img:/boss/img/logo.png";
 
-      let searchTimer = null;
+      let customers = [];
 
       // --- Controller functions ---
-
-      /**
-       * Searches for what has been typed so far.
-       */
-      function didChangeQuery() {
-        clearTimeout(searchTimer);
-        searchTimer = setTimeout(function() {
-          loadCustomers(view.ui.input("search-query").value.trim());
-        }, SEARCH_DELAY);
-      }
-      this.didChangeQuery = didChangeQuery;
 
       async function openCustomer() {
         const value = view.ui.select("customers").ui.selectedValue();
@@ -51,49 +36,61 @@
             view.ui.button("view-btn").disabled = true;
           }
         };
+        view.ui.input("customers-filter").ui.delegate = {
+          didChangeFilter: applyCustomerFilter
+        };
         await reload();
       }
       this.viewDidLoad = viewDidLoad;
 
       function viewDidAppear() {
-        view.ui.input("search-query").focus();
+        view.ui.input("customers-filter").focus();
       }
       this.viewDidAppear = viewDidAppear;
 
-      function viewWillUnload() {
-        clearTimeout(searchTimer);
-      }
-      this.viewWillUnload = viewWillUnload;
-
-      /**
-       * Reload against whatever is currently being searched for.
-       */
       async function reload() {
-        await loadCustomers(view.ui.input("search-query").value.trim());
+        await loadCustomers();
       }
 
-      async function loadCustomers(q) {
+      function customerOption(c) {
+        const label = `${c.firstName} ${c.lastName}${(isEmpty(c.phone) ? "" : " — " + c.phone)}`;
+        return {
+          id: String(c.id),
+          // The mark says this customer has a BOSS account, which is worth
+          // knowing before the row is opened: they manage their own
+          // contact information, so the form opens read-only.
+          name: c.hasBossAccount ? `${BOSS_MARK},${label}` : label
+        };
+      }
+
+      function applyCustomerFilter() {
+        const list = view.ui.select("customers").ui;
+        const selected = list.selectedValue();
+        const term = view.ui.input("customers-filter").ui.term().toLowerCase();
+        const filtered = isEmpty(term)
+          ? customers
+          : customers.filter(function(c) {
+              const hay = `${c.firstName} ${c.lastName} ${c.phone ?? ""}`.toLowerCase();
+              return hay.includes(term);
+            });
+        list.addNewOptions(filtered.map(customerOption));
+        if (!isEmpty(selected)) {
+          list.selectValue(selected);
+        }
+        view.ui.button("view-btn").disabled = filtered.length === 0;
+      }
+
+      async function loadCustomers() {
         let response;
         try {
-          response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/customers${(q ? "?q=" + encodeURIComponent(q) : "")}`);
+          response = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/customers`);
         }
         catch {
           os.ui.showError("Failed to load customers. Please try again.");
           return;
         }
-        view.ui.select("customers").ui.addNewOptions(
-          response.customers.map(function(c) {
-            const label = `${c.firstName} ${c.lastName}${(isEmpty(c.phone) ? "" : " — " + c.phone)}`;
-            return {
-              id: String(c.id),
-              // The mark says this customer has a BOSS account, which is worth
-              // knowing before the row is opened: they manage their own
-              // contact information, so the form opens read-only.
-              name: c.hasBossAccount ? `${BOSS_MARK},${label}` : label
-            };
-          })
-        );
-        view.ui.button("view-btn").disabled = response.customers.length === 0;
+        customers = response.customers;
+        applyCustomerFilter();
       }
 
       // --- OS listeners ---
@@ -117,11 +114,9 @@
     <div class="zoom-button"></div>
   </div>
 
-  <div class="container vbox gap-20" style="width: 400px;">
-    <div class="text-field">
-      <label for="search-query">Search</label>
-      <input type="text" name="search-query" placeholder="Name or phone"
-             oninput="$(this.controller).didChangeQuery();">
+  <div class="container vbox gap-10" style="width: 400px;">
+    <div class="ui-filter">
+      <input name="customers-filter" type="text" placeholder="Search for customer">
     </div>
     <div class="hbox gap-10">
       <div class="ui-list-box" style="width: 100%; height: 220px;">
