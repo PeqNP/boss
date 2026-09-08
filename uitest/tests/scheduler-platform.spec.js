@@ -75,6 +75,20 @@ test.describe("scheduler platform", () => {
     expect(held.businessId, "the admin runs a business").toBe(0);
   });
 
+  test("edit a business sets the acting business @admin", async ({ page }) => {
+    const win = await open(page, "Businesses", "Businesses");
+    await win.locator(".ui-list-box .option", { hasText: "Dana's Salon" }).click();
+    await win.locator("[name='edit-btn']").click();
+
+    const active = windowByTitle(page, "Active business");
+    await expect(active).toBeVisible();
+    await expect(active.locator("[name='business-name']"))
+      .toHaveText(/Dana's Salon/);
+
+    await active.locator("button", { hasText: "Exit business" }).click();
+    await expect(active).toHaveCount(0);
+  });
+
   test("save a contact field", async ({ page }) => {
     const win = await open(page, "ContactFields", "Contact Info Fields");
     const before = (await fields(page)).length;

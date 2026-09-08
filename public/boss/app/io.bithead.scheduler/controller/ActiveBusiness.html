@@ -1,0 +1,57 @@
+<div class="ui-window pin-top-right">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      let name = "";
+
+      function showName() {
+        view.ui.span("business-name").textContent = name;
+      }
+
+      function exitBusiness() {
+        $(app.controller).setBusinessId(0);
+        view.ui.close();
+      }
+      this.exitBusiness = exitBusiness;
+
+      /**
+       * @param {object} _config - `{ name }`
+       */
+      function configure(_config) {
+        name = _config?.name ?? "";
+        showName();
+      }
+      this.configure = configure;
+
+      async function windowShouldClose() {
+        $(app.controller).setBusinessId(0);
+        return true;
+      }
+      this.windowShouldClose = windowShouldClose;
+
+      function viewDidLoad() {
+        showName();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        showName();
+      }
+      this.viewDidAppear = viewDidAppear;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Active business</span></div>
+    <div class="collapse-button"></div>
+  </div>
+  <div class="container vbox gap-10" style="width: 260px;">
+    <div class="read-only">
+      <label>Business</label>
+      <span name="business-name"></span>
+    </div>
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).exitBusiness();">Exit business</button>
+    </div>
+  </div>
+</div>

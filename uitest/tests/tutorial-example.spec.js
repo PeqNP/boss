@@ -33,6 +33,16 @@ test.describe("Tutorial — Example", () => {
     await expect(win).toBeVisible();
   });
 
+  test("collapse hides the window body @collapse", async ({ page }) => {
+    const win = windowByTitle(page, "UI Components");
+    await win.locator(".collapse-button").click();
+    await expect(win).toHaveClass(/collapsed/);
+    await expect(win.locator(":scope > .container")).toBeHidden();
+    await win.locator(".collapse-button").click();
+    await expect(win).not.toHaveClass(/collapsed/);
+    await expect(win.locator(":scope > .container")).toBeVisible();
+  });
+
   test("open a modal from Example @modal", async ({ page }) => {
     const win = windowByTitle(page, "UI Components");
     await named(win, "button", "show-modal").click();

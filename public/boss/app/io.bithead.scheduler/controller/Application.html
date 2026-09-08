@@ -206,9 +206,11 @@
       /**
        * The business every scoped route acts on.
        *
-       * Read once from `/me` when the app opens. A window reaches it with
+       * Filled from `/me` when the app opens. An admin's `/me` is `0`; Edit
+       * on Businesses calls `setBusinessId` so Job Types and the rest use
+       * that business. A window reaches it with
        * `$(app.controller).getBusinessId()` rather than carrying it through
-       * every `configure()` between here and there.
+       * every `configure()`.
        *
        * @returns {number|null}
        */
@@ -216,6 +218,17 @@
         return businessId;
       }
       this.getBusinessId = getBusinessId;
+
+      /**
+       * The business operator screens should call. `/me` is who you are;
+       * this is which business you are working on.
+       *
+       * @param {number} id - A business id, or `0` to clear
+       */
+      function setBusinessId(id) {
+        businessId = id;
+      }
+      this.setBusinessId = setBusinessId;
 
       // --- Lifecycle ---
 

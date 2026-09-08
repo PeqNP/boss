@@ -315,6 +315,9 @@ function UI(os) {
     // number of windows that can be displayed is ~1998.
     const MODAL_START_ZINDEX = 1999;
 
+    // Pinned windows sit above the staggered stack and below modals.
+    const PINNED_START_ZINDEX = 1800;
+
     // Starting z-index for windows
     const WINDOW_START_ZINDEX = 10;
 
@@ -335,6 +338,10 @@ function UI(os) {
 
     // Contains list of displayed modals.
     let modalIndices = [];
+
+    // Windows pinned to a desktop corner (`pin-top-right`, `pin-bottom-right`).
+    // Kept off `windowIndices` so focusing a normal window cannot cover them.
+    let pinnedIndices = [];
 
     // Tracks the number of stagger steps have been made when windows are opened.
     // When a new window is opened, it is staggered by 10px top & left from the
@@ -614,9 +621,33 @@ function UI(os) {
      *
      * @param {HTMLElement} container - The window's container `div`
      */
+    /**
+     * A window whose `.ui-window` carries `pin-top-right` or `pin-bottom-right`.
+     *
+     * @param {HTMLElement} container
+     * @returns {boolean}
+     */
+    function isPinnedWindow(container) {
+        let win = container.querySelector(".ui-window");
+        if (isEmpty(win)) {
+            return false;
+        }
+        return win.classList.contains("pin-top-right")
+            || win.classList.contains("pin-bottom-right");
+    }
+
+    function addPinnedWindow(container) {
+        let zIndex = PINNED_START_ZINDEX + pinnedIndices.length;
+        container.style.zIndex = `${zIndex}`;
+        pinnedIndices.push(container);
+    }
+
     function addWindow(container) {
         if (container.ui.isModal) {
             return addModal(container);
+        }
+        if (isPinnedWindow(container)) {
+            return addPinnedWindow(container);
         }
 
         // The z-index is the same as the position in the indices array
@@ -637,6 +668,14 @@ function UI(os) {
         }
         if (isEmpty(container.style.zIndex)) {
             return; // New window
+        }
+        let pinIndex = pinnedIndices.indexOf(container);
+        if (pinIndex >= 0) {
+            pinnedIndices.splice(pinIndex, 1);
+            for (let i = pinIndex; i < pinnedIndices.length; i++) {
+                pinnedIndices[i].style.zIndex = `${i + PINNED_START_ZINDEX}`;
+            }
+            return;
         }
         let index = parseInt(container.style.zIndex) - WINDOW_START_ZINDEX;
         if (index < 0) {
@@ -667,6 +706,33 @@ function UI(os) {
             addModal(container);
             container.ui.didFocusWindow();
             return;
+        }
+
+        if (isPinnedWindow(container)) {
+            let topNormal = windowIndices[windowIndices.length - 1];
+            if (!isEmpty(topNormal)) {
+                topNormal.ui.didBlurWindow();
+            }
+            let pinIndex = pinnedIndices.indexOf(container);
+            if (pinIndex >= 0 && pinIndex === pinnedIndices.length - 1) {
+                os.switchApplicationMenu(container.ui.bundleId);
+                container.ui.didFocusWindow();
+                return;
+            }
+            if (pinIndex >= 0) {
+                pinnedIndices.splice(pinIndex, 1);
+            }
+            pinnedIndices.push(container);
+            for (let i = 0; i < pinnedIndices.length; i++) {
+                pinnedIndices[i].style.zIndex = `${i + PINNED_START_ZINDEX}`;
+            }
+            os.switchApplicationMenu(container.ui.bundleId);
+            container.ui.didFocusWindow();
+            return;
+        }
+
+        for (let i = 0; i < pinnedIndices.length; i++) {
+            pinnedIndices[i].ui.didBlurWindow();
         }
 
         let topZIndex = windowIndices.length - 1 + WINDOW_START_ZINDEX;
@@ -1273,8 +1339,8 @@ function UI(os) {
 
         // This window's position, scrolling, and interaction is managed by another
         // system.
-        // Kiosk windows are always at 0,0.
-        if (cfg.isInteractable && !isKiosk) {
+        // Kiosk windows are always at 0,0. Pinned windows are placed by CSS.
+        if (cfg.isInteractable && !isKiosk && !isPinnedWindow(container)) {
             let point = nextWindowStaggerPoint();
             container.style.top = `${point.x}px`;
             container.style.left = `${point.y}px`;
@@ -3323,6 +3389,16 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
                     close();
                 });
             }
+            let collapseButton = container.querySelector(".collapse-button");
+            if (!isEmpty(collapseButton)) {
+                collapseButton.addEventListener("click", function (e) {
+                    e.stopPropagation();
+                    let win = container.querySelector(".ui-window");
+                    if (!isEmpty(win)) {
+                        win.classList.toggle("collapsed");
+                    }
+                });
+            }
             let zoomButton = container.querySelector(".zoom-button");
             if (!isEmpty(zoomButton)) {
                 zoomButton.addEventListener("click", function (e) {
@@ -3340,7 +3416,9 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
                     return;
                 }
                 os.ui.focusWindow(container);
-                os.ui.dragWindow(container);
+                if (!isPinnedWindow(container)) {
+                    os.ui.dragWindow(container);
+                }
             };
             container.addEventListener("mousedown", function(e) {
                 // Future me: `isFocused` is already `true` at this point if the

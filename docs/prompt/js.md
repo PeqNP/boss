@@ -2936,8 +2936,29 @@ When a row mixes a `text-field`, a `UIPopupMenu`, and action buttons, use `hbox 
 <div class="top">
   <div class="close-button"></div>         <!-- adds × button -->
   <div class="title"><span>Title</span></div>
+  <div class="collapse-button"></div>      <!-- optional: title bar only -->
   <div class="zoom-button"></div>          <!-- adds fullscreen button -->
 </div>
+```
+
+`.collapse-button` is WindowShade: it hides `.container` and leaves the title
+bar. It sits to the left of `.zoom-button`. Omit either control if the window
+should not have it.
+
+### Pinned windows
+
+A class on `div.ui-window` pins the window to a desktop corner. It is not
+dragged and is not staggered. Its first position is that corner, 10px in.
+
+| Class | Corner |
+|---|---|
+| `pin-top-right` | The window's top-right corner, 10px from the desktop top and right |
+| `pin-bottom-right` | The window's bottom-right corner, 10px from the desktop bottom and right |
+
+Pinned windows stack above ordinary windows and below modals.
+
+```html
+<div class="ui-window pin-top-right">
 ```
 
 ---

@@ -468,6 +468,18 @@ body {
   margin-left: -10px;
 }
 
+#desktop .ui-window .collapse-button {
+  position: relative;
+  top: 2px;
+  width: 18px;
+  height: 18px;
+  margin-right: 4px;
+  background-image: url("/boss/img/collapse-button.svg");
+  background-position: center;
+  background-repeat: no-repeat;
+  flex-shrink: 0;
+}
+
 #desktop .ui-window .zoom-button {
   position: relative;
   top: 2px;
@@ -477,6 +489,28 @@ body {
   background-image: url("/boss/img/zoom-button.svg");
   background-position: center;
   background-repeat: no-repeat;
+  flex-shrink: 0;
+}
+
+/* WindowShade: title bar only. */
+#desktop .ui-window.collapsed > .container,
+#desktop .ui-window.collapsed > .metadata,
+#desktop .ui-window.collapsed > .metadata-boundary {
+  display: none;
+}
+
+/* Pinned to a desktop corner. Position is on the OS `ui-container`. */
+#desktop .ui-container:has(> .ui-window.pin-top-right) {
+  top: 10px;
+  right: 10px;
+  left: auto;
+}
+
+#desktop .ui-container:has(> .ui-window.pin-bottom-right) {
+  top: auto;
+  left: auto;
+  bottom: 10px;
+  right: 10px;
 }
 
 /* Show window metadata. Draws single line below metadata. */

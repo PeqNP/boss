@@ -90,6 +90,9 @@
         "Businesses": {
             "singleton": true
         },
+        "ActiveBusiness": {
+            "singleton": true
+        },
         "ContactFields": {
             "singleton": true
         },

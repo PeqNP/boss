@@ -32,7 +32,7 @@ the model's name for a form, its plural for a list, no verb suffixes.
 | Employees | `Employees`, `Employee` | `EmployeeSchedule`, `EmployeeTimeOff` |
 | Customers | `Customers`, `Customer` | `CustomerNote` |
 | Employee portal | `EmployeeDashboard`, `EmployeeProfile` | |
-| Super admin | `Businesses`, `BusinessConfig`, `ContactFields`, `Holidays`, `ScheduleTimeout`, `Vendors` | `ContactField` |
+| Super admin | `Businesses`, `ActiveBusiness`, `BusinessConfig`, `ContactFields`, `Holidays`, `ScheduleTimeout`, `Vendors` | `ContactField` |
 
 ### Documents
 
@@ -254,7 +254,7 @@ business, and that business is the one the caller runs.
 
 | Page | Reached by |
 |---|---|
-| `Businesses` → `BusinessConfig` | the Admin menu |
+| `Businesses` → `ActiveBusiness` | the Admin menu; Edit sets the acting business |
 | `ContactFields` → `ContactField` | the Admin menu |
 | `Holidays` · `ScheduleTimeout` · `Vendors` | the Admin menu |
 
