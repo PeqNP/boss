@@ -439,15 +439,18 @@ body {
   /* This has to be displayed as `block`. Using relative does not work.
      The hitbox does _not_ shift with where the element is visually. */
   display: block;
-  margin-top: 2px;
+  margin-top: 3px;
   margin-left: 10px;
-  width: 18px;
-  height: 18px;
-  /* Covers the title-bar shade lines so the control sits off the chrome. */
+  width: 16px;
+  height: 16px;
+  /* 2px white left and right so the shade lines do not run through the square. */
+  padding: 0 2px;
   background-color: #fff;
   background-image: url("/boss/img/close-button.svg");
   background-position: center;
   background-repeat: no-repeat;
+  background-origin: content-box;
+  background-size: 16px 16px;
 }
 
 #desktop .ui-window .title {
@@ -472,31 +475,34 @@ body {
 
 #desktop .ui-window .collapse-button {
   position: relative;
-  top: 1px;
-  width: 18px;
-  height: 20px;
+  top: 3px;
+  width: 16px;
+  height: 16px;
   /* 10px from `.zoom-button`, or from the title-bar edge when zoom is omitted. */
   margin-right: 10px;
-  /* Covers the title-bar shade lines so the control sits off the chrome. */
+  padding: 0 2px;
   background-color: #fff;
   background-image: url("/boss/img/collapse-button.svg");
   background-position: center;
   background-repeat: no-repeat;
-  background-size: 18px 20px;
+  background-origin: content-box;
+  background-size: 16px 16px;
   flex-shrink: 0;
 }
 
 #desktop .ui-window .zoom-button {
   position: relative;
-  top: 2px;
-  width: 18px;
-  height: 18px;
+  top: 3px;
+  width: 16px;
+  height: 16px;
   margin-right: 10px;
-  /* Covers the title-bar shade lines so the control sits off the chrome. */
+  padding: 0 2px;
   background-color: #fff;
   background-image: url("/boss/img/zoom-button.svg");
   background-position: center;
   background-repeat: no-repeat;
+  background-origin: content-box;
+  background-size: 16px 16px;
   flex-shrink: 0;
 }
 
