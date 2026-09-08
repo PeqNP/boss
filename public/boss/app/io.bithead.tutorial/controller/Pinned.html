@@ -1,0 +1,37 @@
+<div class="ui-window pin-top-right">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+    }
+  </script>
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Getting started</span></div>
+    <div class="collapse-button"></div>
+  </div>
+  <div class="container vbox gap-10" style="width: 260px;">
+    <p>A pinned window stays in the corner. Collapse it to the title bar.</p>
+    <label class="checkbox">
+      <input type="checkbox" name="setup-name">
+      Name your workspace
+    </label>
+    <label class="checkbox">
+      <input type="checkbox" name="setup-hours">
+      Set your hours
+    </label>
+    <label class="checkbox">
+      <input type="checkbox" name="setup-team">
+      Invite the team
+    </label>
+    <label class="checkbox">
+      <input type="checkbox" name="setup-first">
+      Do the first thing
+    </label>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).close();">Close</button>
+    </div>
+  </div>
+</div>

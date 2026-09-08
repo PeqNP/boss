@@ -70,6 +70,7 @@
       this.showClipboard = function() { return showDemo.call(this, "Clipboard"); };
       this.showLinks = function() { return showDemo.call(this, "Links"); };
       this.showSingleton = function() { return showDemo.call(this, "Singleton"); };
+      this.showPinned = function() { return showDemo.call(this, "Pinned"); };
 
       async function applicationDidStart() {
         await showExample();
@@ -121,6 +122,7 @@
         <option onclick="$(this.controller).showClipboard();">Clipboard</option>
         <option onclick="$(this.controller).showLinks();">Links</option>
         <option onclick="$(this.controller).showSingleton();">Singleton</option>
+        <option onclick="$(this.controller).showPinned();">Pinned window</option>
       </select>
     </div>
   </div>

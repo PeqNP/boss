@@ -39,6 +39,9 @@
             "modal": true
         },
         "Network": { },
+        "Pinned": {
+            "singleton": true
+        },
         "Settings": { },
         "Singleton": {
             "singleton": true

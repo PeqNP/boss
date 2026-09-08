@@ -56,4 +56,18 @@ test.describe("Tutorial — demos", () => {
     await openController(page, TUTORIAL, "Singleton");
     await expect(windowByTitle(page, "Singleton")).toHaveCount(1);
   });
+
+  test("a pinned window stays in the corner and collapses @pinned", async ({ page }) => {
+    await openController(page, TUTORIAL, "Pinned");
+    const win = windowByTitle(page, "Getting started");
+    await expect(win).toBeVisible();
+    await expect(win).toHaveClass(/pin-top-right/);
+    await expect(win.locator("label.checkbox")).toHaveCount(4);
+
+    await win.locator(".collapse-button").click();
+    await expect(win).toHaveClass(/collapsed/);
+    await expect(win.locator(":scope > .container")).toBeHidden();
+    await win.locator(".collapse-button").click();
+    await expect(win.locator(":scope > .container")).toBeVisible();
+  });
 });
