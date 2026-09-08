@@ -6,7 +6,7 @@ A multi-tenant scheduling app for service businesses. Customers book from a publ
 
 | Actor | What they do |
 |---|---|
-| Super admin | Every business, holidays, vendors, templates, system contact fields |
+| Super admin | Every business, holidays, vendors, system contact fields |
 | Operator | One business: staff, job types, calendar, customers, money |
 | Employee | Their own schedule; their working days and job types when allowed |
 | Customer | Book, look up, change or cancel, without an account |

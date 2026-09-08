@@ -1456,13 +1456,6 @@ class PlatformBusinessBody(Model):
     timezone: Optional[str] = None
 
 
-class TemplateBody(Model):
-    """A starting point a new business may take its settings from."""
-    name: str
-    description: str
-    config: Dict[str, Any] = {}
-
-
 class SignupBody(Model):
     """A business being opened, and the template it starts from."""
     name: str

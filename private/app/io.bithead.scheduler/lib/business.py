@@ -9,13 +9,12 @@
 # before a customer could book — which is what the Setup Assistant lists.
 #
 
-import json
-
 from typing import Dict, List, Optional
 
 from .. import db
 from ..model import *
 from .exception import ValidationError
+from .templates import get_business_template
 from .transform import _business, _hours, _job_type
 from .vendor import channel_chosen, payment_connected
 
@@ -320,8 +319,8 @@ def apply_business_template(
     template_id: int
 ) -> Optional[Business]:
     """Write a template's settings onto a business."""
-    row = db.get_business_template(template_id)
-    if row is None:
+    template = get_business_template(template_id)
+    if template is None:
         raise ValidationError("That business type is no longer available.")
     business = get_business(business_id)
     if business is None:
@@ -332,7 +331,7 @@ def apply_business_template(
     # the settings themselves cannot answer — two templates can share them.
     db.set_business_template_id(business_id, template_id)
 
-    config = json.loads(row.config_json)
+    config = template.config
 
     if "slotMode" in config:
         db.set_business_slot_mode(business_id, config["slotMode"])

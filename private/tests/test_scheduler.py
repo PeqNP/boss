@@ -119,9 +119,11 @@ def test_installation():
     assert verifiable == ["Phone", "Email"], \
         "it: marks only the fields that can receive a code as verifiable"
 
-    # describe: business templates are seeded
+    # describe: business templates are the catalog in code
     templates = get_business_templates()
-    assert len(templates) == 6, "it: seeds a template for each kind of business"
+    assert len(templates) == 6, "it: offers a template for each kind of business"
+    assert [t.id for t in templates] == [1, 2, 3, 4, 5, 6], \
+        "it: keeps the ids fixed, so a stored choice still names the same type"
 
     food = [t for t in templates if t.name == "Food & Drink"]
     assert food, "it: includes the one that schedules a queue"
@@ -146,7 +148,7 @@ def test_installation_idempotent():
     db.start_database()
 
     assert len(get_contact_field_types()) == 9, "it: seeds the field types once"
-    assert len(get_business_templates()) == 6, "it: seeds the templates once"
+    assert len(get_business_templates()) == 6, "it: still offers the same six types"
 
 
 # --- The exceptions ------------------------------------------------------
@@ -4438,55 +4440,19 @@ def test_platform_templates():
     """The starting points a new business may take its settings from."""
     fresh_database()
 
-    seeded = get_business_templates()
-    assert "Food & Drink" in [t.name for t in seeded], "it: arrives seeded"
+    catalog = get_business_templates()
+    assert [t.name for t in catalog] == [
+        "Personal Service",
+        "Field Service",
+        "Healthcare/Wellness",
+        "Pet Services",
+        "General",
+        "Food & Drink",
+    ], "it: is the catalog in code, not rows"
 
-    # describe: adding one
-    made = add_business_template("Trades", "Plumbers, electricians, joiners.")
-    assert made.name == "Trades"
-    assert made.config == {}, \
-        "it: changes nothing until somebody says what it should set"
-    assert made.id in [t.id for t in get_business_templates()]
-
-    # describe: one with settings behind it
-    queue = add_business_template("Market Stall", "Serve whoever turns up.",
-                                  config={"slotMode": "unlimited"})
-    assert queue.config == {"slotMode": "unlimited"}
-
-    # A template is worth having only if applying it does something.
-    business_id = a_business(increment=30)
-    after = apply_business_template(business_id, queue.id)
-    assert after.slotMode == "unlimited"
-
-    # describe: a name that is blank, or a description
+    # describe: a template that is not there
     with pytest.raises(ValidationError):
-        add_business_template("  ", "Something")
-    with pytest.raises(ValidationError):
-        add_business_template("Trades Two", "   ")
-
-    # describe: a name already taken
-    with pytest.raises(ValidationError):
-        add_business_template("Trades", "Another go")
-
-    # describe: changing one
-    changed = update_business_template(made.id, "Skilled Trades",
-                                       "Plumbers and electricians.")
-    assert changed.name == "Skilled Trades"
-    assert changed.config == {}, "it: keeps the settings it had"
-
-    # describe: saving it under the name it already has
-    same = update_business_template(changed.id, "Skilled Trades", "Reworded.")
-    assert same.description == "Reworded."
-
-    # describe: removing one
-    delete_business_template(made.id)
-    assert made.id not in [t.id for t in get_business_templates()]
-
-    # describe: one that is not there
-    with pytest.raises(ValidationError):
-        update_business_template(9999, "Anything", "Anything")
-    with pytest.raises(ValidationError):
-        delete_business_template(9999)
+        apply_business_template(a_business(), 999)
 
 
 def test_platform_holidays():
@@ -4763,6 +4729,21 @@ def test_kiosk_close_permission():
     assert is_operator_of(theirs, 42) is False, \
         "it: owning some business is not owning this one"
     assert is_operator_of(mine, 99) is False, "it: nor is owning none"
+
+    # describe: leaving a kiosk that is not yet taking bookings
+    unnamed = sign_up(user_id=44, details={}).businessId
+    assert get_kiosk(unnamed).configured is False
+    assert may_close_kiosk(unnamed, 44) is True, \
+        "it: the operator of this business can still leave"
+    assert may_close_kiosk(unnamed, 42) is False, \
+        "it: owning some other business is still not this one"
+
+    # describe: the platform admin entering any site
+    assert may_close_kiosk(mine, 1) is True, \
+        "it: the platform admin can always leave the kiosk"
+    assert may_close_kiosk(theirs, 1) is True
+    assert may_close_kiosk(unnamed, 1) is True, \
+        "it: even when that business is not taking bookings"
 
 
 def test_vendor_catalog(monkeypatch):

@@ -32,7 +32,7 @@ the model's name for a form, its plural for a list, no verb suffixes.
 | Employees | `Employees`, `Employee` | `EmployeeSchedule`, `EmployeeTimeOff` |
 | Customers | `Customers`, `Customer` | `CustomerNote` |
 | Employee portal | `EmployeeDashboard`, `EmployeeProfile` | |
-| Super admin | `Businesses`, `BusinessConfig`, `ContactFields`, `Holidays`, `ScheduleTimeout`, `Vendors`, `Templates` | `ContactField`, `Template` |
+| Super admin | `Businesses`, `BusinessConfig`, `ContactFields`, `Holidays`, `ScheduleTimeout`, `Vendors` | `ContactField` |
 
 ### Documents
 
@@ -185,10 +185,9 @@ The children this app has, and the modal that edits each:
 | `Employee` | time off | `EmployeeTimeOff` |
 | `Customer` | notes | `CustomerNote` |
 | `ContactFields` | contact field types (ordered) | `ContactField` |
-| `Templates` | business templates | `Template` |
 
-`Customer` and the two super-admin lists create nothing up front — a customer
-is created by scheduling, and a template or field type is a top-level record —
+`Customer` and the super-admin field-type list create nothing up front — a
+customer is created by scheduling, and a field type is a top-level record —
 so their Add button opens the modal with no parent to draft.
 
 ---
@@ -257,7 +256,6 @@ business, and that business is the one the caller runs.
 |---|---|
 | `Businesses` → `BusinessConfig` | the Admin menu |
 | `ContactFields` → `ContactField` | the Admin menu |
-| `Templates` → `Template` | the Admin menu |
 | `Holidays` · `ScheduleTimeout` · `Vendors` | the Admin menu |
 
 **Shared** — two audiences, one page. Each row states which record the caller
@@ -1089,22 +1087,19 @@ OTP and deposit in UI tests.
 
 ---
 
-#### `Templates`
-List box; Add and Edit open `Template`, where Delete also lives. Each template: icon (from icon picker), name, description, pre-config values for all business settings (see BusinessConfig tab fields).
+#### Business types
 
-**Stub endpoints:**
-- `GET /api/io.bithead.scheduler/templates` → list
-- `POST /api/io.bithead.scheduler/template` → create
-- `PUT /api/io.bithead.scheduler/template/{id}` → update
-- `DELETE /api/io.bithead.scheduler/template/{id}` → delete
+The catalog is code in `lib/templates.py`, not a table and not an Admin
+screen. Each type has a fixed id, a name, a description, and the settings it
+has an opinion about. An operator picks one on Business Type; `GET /templates`
+returns the list. Changing a type is an edit to that file.
 
-**Seeded templates (on install):**
-1. Personal Service — icon, "Salons, spas, fitness studios. Clients choose their service provider."
-2. Field Service — icon, "Landscaping, cleaning, home repair. Technicians go to the customer."
-3. Healthcare/Wellness — icon, "Dental, chiropractic, therapy. Privacy and verification matter."
-4. Pet Services — icon, "Grooming, walking, sitting. Mix of at-location and field visits."
-5. General — icon, "A flexible starting point for any service business."
-6. Food & Drink — icon, "Cafés, bakeries, takeaway. Customers choose a pickup
+1. Personal Service — "Salons, spas, fitness studios. Clients choose their service provider."
+2. Field Service — "Landscaping, cleaning, home repair. Technicians go to the customer."
+3. Healthcare/Wellness — "Dental, chiropractic, therapy. Privacy and verification matter."
+4. Pet Services — "Grooming, walking, sitting. Mix of at-location and field visits."
+5. General — "A flexible starting point for any service business."
+6. Food & Drink — "Cafés, bakeries, takeaway. Customers choose a pickup
    time and you handle the queue." Presets **Time Slots: Unlimited**, minimum
    booking notice 0, buffer 0.
 
@@ -1179,15 +1174,6 @@ CREATE TABLE vendor_configs (
     is_active INTEGER NOT NULL DEFAULT 1
 );
 
-CREATE TABLE business_templates (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    description TEXT NOT NULL,
-    icon_id INTEGER REFERENCES icons(id),
-    -- pre-configured defaults (JSON blob mirrors business config fields)
-    config_json TEXT NOT NULL
-);
-
 CREATE TABLE icons (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     business_id INTEGER REFERENCES businesses(id), -- NULL = system icon
@@ -1210,6 +1196,7 @@ CREATE TABLE businesses (
     description TEXT,
     site_url TEXT,
     timezone TEXT NOT NULL DEFAULT 'UTC',
+    business_template_id INTEGER,   -- hard-coded id from lib/templates.py
     slot_mode TEXT NOT NULL DEFAULT 'reserved',     -- reserved | unlimited
     slot_increment_minutes INTEGER NOT NULL DEFAULT 15,
     cutoff_days INTEGER NOT NULL DEFAULT 30,
@@ -1668,7 +1655,7 @@ private/app/io.bithead.scheduler/
 ```
 
 ### `db.py` Responsibilities
-- `start_database()` — create tables, seed contact_field_types, seed business_templates, seed system_config
+- `start_database()` — create tables, seed contact_field_types, seed system_config. Business types are code in `lib/templates.py`.
 - One function per query; no business logic; returns typed model instances
 - `delete_database()` for test teardown
 
@@ -1744,7 +1731,7 @@ Replace each stub endpoint body with a call to the corresponding `lib.py` or `db
 - [x] Customer list + detail + notes
 - [x] Financial report + CSV export
 - [x] Search jobs
-- [x] Super admin: businesses, contact fields, holidays, timeout, vendors, templates
+- [x] Super admin: businesses, contact fields, holidays, timeout, vendors
 - [x] Employee portal: today view, calendar, profile self-management
 - [x] Background jobs: cleanup, recurrence materialization, reminders
 - [x] Booking confirmation by text and email through `lib/vendor/`
@@ -1781,7 +1768,8 @@ Extraction ran bottom-up, because a submodule cannot import the package that imp
 | 3 | `employee.py` | The people a business schedules, when each works, when they are away, and who is on a job. |
 | 3 | `job_type.py` | The work a business offers: sizes, attributes, and the contact fields the kiosk collects. |
 | 3 | `money.py` | What an appointment costs, what was paid, and what the business took over a period. |
-| 3 | `platform.py` | Holidays, templates, contact field types, the hold timeout, the system icons. |
+| 3 | `platform.py` | Holidays, contact field types, the hold timeout, the system icons. |
+| 3 | `templates.py` | The kinds of business an operator may start from. Code, not rows. |
 | 4 | `customer.py` | The people a business books work for, and matching one to a booking. |
 | 4 | `kiosk.py` | What a customer standing at the kiosk is shown, narrower than what an operator sees. |
 | 4 | `membership.py` | Which business somebody belongs to, and as what. Opens one, so it sits above `business`. |

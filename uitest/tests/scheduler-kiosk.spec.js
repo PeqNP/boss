@@ -233,5 +233,6 @@ test.describe("scheduler kiosk", () => {
 
     const win = await openKiosk(page);
     await expect(win.locator("[name='step-not-configured']")).toBeVisible();
+    await expect(win.locator("[name='kiosk-close-btn']")).toBeVisible();
   });
 });

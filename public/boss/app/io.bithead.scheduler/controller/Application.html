@@ -115,12 +115,6 @@
       }
       this.showVendors = showVendors;
 
-      async function showTemplates() {
-        const win = await $(this.controller).loadController("Templates");
-        win.ui.show();
-      }
-      this.showTemplates = showTemplates;
-
       /**
        * Opens the operator's dashboard, or the Setup Assistant while the
        * business cannot take a booking yet.
@@ -712,7 +706,6 @@
         <option onclick="$(this.controller).showHolidays();">Holidays</option>
         <option onclick="$(this.controller).showTimeout();">Schedule Timeout</option>
         <option onclick="$(this.controller).showVendors();">Vendor Integrations</option>
-        <option onclick="$(this.controller).showTemplates();">Business Templates</option>
       </select>
     </div>
   </div>

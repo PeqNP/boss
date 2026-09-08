@@ -1,15 +1,14 @@
 #
 # Scheduler — the records the platform keeps, and every business draws from.
 #
-# Holidays, business templates, contact field types, vendors, the hold timeout,
-# and the system icon set: one copy each, maintained by whoever runs the
-# platform and chosen from by every business on it.
+# Holidays, contact field types, vendors, the hold timeout, and the system
+# icon set: one copy each, maintained by whoever runs the platform and chosen
+# from by every business on it. Business templates are code, in `templates.py`.
 #
 # A business never edits these. It picks from them, and what it picks is stored
 # against the business.
 #
 
-import json
 import os
 
 from datetime import date
@@ -212,60 +211,6 @@ def get_platform_holidays(year: int) -> SystemHolidays:
     return SystemHolidays(year=year, countries=list(countries.values()))
 
 
-def _check_template(
-    name: str,
-    description: str,
-    template_id: Optional[int] = None
-) -> None:
-    if not name.strip():
-        raise ValidationError("Please name the template.")
-    if not description.strip():
-        raise ValidationError("Please describe what this template is for.")
-    for existing in db.get_business_templates():
-        if existing.name.lower() == name.strip().lower() \
-                and existing.id != template_id:
-            raise ValidationError(f"There is already a {existing.name} template.")
-
-
-def add_business_template(
-    name: str,
-    description: str,
-    config: Optional[dict] = None
-) -> BusinessTemplate:
-    """Offer a new starting point.
-
-    `config` holds only the settings the template has an opinion about;
-    everything it leaves out keeps whatever the business already had.
-    """
-    _check_template(name, description)
-    template_id = db.insert_business_template(
-        name.strip(),
-        description.strip(),
-        json.dumps(config or {})
-    )
-    return [t for t in get_business_templates() if t.id == template_id][0]
-
-
-def update_business_template(
-    template_id: int,
-    name: str,
-    description: str
-) -> BusinessTemplate:
-    """Rename or reword one. Its settings are left as they are."""
-    if db.get_business_template(template_id) is None:
-        raise ValidationError("That template no longer exists.")
-    _check_template(name, description, template_id)
-    db.set_business_template(template_id, name.strip(), description.strip())
-    return [t for t in get_business_templates() if t.id == template_id][0]
-
-
-def delete_business_template(template_id: int) -> None:
-    """Stop offering it. A business that took it keeps what it was given."""
-    if db.get_business_template(template_id) is None:
-        raise ValidationError("That template no longer exists.")
-    db.delete_business_template(template_id)
-
-
 BUSINESS_STATUSES = {"all": None, "active": 1, "inactive": 0}
 
 
@@ -462,19 +407,6 @@ def get_contact_field_types() -> List[ContactFieldType]:
             sortOrder=r.sort_order
         )
         for r in db.get_contact_field_types()
-    ]
-
-
-def get_business_templates() -> List[BusinessTemplate]:
-    """Starting points a new business may take its settings from."""
-    return [
-        BusinessTemplate(
-            id=r.id,
-            name=r.name,
-            description=r.description,
-            config=json.loads(r.config_json)
-        )
-        for r in db.get_business_templates()
     ]
 
 

@@ -105,12 +105,6 @@
         "Vendors": {
             "singleton": true
         },
-        "Templates": {
-            "singleton": true
-        },
-        "Template": {
-            "modal": true
-        },
         "IconPicker": {
             "modal": true
         }

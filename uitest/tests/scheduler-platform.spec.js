@@ -3,11 +3,11 @@
 /**
  * Flow 13 — what the platform owns rather than any one business.
  *
- * Contact field types, holidays, the hold timeout, vendors and business
- * templates are seeded once and shared by every business, so an edit here
- * reaches all of them. Each screen is opened directly: the Admin menu is
- * covered once, on its own, because every other test would otherwise be
- * asserting the menu rather than the screen.
+ * Contact field types, holidays, the hold timeout and vendors are seeded
+ * once and shared by every business, so an edit here reaches all of them.
+ * Each screen is opened directly: the Admin menu is covered once, on its
+ * own, because every other test would otherwise be asserting the menu
+ * rather than the screen.
  */
 
 import { test, expect } from "@playwright/test";
@@ -139,26 +139,6 @@ test.describe("scheduler platform", () => {
                           .json()).timeoutMinutes,
             { message: "the timeout never reached the server" })
       .toBe(17);
-  });
-
-  test("save a business template", async ({ page }) => {
-    const win = await open(page, "Templates", "Business Templates");
-
-    await action(win, "addTemplate").click();
-    const modal = windowByTitle(page, "Business Template");
-    await expect(modal).toBeVisible();
-    await modal.locator("input[name='template-name']").fill("Dog Grooming");
-    // A template is chosen from a grid of cards during signup, where the
-    // description is what tells one kind of business from another.
-    await modal.locator("textarea[name='description']")
-      .fill("Baths, clips and nail trims.");
-    await action(modal, "save").click();
-
-    await expect
-      .poll(async () => (await (await page.request.get(`${API}/templates`))
-                          .json()).templates.map((t) => t.name),
-            { message: "the template never reached the server" })
-      .toContain("Dog Grooming");
   });
 
   test("show vendors without credentials", async ({ page }) => {

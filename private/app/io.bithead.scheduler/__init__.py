@@ -397,14 +397,15 @@ async def confirm_kiosk_session(
 @router.get("/operator/me", response_model=OperatorMe)
 @handled
 async def get_operator_me(request: Request, businessId: Optional[int] = None):
-    # `isOperator` decides whether the kiosk shows its close button, and it is
-    # true for whoever runs *this* business. Owning some other one is not
-    # owning this one: the kiosk hides the menu bar and the dock, so anyone
+    # `isOperator` decides whether the kiosk shows its close button. True for
+    # whoever runs *this* business, and for the platform super admin — Enter
+    # Site from Businesses has to be a round trip. Owning some other business
+    # is not enough: the kiosk hides the menu bar and the dock, so anyone
     # given this button can walk out of the kiosk and into BOSS.
     user = await _signed_in_user(request)
     return OperatorMe(
         isOperator=bool(user and businessId
-                        and lib.is_operator_of(businessId, user.id)),
+                        and lib.may_close_kiosk(businessId, user.id)),
         businessId=businessId or 0,
     )
 
@@ -2218,42 +2219,10 @@ async def get_templates(boss_user: User, request: Request):
     answered 422 into a `catch` that swallowed it — leaving an empty grid and
     no way past the step.
 
-    Reading them is open; the routes that add, change and remove one stay the
-    platform's.
+    Reading them is open. The catalog is code, not rows: changing a type is
+    an edit to `lib/templates.py`.
     """
     return ConfigTemplates(templates=lib.get_business_templates())
-
-
-@router.post("/template", response_model=BusinessTemplate)
-@require_admin()
-@handled
-async def superadmin_create_template(request: Request, body: TemplateBody):
-    return lib.add_business_template(body.name, body.description, body.config)
-
-
-@router.put("/template/{template_id}", response_model=BusinessTemplate)
-@require_admin()
-@handled
-async def superadmin_update_template(
-    template_id: int,
-    request: Request,
-    body: TemplateBody
-):
-    # The settings a template carries are left as they are: the modal edits
-    # the name and the description, and has no field for the rest.
-    return lib.update_business_template(
-        template_id,
-        body.name,
-        body.description
-    )
-
-
-@router.delete("/template/{template_id}", response_model=Success)
-@require_admin()
-@handled
-async def superadmin_delete_template(template_id: int, request: Request):
-    lib.delete_business_template(template_id)
-    return Success(success=True)
 
 
 # ---------------------------------------------------------------------------

@@ -206,17 +206,6 @@ def create_version_1_0_0(conn, version):
     """)
 
     cursor.execute("""
-        CREATE TABLE business_templates (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            description TEXT NOT NULL,
-            icon_id INTEGER REFERENCES icons(id),
-            -- pre-configured defaults (JSON blob mirrors business config fields)
-            config_json TEXT NOT NULL
-        )
-    """)
-
-    cursor.execute("""
         CREATE TABLE icons (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             business_id INTEGER REFERENCES businesses(id), -- NULL = system icon
@@ -239,8 +228,8 @@ def create_version_1_0_0(conn, version):
             description TEXT,
             site_url TEXT,
             timezone TEXT NOT NULL DEFAULT 'UTC',
-            business_template_id INTEGER REFERENCES business_templates(id),
-                                            -- the type of business this was set up as.
+            business_template_id INTEGER,
+                                            -- hard-coded id from lib/templates.py.
                                             -- Only its effects are read; this is kept
                                             -- so the screen can say which one was
                                             -- chosen, which its settings cannot answer.
@@ -574,7 +563,6 @@ def create_version_1_0_0(conn, version):
 
     _seed_system_config(cursor)
     _seed_contact_field_types(cursor)
-    _seed_business_templates(cursor)
 
     cursor.execute(
         "INSERT INTO versions (version) VALUES (?)",
@@ -692,7 +680,7 @@ def _create_indexes(cursor):
 #
 # What every installation starts with. Seeded once, as part of creating the
 # schema, so a business that has configured nothing still has field types to
-# choose from and templates to start from.
+# choose from. Business types live in `lib/templates.py`, not here.
 # =========================================================================
 
 
@@ -731,44 +719,6 @@ def _seed_contact_field_types(cursor):
             ("State",          "state",         0, 8),
             ("Zip",            "zip",           0, 9)
         ]
-    )
-
-
-def _seed_business_templates(cursor):
-    """Starting points a new business may take its settings from.
-
-    `config_json` holds only the settings a template has an opinion about;
-    anything it leaves out keeps the column default. Food & Drink is the one
-    that changes how scheduling works at all — a queue rather than a diary —
-    so it says so.
-    """
-    templates = [
-        ("Personal Service",
-         "Salons, spas, fitness studios. Clients choose their service provider.",
-         '{"allowCustomerEmployeeSelection": true, "slotIncrementMinutes": 15}'),
-        ("Field Service",
-         "Landscaping, cleaning, home repair. Technicians go to the customer.",
-         '{"notifyEmployees": true, "bufferMinutes": 30, "slotIncrementMinutes": 30}'),
-        ("Healthcare/Wellness",
-         "Dental, chiropractic, therapy. Privacy and verification matter.",
-         '{"slotIncrementMinutes": 15, "bufferMinutes": 15}'),
-        ("Pet Services",
-         "Grooming, walking, sitting. Mix of at-location and field visits.",
-         '{"allowCustomerEmployeeSelection": true, "bufferMinutes": 15}'),
-        ("General",
-         "A flexible starting point for any service business.",
-         '{}'),
-        ("Food & Drink",
-         "Cafés, bakeries, takeaway. Customers choose a pickup time and you "
-         "handle the queue.",
-         '{"slotMode": "unlimited", "minBookingNoticeHours": 0, "bufferMinutes": 0}')
-    ]
-    cursor.executemany(
-        """
-        INSERT INTO business_templates (name, description, config_json)
-        VALUES (?, ?, ?)
-        """,
-        templates
     )
 
 
@@ -1004,8 +954,7 @@ def get_business_config(business_id: int) -> Optional[BusinessConfigRow]:
 def set_business_template_id(business_id: int, template_id: int) -> int:
     """Record which type of business this was set up as.
 
-    Distinct from `set_business_template`, which edits a template record on
-    the platform. This says which of them a business was set up from.
+    The id is one of the hard-coded values in `lib/templates.py`.
     """
     return update(
         "UPDATE businesses SET business_template_id = ? WHERE id = ?",
@@ -1885,13 +1834,6 @@ class ContactFieldTypeRow(BaseModel):
     sort_order: int
 
 
-class BusinessTemplateRow(BaseModel):
-    id: int
-    name: str
-    description: str
-    config_json: str
-
-
 def get_contact_field_types() -> List[ContactFieldTypeRow]:
     return _all_as(
         ContactFieldTypeRow,
@@ -1953,38 +1895,6 @@ def count_job_types_asking_for(field_id: int) -> int:
         (field_id,)
     )
     return row[0] if row else 0
-
-
-def insert_business_template(
-    name: str,
-    description: str,
-    config_json: str
-) -> int:
-    return insert(
-        "INSERT INTO business_templates (name, description, config_json)"
-        " VALUES (?, ?, ?)",
-        (name, description, config_json)
-    )
-
-
-def get_business_template(template_id: int) -> Optional[BusinessTemplateRow]:
-    return _one_as(
-        BusinessTemplateRow,
-        "SELECT id, name, description, config_json"
-        " FROM business_templates WHERE id = ?",
-        (template_id,)
-    )
-
-
-def set_business_template(template_id: int, name: str, description: str) -> int:
-    return update(
-        "UPDATE business_templates SET name = ?, description = ? WHERE id = ?",
-        (name, description, template_id)
-    )
-
-
-def delete_business_template(template_id: int) -> int:
-    return update("DELETE FROM business_templates WHERE id = ?", (template_id,))
 
 
 class IconRow(BaseModel):
@@ -2080,14 +1990,6 @@ def insert_vendor_config(
         "INSERT INTO vendor_configs (vendor_type, vendor_name, config_json)"
         " VALUES (?, ?, ?)",
         (vendor_type, vendor_name, config_json)
-    )
-
-
-def get_business_templates() -> List[BusinessTemplateRow]:
-    return _all_as(
-        BusinessTemplateRow,
-        "SELECT id, name, description, config_json"
-        " FROM business_templates ORDER BY id"
     )
 
 
@@ -3240,15 +3142,6 @@ def set_business_employee_selection(
         "UPDATE businesses SET allow_customer_employee_selection = ?,"
         " notify_employees = ?, update_date = datetime('now') WHERE id = ?",
         (allow, notify, business_id)
-    )
-
-
-def get_business_template(template_id: int) -> Optional[BusinessTemplateRow]:
-    return _one_as(
-        BusinessTemplateRow,
-        "SELECT id, name, description, config_json"
-        " FROM business_templates WHERE id = ?",
-        (template_id,)
     )
 
 

@@ -8,11 +8,14 @@
 
 from typing import Optional
 
+from lib.server import ADMIN_USER_ID
+
 from .. import db
 from ..model import *
 from .business import (CONFIG_FIELDS, apply_business_template,
                        create_business, update_business_config)
 from .exception import ValidationError
+from .templates import get_business_template
 from .transform import _employee
 
 
@@ -41,6 +44,15 @@ def is_operator_of(business_id: int, user_id: int) -> bool:
     """
     row = db.get_employee_for_business(business_id, user_id)
     return row is not None and is_operator_role(row.role)
+
+
+def may_close_kiosk(business_id: int, user_id: int) -> bool:
+    """Whether the kiosk shows Close to this user.
+
+    The operator of *this* business, and the BOSS platform super admin. Anyone
+    else staying in the kiosk is the point of the kiosk.
+    """
+    return user_id == ADMIN_USER_ID or is_operator_of(business_id, user_id)
 
 
 def employee_record(business_id: int, user_id: Optional[int]):
@@ -103,7 +115,7 @@ def sign_up(
     # so a business nobody has named cannot take a booking.
     name = str(details.get("name", "")).strip()
 
-    if template_id is not None and db.get_business_template(template_id) is None:
+    if template_id is not None and get_business_template(template_id) is None:
         raise ValidationError("That template no longer exists.")
 
     business = create_business(

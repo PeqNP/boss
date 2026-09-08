@@ -760,6 +760,7 @@
         }
 
         if (!response.configured) {
+          view.ui.span("kiosk-business-name").textContent = response.name || "";
           resetToStep("not-configured");
           view.ui.span("not-configured-phone").innerHTML = isEmpty(response.phone)
             ? ""
