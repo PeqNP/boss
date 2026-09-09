@@ -92,6 +92,11 @@ class JobTypeSize(Model):
     name: str
     durationMinutes: int
     cost: float
+    paymentRequired: bool = False
+    depositRequired: bool = False
+    depositType: Optional[str] = None
+    depositAmount: Optional[float] = None
+    depositNonrefundable: bool = False
     stripeProductId: Optional[str] = None
     stripePriceId: Optional[str] = None
     sortOrder: int
@@ -384,6 +389,11 @@ class JobTypeSizeDetail(Model):
     name: str
     durationMinutes: int
     cost: float
+    paymentRequired: bool = False
+    depositRequired: bool = False
+    depositType: Optional[str] = None
+    depositAmount: Optional[float] = None
+    depositNonrefundable: bool = False
     stripeProductId: Optional[str] = None
     stripePriceId: Optional[str] = None
     sortOrder: int
@@ -395,11 +405,7 @@ class JobTypeDetail(Model):
     name: str
     iconId: Optional[int] = None
     minEmployees: int
-    paymentRequired: bool
-    depositRequired: bool
-    depositType: Optional[str] = None
-    depositAmount: Optional[float] = None
-    depositNonrefundable: bool
+    requireOtp: bool = False
     isActive: bool
     sizes: List[JobTypeSizeDetail] = []
     attributes: List[JobTypeAttribute] = []
@@ -441,6 +447,8 @@ class Size(Model):
     name: str
     durationMinutes: int
     cost: float
+    paymentRequired: bool = False
+    depositRequired: bool = False
 
 
 #   GET /admin/job/{job_id}
@@ -723,7 +731,6 @@ class KioskJobTypesJobTypeContactField(Model):
     name: str
     fieldType: str
     isRequired: bool
-    requireOtp: bool
 
 
 class KioskJobTypesJobType(Model):
@@ -733,7 +740,7 @@ class KioskJobTypesJobType(Model):
     sizes: List[Size] = []
     contactFields: List[KioskJobTypesJobTypeContactField] = []
     attributes: List[KioskJobTypesJobTypeAttribute] = []
-    depositRequired: bool
+    requireOtp: bool = False
 
 
 #   GET /kiosk/{business_id}/job-types
@@ -898,7 +905,6 @@ class JobTypeContactField(Model):
     name: str
     fieldType: str
     isRequired: bool
-    requireOtp: bool
     sortOrder: int
 
 
@@ -1228,16 +1234,18 @@ class JobTypeBody(Model):
     minEmployees: Optional[int] = None
     isActive: Optional[bool] = None
     iconId: Optional[int] = None
-    paymentRequired: Optional[bool] = None
-    depositRequired: Optional[bool] = None
-    depositType: Optional[str] = None
-    depositAmount: Optional[float] = None
+    requireOtp: Optional[bool] = None
 
 
 class JobTypeSizeBody(Model):
     name: str
     durationMinutes: int
     cost: float
+    paymentRequired: bool = False
+    depositRequired: bool = False
+    depositType: Optional[str] = None
+    depositAmount: Optional[float] = None
+    depositNonrefundable: bool = False
     stripeProductId: Optional[str] = None
     stripePriceId: Optional[str] = None
 
@@ -1406,7 +1414,6 @@ class ContactFieldBody(Model):
     """One detail a job type asks the customer for."""
     contactFieldTypeId: int
     isRequired: bool = True
-    requireOtp: bool = False
 
 
 class ReorderBody(Model):

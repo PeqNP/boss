@@ -24,15 +24,15 @@ PENNY = 0.005
 WRITTEN_OFF = "written_off"
 
 
-def set_job_type_deposit(
-    job_type_id: int,
+def set_job_type_size_deposit(
+    size_id: int,
     deposit_type: str,
     deposit_amount: float
 ) -> None:
-    """Ask for a deposit on this job type. `fixed` is an amount, `percent` a rate."""
+    """Ask for a deposit on this size. `fixed` is an amount, `percent` a rate."""
     if deposit_type not in ("fixed", "percent"):
         raise ValidationError("A deposit is either a fixed amount or a percentage.")
-    db.set_job_type_deposit(job_type_id, deposit_type, deposit_amount)
+    db.set_job_type_size_deposit(size_id, deposit_type, deposit_amount)
 
 
 def _deposit_due(cost: db.JobCostRow) -> Optional[float]:

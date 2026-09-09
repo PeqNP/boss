@@ -66,7 +66,7 @@ def get_kiosk_job_types(business_id: int) -> List[KioskJobTypesJobType]:
             sizes=get_job_type_sizes(j.id),
             contactFields=get_job_type_contact_fields(j.id),
             attributes=get_job_type_attributes(j.id),
-            depositRequired=bool(db.get_job_type_detail(j.id).deposit_required),
+            requireOtp=bool(db.job_type_requires_otp(j.id)),
         )
         for j in get_job_types(business_id, active_only=True)
     ]

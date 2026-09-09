@@ -55,6 +55,16 @@
       }
       this.didChangeStripeProduct = didChangeStripeProduct;
 
+      function applyDepositFields() {
+        const on = view.ui.input("deposit-required").checked;
+        view.ui.div("deposit-fields").style.display = on ? "" : "none";
+      }
+
+      function didChangeDepositRequired() {
+        applyDepositFields();
+      }
+      this.didChangeDepositRequired = didChangeDepositRequired;
+
       async function configureStripe() {
         let cfg;
         try {
@@ -68,6 +78,7 @@
         const ready = !isEmpty(cfg)
           && cfg.paymentVendorChosen === true
           && !isEmpty(cfg.stripeAccountId);
+        view.ui.fieldset("payment").disabled = !ready;
         const menu = view.ui.select("stripe-product");
         if (!ready) {
           menu.ui.disable();
@@ -110,10 +121,21 @@
           os.ui.showAlert("Please provide what this size costs.");
           return;
         }
+        const depositRequired = view.ui.input("deposit-required").checked;
         const payload = {
           name,
           durationMinutes: duration,
           cost,
+          paymentRequired: view.ui.input("payment-required").checked,
+          depositRequired,
+          depositType: depositRequired
+            ? view.ui.select("deposit-type").ui.selectedValue()
+            : null,
+          depositAmount: depositRequired
+            ? parseFloat(view.ui.input("deposit-amount").value)
+            : null,
+          depositNonrefundable: depositRequired
+            && view.ui.input("deposit-nonrefundable").checked,
           stripeProductId,
           stripePriceId
         };
@@ -132,8 +154,8 @@
             );
           }
         }
-        catch {
-          os.ui.showError("Failed to save the size. Please try again later.");
+        catch (error) {
+          os.ui.showError(error.message);
           return;
         }
         delegate.didSaveJobTypeSize(response);
@@ -178,6 +200,7 @@
           throw new Error("JobTypeSize: jobTypeId is required");
         }
         await configureStripe();
+        applyDepositFields();
         // Creating: there is nothing to load, and no size to delete.
         if (isEmpty(config.sizeId)) {
           view.ui.button("delete-btn").remove();
@@ -200,6 +223,17 @@
         view.ui.input("size-name").value = size.name;
         view.ui.input("duration-minutes").value = size.durationMinutes;
         view.ui.input("cost").value = size.cost.toFixed(2);
+        view.ui.input("payment-required").checked = size.paymentRequired === true;
+        view.ui.input("deposit-required").checked = size.depositRequired === true;
+        if (!isEmpty(size.depositType)) {
+          view.ui.select("deposit-type").ui.selectValue(size.depositType);
+        }
+        if (!isEmpty(size.depositAmount)) {
+          view.ui.input("deposit-amount").value = size.depositAmount;
+        }
+        view.ui.input("deposit-nonrefundable").checked =
+          size.depositNonrefundable === true;
+        applyDepositFields();
         if (!isEmpty(size.stripeProductId)) {
           view.ui.select("stripe-product").ui.selectValue(size.stripeProductId);
           applyProduct(size.stripeProductId);
@@ -242,6 +276,39 @@
         <input type="number" name="cost" step="0.01" value="0.00">
       </div>
     </div>
+
+    <fieldset name="payment">
+      <legend>Payment</legend>
+      <div class="vbox gap-10">
+        <label class="checkbox">
+          <input type="checkbox" name="payment-required">
+          Payment required before scheduling
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="deposit-required"
+                 onchange="$(this.controller).didChangeDepositRequired();">
+          Deposit required when scheduling
+        </label>
+        <div name="deposit-fields" class="vbox gap-10" style="display: none;">
+          <div class="ui-popup-menu intrinsic" style="--popup-width: 160px;">
+            <label for="deposit-type">Deposit type</label>
+            <select name="deposit-type">
+              <option>Choose a type</option>
+              <option value="fixed">Fixed amount</option>
+              <option value="percent">Percentage</option>
+            </select>
+          </div>
+          <div class="text-field">
+            <label for="deposit-amount">Amount</label>
+            <input type="number" name="deposit-amount" step="0.01" value="0.00">
+          </div>
+          <label class="checkbox">
+            <input type="checkbox" name="deposit-nonrefundable">
+            Non-refundable
+          </label>
+        </div>
+      </div>
+    </fieldset>
 
     <div class="controls">
       <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>

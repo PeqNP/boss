@@ -129,11 +129,7 @@ def get_job_type_detail(
         name=row.name,
         iconId=row.icon_id,
         minEmployees=row.min_employees,
-        paymentRequired=bool(row.payment_required),
-        depositRequired=bool(row.deposit_required),
-        depositType=row.deposit_type,
-        depositAmount=row.deposit_amount,
-        depositNonrefundable=bool(row.deposit_nonrefundable),
+        requireOtp=bool(row.require_otp),
         isActive=bool(row.is_active),
         sizes=get_job_type_sizes(job_type_id),
         attributes=get_job_type_attributes(job_type_id),
@@ -246,7 +242,6 @@ def _contact_field(row: "db.JobTypeContactFieldRow") -> JobTypeContactField:
         name=catalog.name,
         fieldType=catalog.fieldType,
         isRequired=bool(row.is_required),
-        requireOtp=bool(row.require_otp),
         sortOrder=row.sort_order
     )
 
@@ -254,21 +249,12 @@ def _contact_field(row: "db.JobTypeContactFieldRow") -> JobTypeContactField:
 def _check_contact_field(
     job_type_id: int,
     contact_field_type_id: int,
-    require_otp: bool,
     field_id: Optional[int] = None
 ):
-    """The rules a contact field obeys, adding or changing.
-
-    A code goes to a phone or an email, so `otp_capable` is what decides
-    whether verification can be asked for. The screen hides the checkbox for a
-    type that cannot take one; this is what settles it.
-    """
+    """The rules a contact field obeys, adding or changing."""
     catalog = get_contact_field_type(contact_field_type_id)
     if catalog is None:
         raise ValidationError("That contact field no longer exists.")
-    if require_otp and not catalog.otpCapable:
-        raise ValidationError(
-            f"{catalog.name} cannot receive a verification code.")
 
     # One question per kind of detail. Asking twice puts two boxes for the same
     # thing on the form, and the second value overwrites the first.
@@ -282,17 +268,15 @@ def add_job_type_contact_field(
     business_id: int,
     job_type_id: int,
     contact_field_type_id: int,
-    is_required: bool = True,
-    require_otp: bool = False
+    is_required: bool = True
 ) -> JobTypeContactField:
     """Ask the customer for one more detail when they book this."""
     _business_job_type(business_id, job_type_id)
-    _check_contact_field(job_type_id, contact_field_type_id, require_otp)
+    _check_contact_field(job_type_id, contact_field_type_id)
     field_id = db.insert_job_type_contact_field(
         job_type_id,
         contact_field_type_id,
         1 if is_required else 0,
-        1 if require_otp else 0,
         db.next_contact_field_sort_order(job_type_id)
     )
     return _contact_field(db.get_job_type_contact_field(field_id))
@@ -306,21 +290,18 @@ def update_job_type_contact_field(
     business_id: int,
     field_id: int,
     contact_field_type_id: int,
-    is_required: bool = True,
-    require_otp: bool = False
+    is_required: bool = True
 ) -> JobTypeContactField:
     row = _business_contact_field(business_id, field_id)
     _check_contact_field(
         row.job_type_id,
         contact_field_type_id,
-        require_otp,
         field_id
     )
     db.set_job_type_contact_field(
         field_id,
         contact_field_type_id,
-        1 if is_required else 0,
-        1 if require_otp else 0
+        1 if is_required else 0
     )
     return _contact_field(db.get_job_type_contact_field(field_id))
 
@@ -374,10 +355,7 @@ def update_job_type(
     min_employees: Optional[int] = None,
     is_active: Optional[bool] = None,
     icon_id: Optional[int] = None,
-    payment_required: Optional[bool] = None,
-    deposit_required: Optional[bool] = None,
-    deposit_type: Optional[str] = None,
-    deposit_amount: Optional[float] = None
+    require_otp: Optional[bool] = None
 ) -> Optional[JobType]:
     current = get_job_type(business_id, job_type_id)
     if current is None:
@@ -387,6 +365,16 @@ def update_job_type(
     people = current.minEmployees if min_employees is None else min_employees
     if people < 1:
         raise ValidationError("A job needs at least one person to do it.")
+    if require_otp:
+        capable = False
+        for field in get_job_type_contact_fields(job_type_id):
+            catalog = get_contact_field_type(field.contactFieldTypeId)
+            if catalog is not None and catalog.otpCapable:
+                capable = True
+                break
+        if not capable:
+            raise ValidationError(
+                "Verification needs a phone or email contact field.")
 
     db.update_job_type(
         job_type_id,
@@ -396,24 +384,14 @@ def update_job_type(
     )
     detail = db.get_job_type_detail(job_type_id)
     if detail is not None and any(value is not None for value in (
-        icon_id, payment_required, deposit_required, deposit_type,
-        deposit_amount
+        icon_id, require_otp
     )):
         db.set_job_type_payment(
             job_type_id,
             detail.icon_id if icon_id is None else icon_id,
             (
-                detail.payment_required if payment_required is None
-                else (1 if payment_required else 0)
-            ),
-            (
-                detail.deposit_required if deposit_required is None
-                else (1 if deposit_required else 0)
-            ),
-            detail.deposit_type if deposit_type is None else deposit_type,
-            (
-                detail.deposit_amount if deposit_amount is None
-                else deposit_amount
+                detail.require_otp if require_otp is None
+                else (1 if require_otp else 0)
             )
         )
     return get_job_type(business_id, job_type_id)
@@ -454,6 +432,36 @@ def _stripe_ids(
     return product, price
 
 
+def _size_payment(
+    payment_required: bool,
+    deposit_required: bool,
+    deposit_type: Optional[str],
+    deposit_amount: Optional[float],
+    deposit_nonrefundable: bool
+):
+    """The payment flags a size stores, or a refusal."""
+    if deposit_required:
+        if deposit_type not in ("fixed", "percent"):
+            raise ValidationError(
+                "A deposit is either a fixed amount or a percentage.")
+        if deposit_amount is None or deposit_amount <= 0:
+            raise ValidationError("Please provide the deposit amount.")
+        return (
+            1 if payment_required else 0,
+            1,
+            deposit_type,
+            deposit_amount,
+            1 if deposit_nonrefundable else 0
+        )
+    return (
+        1 if payment_required else 0,
+        0,
+        None,
+        None,
+        0
+    )
+
+
 def update_job_type_size(
     business_id: int,
     size_id: int,
@@ -461,7 +469,12 @@ def update_job_type_size(
     duration_minutes: int,
     cost: float,
     stripe_product_id: Optional[str] = None,
-    stripe_price_id: Optional[str] = None
+    stripe_price_id: Optional[str] = None,
+    payment_required: bool = False,
+    deposit_required: bool = False,
+    deposit_type: Optional[str] = None,
+    deposit_amount: Optional[float] = None,
+    deposit_nonrefundable: bool = False
 ) -> Optional[JobTypeSize]:
     if not name or not name.strip():
         raise ValidationError("A size needs a name.")
@@ -471,9 +484,14 @@ def update_job_type_size(
         raise ValidationError("A size cannot cost less than nothing.")
     _business_size(business_id, size_id)
     product_id, price_id = _stripe_ids(stripe_product_id, stripe_price_id)
+    payment = _size_payment(
+        payment_required, deposit_required, deposit_type, deposit_amount,
+        deposit_nonrefundable
+    )
 
     db.update_job_type_size(
-        size_id, name.strip(), duration_minutes, cost, product_id, price_id
+        size_id, name.strip(), duration_minutes, cost, product_id, price_id,
+        *payment
     )
     return _size(db.get_job_type_size(size_id))
 
@@ -513,11 +531,20 @@ def add_job_type_size(
     duration_minutes: int,
     cost: float,
     stripe_product_id: Optional[str] = None,
-    stripe_price_id: Optional[str] = None
+    stripe_price_id: Optional[str] = None,
+    payment_required: bool = False,
+    deposit_required: bool = False,
+    deposit_type: Optional[str] = None,
+    deposit_amount: Optional[float] = None,
+    deposit_nonrefundable: bool = False
 ) -> JobTypeSize:
     """A size is what carries the duration and the price."""
     _business_job_type(business_id, job_type_id)
     product_id, price_id = _stripe_ids(stripe_product_id, stripe_price_id)
+    payment = _size_payment(
+        payment_required, deposit_required, deposit_type, deposit_amount,
+        deposit_nonrefundable
+    )
     return _size(db.get_job_type_size(
         db.insert_job_type_size(
             job_type_id,
@@ -526,6 +553,7 @@ def add_job_type_size(
             cost,
             db.next_size_sort_order(job_type_id),
             product_id,
-            price_id
+            price_id,
+            *payment
         )
     ))

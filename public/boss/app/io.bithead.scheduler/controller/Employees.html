@@ -44,6 +44,7 @@
             view.ui.button("edit-btn").disabled = true;
           }
         };
+        view.ui.select("employees").ui.setDefaultAction(editEmployee);
         await loadEmployees();
       }
       this.viewDidLoad = viewDidLoad;

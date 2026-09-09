@@ -60,7 +60,12 @@ def create_customer(
     name: str,
     phone: Optional[str] = None,
     email: Optional[str] = None,
-    user_id: Optional[int] = None
+    user_id: Optional[int] = None,
+    address_line1: Optional[str] = None,
+    address_line2: Optional[str] = None,
+    city: Optional[str] = None,
+    state: Optional[str] = None,
+    zip: Optional[str] = None
 ) -> Customer:
     """Record somebody this business has served."""
     if not name.strip():
@@ -70,7 +75,12 @@ def create_customer(
         name.strip(),
         phone,
         email,
-        user_id
+        user_id,
+        address_line1,
+        address_line2,
+        city,
+        state,
+        zip
     )
     return _customer(db.get_customer(business_id, customer_id))
 
@@ -190,6 +200,11 @@ def find_or_create_customer(
     """
     email = (contact.get("Email") or "").strip()
     phone = (contact.get("Phone") or "").strip()
+    address_line1 = (contact.get("Address Line 1") or "").strip()
+    address_line2 = (contact.get("Address Line 2") or "").strip()
+    city = (contact.get("City") or "").strip()
+    state = (contact.get("State") or "").strip()
+    zip_code = (contact.get("Zip") or "").strip()
 
     def theirs(candidate) -> bool:
         """Whether a record found by a weaker mark can be this person's.
@@ -231,6 +246,16 @@ def find_or_create_customer(
             missing["email"] = email
         if phone and not found.phone:
             missing["phone"] = phone
+        if address_line1 and not found.address_line1:
+            missing["address_line1"] = address_line1
+        if address_line2 and not found.address_line2:
+            missing["address_line2"] = address_line2
+        if city and not found.city:
+            missing["city"] = city
+        if state and not found.state:
+            missing["state"] = state
+        if zip_code and not found.zip:
+            missing["zip"] = zip_code
         if missing:
             db.set_customer(found.id, missing)
         # Booking while signed in claims the record they left behind booking
@@ -249,6 +274,11 @@ def find_or_create_customer(
         phone=phone or None,
         email=email or None,
         user_id=user_id,
+        address_line1=address_line1 or None,
+        address_line2=address_line2 or None,
+        city=city or None,
+        state=state or None,
+        zip=zip_code or None,
     )
 
 

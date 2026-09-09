@@ -36,12 +36,12 @@ the model's name for a form, its plural for a list, no verb suffixes.
 
 ### Documents
 
-Eight of these windows edit one record and hand Cancel, Delete and Save to the
+Seven of these windows edit one record and hand Cancel, Delete and Save to the
 OS — see [`js.md` § Document windows](../../../docs/prompt/js.md#document-windows).
 They declare `this.document = new UIDocument(...)`, write no File menu and no
 `didHitEnter`, and their controls carry `doc-action` instead of `onclick`:
 
-`BusinessConfig`, `JobType`, `Employee`, `Customer`, `Job`,
+`JobType`, `Employee`, `Customer`, `Job`,
 `EmployeeProfile`, `ScheduleTimeout`, `Vendors`.
 
 Two of them are not the plain three:
@@ -460,8 +460,8 @@ Multi-step state machine. Steps shown/hidden by JS state variable `currentStep`.
 4. `step-calendar` — Month calendar (unavailable days greyed); tap day → `step-day-slots`
 5. `step-day-slots` — Vertical list of slots for selected day
 6. `step-contact` — Contact info form (fields from job type config, ordered)
-7. `step-otp` — OTP entry (shown only if business requires validation for provided email/phone; 3 attempts max)
-8. `step-deposit` — Stripe redirect trigger (shown only if job type requires deposit)
+7. `step-otp` — OTP entry (shown only if the job type requires verification and a phone or email was given; 3 attempts max)
+8. `step-deposit` — Stripe redirect trigger (shown only if the chosen size requires a deposit or payment)
 9. `step-confirmation` — Job type, date/time, employee(s) (first name + last initial), business phone (tel: link), Job ID (short alphanumeric), create-account prompt, and a centred **Start Over** button beneath the text
 
 **Start Over**, centred and 20px below the confirmation, hands the kiosk to the
@@ -791,7 +791,7 @@ Filters: status, customer name/phone, date range, job type, employee. Max 50 res
 List of job types; add/edit/delete.
 
 #### `JobType`
-Own fields: name, icon (picker modal), employees needed, active flag, payment settings (required toggle, deposit amount/type fixed-or-percent, non-refundable checkbox). A Stripe product is chosen on a size, not on the job type.
+Own fields: name, icon (picker modal), employees needed, active flag, and whether a booking must verify a contact detail. Payment, deposit, Stripe product, duration, and price live on a size.
 
 Three child lists — sizes, attributes, contact fields — each a list box with Add and Edit, each edited in its own modal. The contact field list is ordered: the up and down buttons post the whole order and the list is redrawn from what the server hands back.
 
@@ -867,8 +867,8 @@ Tabbed layout (left-side nav, reference: `io.bithead.settings`).
 owner to one by name:
 1. **General** (`general`) — name, phone(s), address, owner info, description, site link, timezone dropdown (default from signup), read-only public URL
 2. **Business Type** (`business-type`) — the template that fills in the rest; choosing one asks before overwriting what is already set
-3. **Schedule** (`schedule`) — **Time Slots** (Reserved / Unlimited), **Operating Hours** (seven days, one range each, closable), cutoff window (days), slot increment (dropdown: 15m/30m/1h), min booking notice (hours), **minimum change notice (minutes)**, buffer time (minutes), reminder toggle (1 day before, email/SMS), completion mode (auto/manual), reminder opt-out per channel, and **Send confirmation** (below)
-4. **Notifications** (`notifications`) — which channels this business uses for confirmation. The platform vendor (SMTP, Mailtrap, Twilio) is chosen on `Vendors`, not here.
+3. **Schedule** (`schedule`) — **Time Slots** (Reserved / Unlimited), **Operating Hours** (seven days, one range each, closable), cutoff window (days), slot increment (dropdown: 15m/30m/1h), min booking notice (hours), **minimum change notice (minutes)**, buffer time (minutes), reminder toggle (1 day before, email/SMS), completion mode (auto/manual), reminder opt-out per channel
+4. **Notifications** (`notifications`) — which channels this business uses for confirmation (SMS, email). The platform vendor is chosen on `Vendors`, not here.
 
 **No Save button.** Business Settings writes as the owner works —
 [`js.md` § Saving as the user works](../../../docs/prompt/js.md#saving-as-the-user-works)
@@ -895,9 +895,7 @@ Tab order is **General, Business Type, Schedule, Notifications, Payment**.
 Business Type sits second because choosing one fills in the tabs below it — a
 new operator wants it before the settings it drives, not after them.
 
-5. **Business Type** — card grid showing templates; selecting one shows UIHelpBalloon with description and pre-fills other tab values
-
-**Send confirmation:** a fieldset in the Schedule tab with two checkboxes,
+**Send confirmation:** a fieldset in the Notifications tab with two checkboxes,
 **Text message** and **Email**. Either, both, or neither.
 
 A channel is used only when the customer supplied the matching contact field,
@@ -989,19 +987,15 @@ the one thing left: which job types this employee can perform.
 ### 1.4 Super Admin Controllers
 
 #### `Businesses`
-Lists all businesses using the `controls-right separated` model list pattern. Filter by status. Add opens `BusinessConfig` (no configure); Edit opens `BusinessConfig` (with configure). Enter Site, above Edit, opens the selected business's `SchedulerKiosk`. Both act on the selection and are disabled without one.
+Lists all businesses using the `controls-right separated` model list pattern. Filter by status. A business is created when a BOSS account opens the app, not from this list. Edit sets the acting business and opens `ActiveBusiness`. Enter Site, above Edit, opens the selected business's `SchedulerKiosk`. Both act on the selection and are disabled without one.
 
 **Stub endpoints:**
 - `GET /api/io.bithead.scheduler/businesses?status=` → list
 - `GET /api/io.bithead.scheduler/business/{id}` → detail
-- `POST /api/io.bithead.scheduler/businesses` → create
 - `PUT /api/io.bithead.scheduler/business/{id}` → edit
 - `POST /api/io.bithead.scheduler/business/{id}/enable` → enable
 - `POST /api/io.bithead.scheduler/business/{id}/disable` → disable
 - `DELETE /api/io.bithead.scheduler/business/{id}` → delete
-
-#### `BusinessConfig`
-Model form for creating and editing a business. Fields: name, owner name, phone, address, city, state, zip, timezone, active toggle. Delete button hidden when creating (no businessId). Uses `controls-right` style with Cancel → Delete → Save.
 
 ---
 
@@ -1266,11 +1260,7 @@ CREATE TABLE job_types (
     name TEXT NOT NULL,
     icon_id INTEGER REFERENCES icons(id),
     min_employees INTEGER NOT NULL DEFAULT 1,
-    payment_required INTEGER NOT NULL DEFAULT 0,
-    deposit_required INTEGER NOT NULL DEFAULT 0,
-    deposit_type TEXT,              -- fixed | percent
-    deposit_amount REAL,
-    deposit_nonrefundable INTEGER NOT NULL DEFAULT 0,
+    require_otp INTEGER NOT NULL DEFAULT 0,
     -- 0, not 1: this row exists from the moment the form opens, and an
     -- `Untitled` job type must not reach a customer while it is still being
     -- typed. The first real save sends what the Active checkbox says.
@@ -1283,6 +1273,11 @@ CREATE TABLE job_type_sizes (
     name TEXT NOT NULL,
     duration_minutes INTEGER NOT NULL,
     cost REAL NOT NULL,
+    payment_required INTEGER NOT NULL DEFAULT 0,
+    deposit_required INTEGER NOT NULL DEFAULT 0,
+    deposit_type TEXT,              -- fixed | percent
+    deposit_amount REAL,
+    deposit_nonrefundable INTEGER NOT NULL DEFAULT 0,
     stripe_product_id TEXT,
     stripe_price_id TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0
@@ -1300,7 +1295,6 @@ CREATE TABLE job_type_contact_fields (
     job_type_id INTEGER NOT NULL REFERENCES job_types(id),
     contact_field_type_id INTEGER NOT NULL,
     is_required INTEGER NOT NULL DEFAULT 1,
-    require_otp INTEGER NOT NULL DEFAULT 0,
     sort_order INTEGER NOT NULL DEFAULT 0
 );
 
@@ -1323,6 +1317,7 @@ CREATE TABLE scheduled_jobs (
     job_type_id INTEGER NOT NULL REFERENCES job_types(id),
     job_type_size_id INTEGER REFERENCES job_type_sizes(id),
     customer_id INTEGER REFERENCES customers(id),
+    cost REAL,                      -- quoted at hold, not a live join
     scheduled_date TEXT NOT NULL,   -- YYYY-MM-DD (business local)
     scheduled_time TEXT NOT NULL,   -- HH:MM (business local)
     duration_minutes INTEGER NOT NULL,

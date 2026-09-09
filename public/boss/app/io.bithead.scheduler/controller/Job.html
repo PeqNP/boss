@@ -15,6 +15,52 @@
 
       // --- Private helpers ---
 
+      /**
+       * Returns the employees matching a search term.
+       *
+       * @param {string} term - Search term. Empty returns every employee.
+       * @returns {[{id: string, name: string}]} Choices for the token menu
+       */
+      async function searchEmployees(term) {
+        const query = isEmpty(term)
+          ? "" : `?${new URLSearchParams({ term: term }).toString()}`;
+        let response;
+        try {
+          response = await os.network.get(
+            `/api/io.bithead.scheduler/business/${businessId}/employees${query}`
+          );
+        }
+        catch {
+          os.ui.showError("Failed to load employees. Please try again.");
+          return [];
+        }
+        return (response.employees || []).map(function(e) {
+          return { id: String(e.id), name: `${e.firstName} ${e.lastName}` };
+        });
+      }
+
+      /**
+       * Keeps Record Payment from enabling Save.
+       *
+       * The OS marks every input dirty. These fields are an action of their
+       * own, not an edit to the appointment.
+       *
+       * @param {HTMLElement} element
+       * @param {string} event - "oninput" or "onchange"
+       */
+      function ignoreDirty(element, event) {
+        const existing = element[event];
+        element[event] = function(e) {
+          const wasDirty = win.isDirty;
+          if (!isEmpty(existing)) {
+            existing.call(element, e);
+          }
+          if (!wasDirty) {
+            win.setDirty(false);
+          }
+        };
+      }
+
       function formatTime(t) {
         if (isEmpty(t)) {
           return "—";
@@ -175,20 +221,17 @@
         // Wire employees token menu
         win.select("job-employees").ui.delegate = {
           didFocusTokenMenu: async function() {
-            const resp = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/employees`);
-            return (resp.employees || []).map(function(e) {
-              return { id: String(e.id), name: `${e.firstName} ${e.lastName}` };
-            });
+            return await searchEmployees("");
           },
           didSearchForTerm: async function(term) {
-            const resp = await os.network.get(`/api/io.bithead.scheduler/business/${businessId}/employees`);
-            const lower = term.toLowerCase();
-            return (resp.employees || [])
-              .filter(function(e) { return (`${e.firstName} ${e.lastName}`).toLowerCase().includes(lower); })
-              .map(function(e) { return { id: String(e.id), name: `${e.firstName} ${e.lastName}` }; });
+            return await searchEmployees(term);
           },
-          didAddToken: async function() { },
-          didRemoveToken: async function() { }
+          didAddToken: async function() {
+            win.setDirty(true);
+          },
+          didRemoveToken: async function() {
+            win.setDirty(true);
+          }
         };
         let response;
         try {
@@ -247,6 +290,8 @@
 
         // Transactions
         await loadTransactions();
+        ignoreDirty(win.input("payment-amount"), "oninput");
+        ignoreDirty(win.select("payment-method"), "onchange");
       }
       this.viewDidLoad = viewDidLoad;
 
@@ -392,8 +437,6 @@
       locked to them. Only the business may change it now.
     </div>
 
-    <!-- Cancel and Save carry no onclick. A document's controls are wired by
-         the window. Mark Complete and Cancel Appointment are the app's own. -->
     <div class="controls">
       <button class="primary" doc-action="cancel">Cancel</button>
       <button name="cancel-job-btn" class="primary" onclick="$(this.controller).cancelJob();">Cancel Appointment</button>

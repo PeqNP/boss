@@ -44,6 +44,7 @@
             view.ui.button("edit-btn").disabled = true;
           }
         };
+        view.ui.select("job-types").ui.setDefaultAction(editJobType);
         await loadJobTypes();
       }
       this.viewDidLoad = viewDidLoad;

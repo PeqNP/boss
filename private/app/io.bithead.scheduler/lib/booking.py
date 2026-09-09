@@ -59,6 +59,7 @@ def create_job_session(
         raise ValidationError("That option is no longer offered.")
 
     duration = _duration_minutes(size_id)
+    size = db.get_job_type_size(size_id) if size_id is not None else None
     job_id = db.insert_scheduled_job(
         _job_code(),
         business_id,
@@ -67,7 +68,8 @@ def create_job_session(
         scheduled_date,
         scheduled_time,
         duration,
-        "pending"
+        "pending",
+        None if size is None else size.cost
     )
     for employee_id in employee_ids or []:
         db.assign_employee_to_job(job_id, employee_id)

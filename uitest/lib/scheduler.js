@@ -66,7 +66,7 @@ export async function readyToBook(page, businessId) {
     expect(field, `the platform seeds no contact field called ${name}`)
       .toBeTruthy();
     const added = await post(page, at(`/job-type/${jobType.id}/contact-field`), {
-      contactFieldTypeId: field.id, isRequired: true, requireOtp: false
+      contactFieldTypeId: field.id, isRequired: true
     });
     asks[name] = added.id;
   }

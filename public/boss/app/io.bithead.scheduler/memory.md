@@ -1,6 +1,6 @@
 # Session Memory — Scheduler
 
-Every stage of `plan.md` is finished. Mock vendors are offered only when `env` is `dev`. US holidays fill from `python-holidays` when a year is empty. Contact field types are code in `lib/contact_fields.py`. A customer has one `name`. Employees still have first and last name. A Stripe product is chosen on a job-type size; its price fills the size's cost.
+Every stage of `plan.md` is finished. Mock vendors are offered only when `env` is `dev`. US holidays fill from `python-holidays` when a year is empty. Contact field types are code in `lib/contact_fields.py`. A customer has one `name`. Employees still have first and last name. A Stripe product, payment, and deposit are chosen on a job-type size; its price fills the size's cost and is snapshotted onto the job at hold. Verification is one flag on the job type. Confirmation channels live on the Notifications tab.
 
 ## Watch out for
 
@@ -8,3 +8,7 @@ Every stage of `plan.md` is finished. Mock vendors are offered only when `env` i
 - Write-off is `POST .../job/{id}/write-off`. The button sits with Record Payment and asks before it sends.
 - Appointment mail, SMS, and card charges go through `lib/vendor/`. The catalog is code; the choice and credentials are stored in `vendor_configs`. SMTP hands mail to `POST /private/smtp/send`.
 - Development records messages for `/debug/last-message`. A mock payment is `GET /debug/pay/{jobId}`.
+
+## Open
+
+- Restart Python so the live service recreates `scheduler.sqlite3` at 1.0.0, then re-run `verify a phone` and `pay a deposit`. Agents do not start or restart the service.

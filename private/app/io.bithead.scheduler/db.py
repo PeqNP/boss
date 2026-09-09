@@ -319,11 +319,7 @@ def create_version_1_0_0(conn, version):
             name TEXT NOT NULL,
             icon_id INTEGER REFERENCES icons(id),
             min_employees INTEGER NOT NULL DEFAULT 1,
-            payment_required INTEGER NOT NULL DEFAULT 0,
-            deposit_required INTEGER NOT NULL DEFAULT 0,
-            deposit_type TEXT,              -- fixed | percent
-            deposit_amount REAL,
-            deposit_nonrefundable INTEGER NOT NULL DEFAULT 0,
+            require_otp INTEGER NOT NULL DEFAULT 0,
             -- 0, not 1: this row exists from the moment the form opens, and an
             -- `Untitled` job type must not reach a customer while it is still being
             -- typed. The first real save sends what the Active checkbox says.
@@ -338,6 +334,11 @@ def create_version_1_0_0(conn, version):
             name TEXT NOT NULL,
             duration_minutes INTEGER NOT NULL,
             cost REAL NOT NULL,
+            payment_required INTEGER NOT NULL DEFAULT 0,
+            deposit_required INTEGER NOT NULL DEFAULT 0,
+            deposit_type TEXT,
+            deposit_amount REAL,
+            deposit_nonrefundable INTEGER NOT NULL DEFAULT 0,
             stripe_product_id TEXT,
             stripe_price_id TEXT,
             sort_order INTEGER NOT NULL DEFAULT 0
@@ -359,7 +360,6 @@ def create_version_1_0_0(conn, version):
             job_type_id INTEGER NOT NULL REFERENCES job_types(id),
             contact_field_type_id INTEGER NOT NULL,
             is_required INTEGER NOT NULL DEFAULT 1,
-            require_otp INTEGER NOT NULL DEFAULT 0,
             sort_order INTEGER NOT NULL DEFAULT 0
         )
     """)
@@ -384,6 +384,7 @@ def create_version_1_0_0(conn, version):
             job_type_id INTEGER NOT NULL REFERENCES job_types(id),
             job_type_size_id INTEGER REFERENCES job_type_sizes(id),
             customer_id INTEGER REFERENCES customers(id),
+            cost REAL,
             scheduled_date TEXT NOT NULL,   -- YYYY-MM-DD (business local)
             scheduled_time TEXT NOT NULL,   -- HH:MM (business local)
             duration_minutes INTEGER NOT NULL,
@@ -818,6 +819,11 @@ class JobTypeSizeRow(BaseModel):
     name: str
     duration_minutes: int
     cost: float
+    payment_required: int = 0
+    deposit_required: int = 0
+    deposit_type: Optional[str] = None
+    deposit_amount: Optional[float] = None
+    deposit_nonrefundable: int = 0
     stripe_product_id: Optional[str] = None
     stripe_price_id: Optional[str] = None
     sort_order: int
@@ -1233,14 +1239,22 @@ def insert_customer(
     name: str,
     phone: Optional[str] = None,
     email: Optional[str] = None,
-    user_id: Optional[int] = None
+    user_id: Optional[int] = None,
+    address_line1: Optional[str] = None,
+    address_line2: Optional[str] = None,
+    city: Optional[str] = None,
+    state: Optional[str] = None,
+    zip: Optional[str] = None
 ) -> int:
     return insert(
         """
-        INSERT INTO customers (business_id, user_id, name, phone, email)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO customers
+            (business_id, user_id, name, phone, email,
+             address_line1, address_line2, city, state, zip)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (business_id, user_id, name, phone, email)
+        (business_id, user_id, name, phone, email,
+         address_line1, address_line2, city, state, zip)
     )
 
 
@@ -1497,11 +1511,7 @@ class JobTypeDetailRow(BaseModel):
     name: str
     icon_id: Optional[int]
     min_employees: int
-    payment_required: int
-    deposit_required: int
-    deposit_type: Optional[str]
-    deposit_amount: Optional[float]
-    deposit_nonrefundable: int
+    require_otp: int = 0
     is_active: int
 
 
@@ -1510,8 +1520,7 @@ def get_job_type_detail(job_type_id: int) -> Optional[JobTypeDetailRow]:
         JobTypeDetailRow,
         """
                    SELECT id, business_id, name, icon_id, min_employees,
-                          payment_required, deposit_required, deposit_type,
-                          deposit_amount, deposit_nonrefundable, is_active
+                          require_otp, is_active
                    FROM job_types WHERE id = ?
                    """,
         (job_type_id,)
@@ -1534,7 +1543,8 @@ def set_job_type_active(job_type_id: int, is_active: int) -> int:
 
 SIZE_COLUMNS = (
     "id, job_type_id, name, duration_minutes, cost,"
-    " stripe_product_id, stripe_price_id, sort_order"
+    " payment_required, deposit_required, deposit_type, deposit_amount,"
+    " deposit_nonrefundable, stripe_product_id, stripe_price_id, sort_order"
 )
 
 
@@ -1562,17 +1572,26 @@ def insert_job_type_size(
     cost: float,
     sort_order: int = 0,
     stripe_product_id: Optional[str] = None,
-    stripe_price_id: Optional[str] = None
+    stripe_price_id: Optional[str] = None,
+    payment_required: int = 0,
+    deposit_required: int = 0,
+    deposit_type: Optional[str] = None,
+    deposit_amount: Optional[float] = None,
+    deposit_nonrefundable: int = 0
 ) -> int:
     return insert(
         """
         INSERT INTO job_type_sizes
             (job_type_id, name, duration_minutes, cost, sort_order,
-             stripe_product_id, stripe_price_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+             stripe_product_id, stripe_price_id, payment_required,
+             deposit_required, deposit_type, deposit_amount,
+             deposit_nonrefundable)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (job_type_id, name, duration_minutes, cost, sort_order,
-         stripe_product_id, stripe_price_id)
+         stripe_product_id, stripe_price_id, payment_required,
+         deposit_required, deposit_type, deposit_amount,
+         deposit_nonrefundable)
     )
 
 
@@ -1752,17 +1771,18 @@ def insert_scheduled_job(
     scheduled_date: str,
     scheduled_time: str,
     duration_minutes: int,
-    status: str
+    status: str,
+    cost: Optional[float] = None
 ) -> int:
     return insert(
         """
         INSERT INTO scheduled_jobs
             (job_code, business_id, job_type_id, job_type_size_id,
-             scheduled_date, scheduled_time, duration_minutes, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+             scheduled_date, scheduled_time, duration_minutes, cost, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (job_code, business_id, job_type_id, size_id, scheduled_date,
-         scheduled_time, duration_minutes, status)
+         scheduled_time, duration_minutes, cost, status)
     )
 
 
@@ -2015,7 +2035,8 @@ def get_appointment(job_id: int) -> Optional[AppointmentRow]:
                           b.phone AS business_phone, b.min_change_notice_minutes,
                           j.job_type_id, jt.name AS job_type_name,
                           j.job_type_size_id AS size_id, s.name AS size_name,
-                          s.cost, j.scheduled_date, j.scheduled_time,
+                          COALESCE(j.cost, s.cost) AS cost,
+                          j.scheduled_date, j.scheduled_time,
                           j.duration_minutes, j.status, j.locked_date
                    FROM scheduled_jobs j
                    JOIN businesses b ON b.id = j.business_id
@@ -2056,7 +2077,8 @@ def get_job_detail(business_id: int, job_id: int) -> Optional[JobDetailRow]:
                    SELECT j.id, j.job_code, j.business_id, j.customer_id,
                           j.job_type_id, jt.name AS job_type_name,
                           j.job_type_size_id AS size_id, s.name AS size_name,
-                          s.duration_minutes AS size_duration_minutes, s.cost,
+                          s.duration_minutes AS size_duration_minutes,
+                          COALESCE(j.cost, s.cost) AS cost,
                           j.scheduled_date, j.scheduled_time, j.duration_minutes,
                           j.status, j.payment_status, j.locked_date, j.is_recurring
                    FROM scheduled_jobs j
@@ -2670,10 +2692,9 @@ def get_job_cost(job_id: int) -> Optional[JobCostRow]:
     return _one_as(
         JobCostRow,
         """
-                   SELECT s.cost, jt.deposit_required, jt.deposit_type,
-                          jt.deposit_amount
+                   SELECT COALESCE(j.cost, s.cost) AS cost,
+                          s.deposit_required, s.deposit_type, s.deposit_amount
                    FROM scheduled_jobs j
-                   JOIN job_types jt ON jt.id = j.job_type_id
                    LEFT JOIN job_type_sizes s ON s.id = j.job_type_size_id
                    WHERE j.id = ?
                    """,
@@ -2681,15 +2702,15 @@ def get_job_cost(job_id: int) -> Optional[JobCostRow]:
     )
 
 
-def set_job_type_deposit(
-    job_type_id: int,
+def set_job_type_size_deposit(
+    size_id: int,
     deposit_type: str,
     deposit_amount: float
 ) -> int:
     return update(
-        "UPDATE job_types SET deposit_required = 1, deposit_type = ?,"
+        "UPDATE job_type_sizes SET deposit_required = 1, deposit_type = ?,"
         " deposit_amount = ? WHERE id = ?",
-        (deposit_type, deposit_amount, job_type_id)
+        (deposit_type, deposit_amount, size_id)
     )
 
 
@@ -2936,7 +2957,8 @@ def get_jobs_in_period(
         ReportRow,
         """
                    SELECT j.id, j.job_code, jt.name AS job_type_name,
-                          j.scheduled_date, j.status, j.payment_status, s.cost,
+                          j.scheduled_date, j.status, j.payment_status,
+                          COALESCE(j.cost, s.cost) AS cost,
                           COALESCE((SELECT SUM(t.amount) FROM job_transactions t
                                     WHERE t.job_id = j.id), 0) AS paid
                    FROM scheduled_jobs j
@@ -3047,12 +3069,11 @@ class JobTypeContactFieldRow(BaseModel):
     job_type_id: int
     contact_field_type_id: int
     is_required: int
-    require_otp: int
     sort_order: int
 
 
 CONTACT_FIELD_COLUMNS = """
-    id, job_type_id, contact_field_type_id, is_required, require_otp, sort_order
+    id, job_type_id, contact_field_type_id, is_required, sort_order
 """
 
 
@@ -3086,13 +3107,12 @@ def next_contact_field_sort_order(job_type_id: int) -> int:
 def set_job_type_contact_field(
     field_id: int,
     contact_field_type_id: int,
-    is_required: int,
-    require_otp: int
+    is_required: int
 ) -> int:
     return update(
         "UPDATE job_type_contact_fields SET contact_field_type_id = ?,"
-        " is_required = ?, require_otp = ? WHERE id = ?",
-        (contact_field_type_id, is_required, require_otp, field_id)
+        " is_required = ? WHERE id = ?",
+        (contact_field_type_id, is_required, field_id)
     )
 
 
@@ -3114,16 +3134,15 @@ def insert_job_type_contact_field(
     job_type_id: int,
     contact_field_type_id: int,
     is_required: int = 1,
-    require_otp: int = 0,
     sort_order: int = 0
 ) -> int:
     return insert(
         """
         INSERT INTO job_type_contact_fields
-            (job_type_id, contact_field_type_id, is_required, require_otp, sort_order)
-        VALUES (?, ?, ?, ?, ?)
+            (job_type_id, contact_field_type_id, is_required, sort_order)
+        VALUES (?, ?, ?, ?)
         """,
-        (job_type_id, contact_field_type_id, is_required, require_otp, sort_order)
+        (job_type_id, contact_field_type_id, is_required, sort_order)
     )
 
 
@@ -3298,29 +3317,11 @@ def update_job_type(
 def set_job_type_payment(
     job_type_id: int,
     icon_id: Optional[int],
-    payment_required: int,
-    deposit_required: int,
-    deposit_type: Optional[str],
-    deposit_amount: Optional[float]
+    require_otp: int = 0
 ) -> int:
     return update(
-        """
-        UPDATE job_types
-           SET icon_id = ?,
-               payment_required = ?,
-               deposit_required = ?,
-               deposit_type = ?,
-               deposit_amount = ?
-         WHERE id = ?
-        """,
-        (
-            icon_id,
-            payment_required,
-            deposit_required,
-            deposit_type,
-            deposit_amount,
-            job_type_id
-        )
+        "UPDATE job_types SET icon_id = ?, require_otp = ? WHERE id = ?",
+        (icon_id, require_otp, job_type_id)
     )
 
 
@@ -3364,14 +3365,22 @@ def update_job_type_size(
     duration_minutes: int,
     cost: float,
     stripe_product_id: Optional[str] = None,
-    stripe_price_id: Optional[str] = None
+    stripe_price_id: Optional[str] = None,
+    payment_required: int = 0,
+    deposit_required: int = 0,
+    deposit_type: Optional[str] = None,
+    deposit_amount: Optional[float] = None,
+    deposit_nonrefundable: int = 0
 ) -> int:
     return update(
         "UPDATE job_type_sizes SET name = ?, duration_minutes = ?, cost = ?,"
-        " stripe_product_id = ?, stripe_price_id = ?"
+        " stripe_product_id = ?, stripe_price_id = ?, payment_required = ?,"
+        " deposit_required = ?, deposit_type = ?, deposit_amount = ?,"
+        " deposit_nonrefundable = ?"
         " WHERE id = ?",
         (name, duration_minutes, cost, stripe_product_id, stripe_price_id,
-         size_id)
+         payment_required, deposit_required, deposit_type, deposit_amount,
+         deposit_nonrefundable, size_id)
     )
 
 
@@ -3387,13 +3396,25 @@ def delete_job_type_size(size_id: int) -> int:
     return update("DELETE FROM job_type_sizes WHERE id = ?", (size_id,))
 
 
-def get_employees(business_id: int) -> List[EmployeeRow]:
+def get_employees(
+    business_id: int,
+    term: Optional[str] = None
+) -> List[EmployeeRow]:
+    where = ["business_id = ?"]
+    params: List[Any] = [business_id]
+    if term:
+        where.append(
+            "(LOWER(first_name) LIKE ? OR LOWER(last_name) LIKE ?"
+            " OR LOWER(first_name || ' ' || last_name) LIKE ?)"
+        )
+        like = f"%{term.lower()}%"
+        params.extend([like, like, like])
     return _all_as(
         EmployeeRow,
         "SELECT id, business_id, user_id, role, first_name, last_name,"
         " include_in_schedule, can_manage_own_schedule"
-        " FROM employees WHERE business_id = ? ORDER BY id",
-        (business_id,)
+        f" FROM employees WHERE {' AND '.join(where)} ORDER BY id",
+        tuple(params)
     )
 
 
@@ -3557,8 +3578,7 @@ def count_active_vendors(vendor_type: str) -> int:
 
 def job_type_requires_otp(job_type_id: int) -> bool:
     row = _one(
-        "SELECT 1 FROM job_type_contact_fields"
-        " WHERE job_type_id = ? AND require_otp = 1",
+        "SELECT 1 FROM job_types WHERE id = ? AND require_otp = 1",
         (job_type_id,)
     )
     return row is not None
@@ -3581,8 +3601,17 @@ def set_business_stripe_account(business_id: int, account_id: str) -> int:
 
 def job_type_takes_money(job_type_id: int) -> bool:
     row = _one(
-        "SELECT 1 FROM job_types WHERE id = ?"
+        "SELECT 1 FROM job_type_sizes WHERE job_type_id = ?"
         " AND (payment_required = 1 OR deposit_required = 1)",
         (job_type_id,)
+    )
+    return row is not None
+
+
+def size_takes_money(size_id: int) -> bool:
+    row = _one(
+        "SELECT 1 FROM job_type_sizes WHERE id = ?"
+        " AND (payment_required = 1 OR deposit_required = 1)",
+        (size_id,)
     )
     return row is not None

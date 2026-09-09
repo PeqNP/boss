@@ -168,8 +168,11 @@ def add_time_off(
     )
 
 
-def get_employees(business_id: int) -> List[Employee]:
-    return [_employee(r) for r in db.get_employees(business_id)]
+def get_employees(
+    business_id: int,
+    term: Optional[str] = None
+) -> List[Employee]:
+    return [_employee(r) for r in db.get_employees(business_id, term)]
 
 
 def get_employee(business_id: int, employee_id: int) -> Optional[Employee]:

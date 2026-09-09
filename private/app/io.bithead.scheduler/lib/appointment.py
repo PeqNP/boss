@@ -124,35 +124,32 @@ def get_job_detail(
 def _job_customer(row: "db.JobDetailRow") -> JobCustomer:
     """Who the work is for.
 
-    A booking need not have a customer record behind it — most do not, because
-    a customer books without an account and the business has never served them
-    before. What they typed at booking is then the only answer there is, and
-    `id` is 0 to say there is nothing to open.
+    What they typed at booking is this appointment's contact. A customer
+    record, when there is one, fills what the booking never asked for and is
+    the id the operator opens. `id` is 0 when there is nothing to open.
     """
+    typed = typed_contact(db.get_job_contact(row.id))
+    c = None
     if row.customer_id is not None:
         c = db.get_customer_anywhere(row.customer_id)
-        if c is not None:
-            return JobCustomer(
-                id=c.id,
-                name=c.name,
-                phone=c.phone or "",
-                email=c.email or "",
-                addressLine1=c.address_line1 or "",
-                city=c.city or "",
-                state=c.state or "",
-                zip=c.zip or ""
-            )
 
-    typed = typed_contact(db.get_job_contact(row.id))
+    def pick(field: str, column: str) -> str:
+        value = typed.get(field) or ""
+        if value:
+            return value
+        if c is None:
+            return ""
+        return getattr(c, column) or ""
+
     return JobCustomer(
-        id=0,
-        name=typed.get("Full Name", ""),
-        phone=typed.get("Phone", ""),
-        email=typed.get("Email", ""),
-        addressLine1=typed.get("Address Line 1", ""),
-        city=typed.get("City", ""),
-        state=typed.get("State", ""),
-        zip=typed.get("Zip", ""),
+        id=0 if c is None else c.id,
+        name=pick("Full Name", "name"),
+        phone=pick("Phone", "phone"),
+        email=pick("Email", "email"),
+        addressLine1=pick("Address Line 1", "address_line1"),
+        city=pick("City", "city"),
+        state=pick("State", "state"),
+        zip=pick("Zip", "zip"),
     )
 
 

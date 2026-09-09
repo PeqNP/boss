@@ -481,8 +481,12 @@
           didSearchForTerm: async function(term) {
             return await searchJobTypes(term);
           },
-          didAddToken: async function() { },
-          didRemoveToken: async function() { }
+          didAddToken: async function() {
+            win.setDirty(true);
+          },
+          didRemoveToken: async function() {
+            win.setDirty(true);
+          }
         };
       }
 

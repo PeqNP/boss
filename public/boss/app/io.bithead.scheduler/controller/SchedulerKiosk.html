@@ -487,16 +487,25 @@
           }
           attributeData.push({ attributeId: parseInt(div.dataset.attrId), value: value });
         }
-        // Check if OTP required
-        const otpFields = selectedJobType.contactFields.filter(f => f.requireOtp);
-        if (otpFields.length > 0) {
-          // Take the first OTP-required field
-          const otpField = otpFields[0];
-          otpFieldType = otpField.fieldType;
-          otpAttempts = 0;
+        if (selectedJobType.requireOtp === true) {
+          const otpField = selectedJobType.contactFields.find(function(f) {
+            if (f.fieldType !== "phone" && f.fieldType !== "email") {
+              return false;
+            }
+            const given = contactData.find(function(c) {
+              return c.fieldId === f.id;
+            });
+            return !isEmpty(given) && !isEmpty(given.value);
+          });
+          if (isEmpty(otpField)) {
+            showError("Please provide a phone number or email to verify.");
+            return;
+          }
           const given = contactData.find(function(c) {
             return c.fieldId === otpField.id;
           });
+          otpFieldType = otpField.fieldType;
+          otpAttempts = 0;
           try {
             await os.network.post(`/api/io.bithead.scheduler/kiosk/session/${sessionId}/otp/send`,
               { fieldType: otpFieldType,
@@ -559,6 +568,14 @@
         }
         clearLockTimer();
         if (!isEmpty(response.stripePaymentUrl)) {
+          const deposit = !isEmpty(selectedSize) && selectedSize.depositRequired === true;
+          view.ui.span("pay-title").textContent = deposit
+            ? "Deposit Required" : "Payment Required";
+          view.ui.p("pay-copy").textContent = deposit
+            ? "This appointment requires a deposit to confirm your booking."
+            : "This appointment requires payment to confirm your booking.";
+          view.ui.button("deposit-pay-link").innerText = deposit
+            ? "Pay Deposit via Stripe →" : "Pay via Stripe →";
           view.ui.button("deposit-pay-link").onclick = function() { window.open(response.stripePaymentUrl, "_blank"); };
           goToStep("deposit");
           return;
@@ -906,9 +923,9 @@
 
       <!-- Step: Deposit -->
       <div name="step-deposit" style="display: none; text-align: center;">
-        <h2>Deposit Required</h2>
-        <p>This appointment requires a deposit to confirm your booking.</p>
-        <button name="deposit-pay-link" class="default" style="margin-top: 16px;">Pay Deposit via Stripe →</button>
+        <h2><span name="pay-title">Payment Required</span></h2>
+        <p name="pay-copy">This appointment requires payment to confirm your booking.</p>
+        <button name="deposit-pay-link" class="default" style="margin-top: 16px;">Pay via Stripe →</button>
         <p style="margin-top: 16px; font-size: 0.85em;">You will be redirected to Stripe to complete your payment securely.</p>
       </div>
 

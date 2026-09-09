@@ -957,10 +957,7 @@ async def update_job_type(
         body.minEmployees,
         body.isActive,
         body.iconId,
-        body.paymentRequired,
-        body.depositRequired,
-        body.depositType,
-        body.depositAmount
+        body.requireOtp
     )
     return Success(success=True)
 
@@ -1007,7 +1004,12 @@ async def create_job_type_size(
         body.durationMinutes,
         body.cost,
         body.stripeProductId,
-        body.stripePriceId
+        body.stripePriceId,
+        body.paymentRequired,
+        body.depositRequired,
+        body.depositType,
+        body.depositAmount,
+        body.depositNonrefundable
     )
 
 
@@ -1033,7 +1035,12 @@ async def update_job_type_size(
         body.durationMinutes,
         body.cost,
         body.stripeProductId,
-        body.stripePriceId
+        body.stripePriceId,
+        body.paymentRequired,
+        body.depositRequired,
+        body.depositType,
+        body.depositAmount,
+        body.depositNonrefundable
     )
 
 
@@ -1145,8 +1152,7 @@ async def create_job_type_contact_field(
         business_id,
         job_type_id,
         body.contactFieldTypeId,
-        body.isRequired,
-        body.requireOtp
+        body.isRequired
     )
 
 
@@ -1168,8 +1174,7 @@ async def update_job_type_contact_field(
         business_id,
         contact_field_id,
         body.contactFieldTypeId,
-        body.isRequired,
-        body.requireOtp
+        body.isRequired
     )
 
 
@@ -1295,10 +1300,11 @@ async def get_contact_fields(request: Request):
 async def get_admin_employees(
     business_id: int,
     boss_user: User,
-    request: Request
+    request: Request,
+    term: Optional[str] = None
 ):
     _working_for(business_id, boss_user)
-    return Employees(employees=lib.get_employees(business_id))
+    return Employees(employees=lib.get_employees(business_id, term))
 
 
 @router.get(
@@ -2318,7 +2324,12 @@ async def get_last_message(request: Request):
 def _payment_url(job_id: int, request: Request) -> Optional[str]:
     """A card-charge URL for this appointment, or none if none is due."""
     job = db.get_scheduled_job(job_id)
-    if job is None or not db.job_type_takes_money(job.job_type_id):
+    if job is None:
+        return None
+    if job.job_type_size_id is not None:
+        if not db.size_takes_money(job.job_type_size_id):
+            return None
+    elif not db.job_type_takes_money(job.job_type_id):
         return None
     if lib.channel_chosen("payment") is None:
         return None

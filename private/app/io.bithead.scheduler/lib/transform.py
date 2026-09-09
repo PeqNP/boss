@@ -63,6 +63,11 @@ def _size(row: db.JobTypeSizeRow) -> JobTypeSize:
         name=row.name,
         durationMinutes=row.duration_minutes,
         cost=row.cost,
+        paymentRequired=bool(row.payment_required),
+        depositRequired=bool(row.deposit_required),
+        depositType=row.deposit_type,
+        depositAmount=row.deposit_amount,
+        depositNonrefundable=bool(row.deposit_nonrefundable),
         stripeProductId=row.stripe_product_id,
         stripePriceId=row.stripe_price_id,
         sortOrder=row.sort_order

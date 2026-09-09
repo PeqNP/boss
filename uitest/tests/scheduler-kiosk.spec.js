@@ -149,9 +149,9 @@ test.describe("scheduler kiosk", () => {
     const phone = detail.contactFields.find((f) => f.name === "Phone");
     expect(phone, "Haircut asks for no phone").toBeTruthy();
     const required = await page.request.put(
-      `${API}/business/${businessId}/job-type-contact-field/${phone.id}`,
-      { data: { contactFieldTypeId: phone.contactFieldTypeId,
-                isRequired: true, requireOtp: true } }
+      `${API}/business/${businessId}/job-type/${booked.jobTypeId}`,
+      { data: { name: "Haircut", minEmployees: 1, isActive: true,
+                requireOtp: true } }
     );
     expect(required.ok(), `could not require OTP: ${await required.text()}`)
       .toBe(true);
@@ -181,8 +181,8 @@ test.describe("scheduler kiosk", () => {
     await signInAsOperator(page);
 
     const saved = await page.request.put(
-      `${API}/business/${businessId}/job-type/${booked.jobTypeId}`,
-      { data: { name: "Haircut", minEmployees: 1, isActive: true,
+      `${API}/business/${businessId}/job-type-size/${booked.sizeId}`,
+      { data: { name: "Standard", durationMinutes: 60, cost: 40,
                 depositRequired: true, depositType: "fixed",
                 depositAmount: 10 } }
     );

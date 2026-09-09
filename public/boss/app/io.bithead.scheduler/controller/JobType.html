@@ -101,8 +101,7 @@
         }
         win.input("name").value = response.name;
         win.input("min-employees").value = response.minEmployees;
-        win.input("payment-required").checked = response.paymentRequired;
-        win.input("deposit-required").checked = response.depositRequired;
+        win.input("require-otp").checked = response.requireOtp === true;
         // A draft is inactive on the server so a half-typed job type cannot
         // reach a customer. The box still reads on, because saving is what
         // says the operator wants it — and the first save sends this.
@@ -151,10 +150,7 @@
       function renderContactFields(fields) {
         win.select("contact-fields").ui.addNewOptions(
           fields.map(function(f) {
-            let suffix = f.isRequired ? " — required" : " — optional";
-            if (f.requireOtp) {
-              suffix += ", verified";
-            }
+            const suffix = f.isRequired ? " — required" : " — optional";
             return { id: String(f.id), name: f.name + suffix };
           })
         );
@@ -276,30 +272,12 @@
             didSelectIcon: function(icon) {
               iconId = icon.id;
               win.span("selected-icon-name").innerText = icon.filename;
+              win.setDirty(true);
             }
           };
         });
       }
       this.pickIcon = pickIcon;
-
-      /**
-       * Enables Payment when Stripe is connected.
-       */
-      async function configurePayment() {
-        let config;
-        try {
-          config = await os.network.get(
-            `/api/io.bithead.scheduler/business/${businessId}/config`
-          );
-        }
-        catch {
-          config = null;
-        }
-        const ready = !isEmpty(config)
-          && config.paymentVendorChosen === true
-          && !isEmpty(config.stripeAccountId);
-        win.fieldset("payment").disabled = !ready;
-      }
 
       /**
        * Writes the job type and reports it to the delegate.
@@ -326,8 +304,7 @@
           name,
           iconId,
           minEmployees,
-          paymentRequired: win.input("payment-required").checked,
-          depositRequired: win.input("deposit-required").checked,
+          requireOtp: win.input("require-otp").checked,
           isActive: win.input("is-active").checked
         };
         let response;
@@ -429,7 +406,6 @@
         win.select("attributes").ui.setDefaultAction(editAttribute);
         win.select("contact-fields").ui.setDefaultAction(editContactField);
 
-        await configurePayment();
         if (isEmpty(jobTypeId)) {
           await create();
         }
@@ -473,6 +449,10 @@
         <label class="checkbox">
           <input type="checkbox" name="is-active" checked>
           Customers may schedule it
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="require-otp">
+          Verify a phone or email before the booking stands
         </label>
       </div>
     </fieldset>
@@ -528,20 +508,6 @@
             <button name="edit-contact-field-btn" class="primary" disabled onclick="$(this.controller).editContactField();">Edit</button>
           </div>
         </div>
-      </div>
-    </fieldset>
-
-    <fieldset name="payment">
-      <legend>Payment</legend>
-      <div class="vbox gap-10">
-        <label class="checkbox">
-          <input type="checkbox" name="payment-required">
-          Payment required before scheduling
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" name="deposit-required">
-          Deposit required when scheduling
-        </label>
       </div>
     </fieldset>
 

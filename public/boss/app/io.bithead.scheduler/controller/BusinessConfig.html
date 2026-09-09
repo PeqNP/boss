@@ -118,11 +118,14 @@
           }
 
           const closedCell = document.createElement("td");
+          const closedLabel = document.createElement("label");
+          closedLabel.className = "checkbox";
           const closed = document.createElement("input");
           closed.type = "checkbox";
           closed.name = `hours-closed-${day}`;
           closed.checked = saved.isClosed === true;
-          closedCell.appendChild(closed);
+          closedLabel.appendChild(closed);
+          closedCell.appendChild(closedLabel);
           row.appendChild(closedCell);
 
           body.appendChild(row);
@@ -726,16 +729,16 @@
                availability, holds, and employee assignment — every time between
                your opening and closing is always offered.</p>
             <div class="vbox gap-10">
-              <div class="hbox gap-10">
+              <label class="radio">
                 <input type="radio" name="slot-mode" value="reserved" checked
                        onchange="$(this.controller).didChangeSlotMode();">
-                <label>Reserved — one customer per time. Times already taken are not offered.</label>
-              </div>
-              <div class="hbox gap-10">
+                Reserved — one customer per time. Times already taken are not offered.
+              </label>
+              <label class="radio">
                 <input type="radio" name="slot-mode" value="unlimited"
                        onchange="$(this.controller).didChangeSlotMode();">
-                <label>Unlimited — any number of customers may choose the same time.</label>
-              </div>
+                Unlimited — any number of customers may choose the same time.
+              </label>
             </div>
           </fieldset>
           <fieldset class="vbox gap-10">
@@ -781,28 +784,13 @@
           <fieldset>
             <legend>Appointment Completion</legend>
             <div class="vbox gap-10">
-              <div class="hbox gap-10">
+              <label class="radio">
                 <input type="radio" name="completion-mode" value="auto" checked>
-                <label>Auto-complete when scheduled end time passes</label>
-              </div>
-              <div class="hbox gap-10">
-                <input type="radio" name="completion-mode" value="manual">
-                <label>Manually mark completed by admin</label>
-              </div>
-            </div>
-          </fieldset>
-          <fieldset class="vbox gap-10">
-            <legend>Send Confirmation</legend>
-            <p>Sent as soon as an appointment is booked. A channel is used only
-               when the customer gave you that contact information.</p>
-            <div class="vbox gap-10">
-              <label class="checkbox">
-                <input type="checkbox" name="confirm-by-sms">
-                Text message
+                Auto-complete when scheduled end time passes
               </label>
-              <label class="checkbox">
-                <input type="checkbox" name="confirm-by-email">
-                Email
+              <label class="radio">
+                <input type="radio" name="completion-mode" value="manual">
+                Manually mark completed by admin
               </label>
             </div>
           </fieldset>
@@ -833,7 +821,22 @@
       <!-- Notifications tab -->
       <div name="tab-notifications" style="display: none;">
         <div class="vbox gap-20">
-          <p>Email and SMS are sent by the vendor the platform has chosen on Vendor Integrations. This business chooses whether to confirm by text or email on the Schedule tab.</p>
+          <p>Email and SMS are sent by the vendor the platform has chosen on Vendor Integrations.</p>
+          <fieldset class="vbox gap-10">
+            <legend>Send Confirmation</legend>
+            <p>Sent as soon as an appointment is booked. A channel is used only
+               when the customer gave you that contact information.</p>
+            <div class="vbox gap-10">
+              <label class="checkbox">
+                <input type="checkbox" name="confirm-by-sms">
+                Text message
+              </label>
+              <label class="checkbox">
+                <input type="checkbox" name="confirm-by-email">
+                Email
+              </label>
+            </div>
+          </fieldset>
         </div>
       </div>
 
@@ -846,7 +849,7 @@
             <label>Connected Account</label>
             <span name="stripe-account-id">Not connected</span>
           </div>
-          <div class="controls">
+          <div>
             <button name="connect-stripe" class="default" onclick="$(this.controller).connectStripe();">Connect Stripe Account</button>
           </div>
         </div>

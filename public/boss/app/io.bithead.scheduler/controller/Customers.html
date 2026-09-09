@@ -35,6 +35,7 @@
             view.ui.button("view-btn").disabled = true;
           }
         };
+        view.ui.select("customers").ui.setDefaultAction(openCustomer);
         view.ui.input("customers-filter").ui.delegate = {
           didChangeFilter: applyCustomerFilter
         };
