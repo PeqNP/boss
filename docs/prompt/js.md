@@ -1889,14 +1889,19 @@ The strip sits under the title bar, centred, positioned against the **window**
 rather than the content — so it holds its place however far a long form is
 scrolled — and it takes no pointer events.
 
-Four triggers, and the last two are the ones that get forgotten:
+Five triggers, and the last three are the ones that get forgotten:
 
 | Trigger | Why |
 |---|---|
 | A field loses focus | The edit is finished |
 | An option is chosen — menu, checkbox, radio | There is no blur to wait for |
+| Enter | The edit is finished; the field still has focus |
 | The screen's section changes | The field the user was in never blurred; the page moved under it |
 | `windowShouldClose` | Same again, and the last chance to write anything |
+
+Wire Enter as `this.didHitEnter`. A document already gives Enter to Save; this
+pattern has no document, so the controller names it. Call the same path as
+leaving the field, so a required field is refused the same way.
 
 Three things the button used to do for free:
 

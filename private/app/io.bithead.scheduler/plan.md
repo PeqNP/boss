@@ -872,8 +872,8 @@ owner to one by name:
 
 **No Save button.** Business Settings writes as the owner works —
 [`js.md` § Saving as the user works](../../../docs/prompt/js.md#saving-as-the-user-works)
-has the pattern. Four triggers: a field losing focus, an option being chosen,
-the section changing, and the window closing. Each write says so with
+has the pattern. Five triggers: a field losing focus, an option being chosen,
+Enter, the section changing, and the window closing. Each write says so with
 `view.ui.showMessage("Saved")`, which clears after a moment; a failure stays
 until the next write succeeds and leaves the form dirty so the next trigger
 retries. Connect Stripe keeps its button — it is an action, not a field.

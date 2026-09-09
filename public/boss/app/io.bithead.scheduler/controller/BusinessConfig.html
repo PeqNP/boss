@@ -597,6 +597,12 @@
         await save();
         return true;
       };
+
+      this.didHitEnter = function() {
+        const field = document.activeElement;
+        const name = (!isEmpty(field) && field.name) ? field.name : null;
+        return didLeaveField(name);
+      };
     }
   </script>
 

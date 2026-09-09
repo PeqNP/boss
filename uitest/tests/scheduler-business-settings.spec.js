@@ -4,9 +4,9 @@
  * Flow 3 — the settings an operator chooses for their business.
  *
  * The screen writes as the owner works: leaving a field saves it, and so does
- * ticking a box or choosing from a menu. There is no Save button, which is
- * what makes this worth a test — a field wired to nothing looks exactly like a
- * field that saved.
+ * ticking a box, choosing from a menu, or pressing Enter. There is no Save
+ * button, which is what makes this worth a test — a field wired to nothing
+ * looks exactly like a field that saved.
  *
  * What the settings mean is settled in the private suite. What this proves is
  * that each tab reaches the route and that the value comes back. See
@@ -81,6 +81,17 @@ test.describe("scheduler business settings", () => {
     await name.fill("Dana's Hair Studio");
     // Leaving the field is what saves — there is no Save button.
     await name.blur();
+    await expect(win.locator(".ui-window-message")).toContainText("Saved");
+
+    expect((await config(page, businessId)).name).toBe("Dana's Hair Studio");
+  });
+
+  test("return in a field saves business config", async ({ page }) => {
+    const win = await openSettings(page);
+
+    const name = win.locator("input[name='biz-name']");
+    await name.fill("Dana's Hair Studio");
+    await name.press("Enter");
     await expect(win.locator(".ui-window-message")).toContainText("Saved");
 
     expect((await config(page, businessId)).name).toBe("Dana's Hair Studio");
