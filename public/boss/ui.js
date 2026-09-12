@@ -1746,6 +1746,29 @@ function UI(os) {
     this.showColorPicker = showColorPicker;
 
     /**
+     * Show a font picker modal.
+     *
+     * Three lists: family, style, size. The selection is returned via the
+     * delegate callback as `{ family, weight, size }`.
+     *
+     * @param {function} selectFont - Called with `{ family, weight, size }` when the user taps Select
+     * @param {object} [current] - `{ family, weight, size }` to open on
+     */
+    async function showFontPicker(selectFont, current) {
+        let app = os.application("io.bithead.boss");
+        let modal = await app.loadController("FontPicker");
+        modal.ui.show(function(ctrl) {
+            if (!isEmpty(current)) {
+                ctrl.configure(current);
+            }
+            ctrl.delegate = {
+                didSelectFont: selectFont
+            };
+        });
+    }
+    this.showFontPicker = showFontPicker;
+
+    /**
      * Show the embedded controllers inspector for an application.
      *
      * Displays a list of all shared embedded controllers declared in the app's

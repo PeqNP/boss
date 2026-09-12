@@ -282,6 +282,15 @@ export default function Example(view, app) {
     }
     this.showColorPicker = showColorPicker;
 
+    async function showFontPicker() {
+        await os.ui.showFontPicker(function(choice) {
+            const style = choice.weight === "regular" ? "" : ` ${choice.weight}`;
+            view.ui.span("font-choice").textContent =
+                `${choice.family}${style} ${choice.size}`;
+        });
+    }
+    this.showFontPicker = showFontPicker;
+
     async function showModal() {
         const tutorial = os.application("io.bithead.tutorial");
         const modal = await tutorial.loadController("Modal");

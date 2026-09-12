@@ -1,0 +1,204 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      const FACES = [
+        { id: "ChicagoFLF", name: "Chicago", styles: ["regular", "bold", "italic", "boldItalic"] },
+        { id: "Geneva", name: "Geneva", styles: ["regular", "bold", "italic", "boldItalic"] }
+      ];
+
+      const STYLE_NAMES = {
+        regular: "Regular",
+        bold: "Bold",
+        italic: "Italic",
+        boldItalic: "Bold Italic"
+      };
+
+      const SIZES = [8, 9, 10, 11, 12, 14, 18, 24, 36, 48, 72, 96, 144];
+
+      let pending = null;
+      let ready = false;
+      let family = null;
+      let weight = "regular";
+      let size = 12;
+
+      let delegate = protocol(
+        "FontPickerDelegate", this, "delegate",
+        [
+          "didSelectFont"
+        ]
+      );
+
+      function faceNamed(id) {
+        for (const face of FACES) {
+          if (face.id === id) {
+            return face;
+          }
+        }
+        return FACES[0];
+      }
+
+      function cssWeight(style) {
+        return (style === "bold" || style === "boldItalic") ? "700" : "400";
+      }
+
+      function cssStyle(style) {
+        return (style === "italic" || style === "boldItalic") ? "italic" : "normal";
+      }
+
+      function paintSample() {
+        const sample = view.ui.p("font-sample");
+        sample.style.fontFamily = isEmpty(family) ? "" : family;
+        sample.style.fontWeight = cssWeight(weight);
+        sample.style.fontStyle = cssStyle(weight);
+        sample.style.fontSize = isEmpty(size) ? "" : `${size}px`;
+        const ready = !isEmpty(family) && !isEmpty(size);
+        view.ui.button("select-font").disabled = !ready;
+      }
+
+      function fillStyles(face, selected) {
+        const list = view.ui.select("font-style").ui;
+        list.addNewOptions(face.styles.map(function(id) {
+          return { id: id, name: STYLE_NAMES[id] };
+        }));
+        const pick = face.styles.indexOf(selected) >= 0 ? selected : "regular";
+        weight = pick;
+        list.selectValue(pick);
+      }
+
+      function applyCurrent() {
+        const current = pending || {};
+        family = current.family || FACES[0].id;
+        size = parseInt(current.size, 10);
+        if (!isNumeric(size) || size < 8 || size > 144) {
+          size = 12;
+        }
+        view.ui.select("font-family").ui.selectValue(family);
+        fillStyles(faceNamed(family), current.weight || "regular");
+        const sizeList = view.ui.select("font-size").ui;
+        if (SIZES.indexOf(size) >= 0) {
+          sizeList.selectValue(String(size));
+        }
+        else {
+          sizeList.deselectAllOptions();
+        }
+        view.ui.input("font-size-field").value = String(size);
+        paintSample();
+      }
+
+      function configure(current) {
+        pending = current || null;
+        if (ready) {
+          applyCurrent();
+        }
+      }
+      this.configure = configure;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      function select() {
+        if (isEmpty(family) || isEmpty(size)) {
+          return;
+        }
+        delegate.didSelectFont({
+          family: family,
+          weight: weight,
+          size: size
+        });
+        view.ui.close();
+      }
+      this.select = select;
+
+      this.didHitEnter = select;
+
+      function sizeTyped() {
+        const raw = parseInt(view.ui.input("font-size-field").value, 10);
+        if (!isNumeric(raw) || raw < 8 || raw > 144) {
+          view.ui.button("select-font").disabled = true;
+          return;
+        }
+        size = raw;
+        const list = view.ui.select("font-size").ui;
+        if (SIZES.indexOf(raw) >= 0) {
+          list.selectValue(String(raw));
+        }
+        else {
+          list.deselectAllOptions();
+        }
+        paintSample();
+      }
+      this.sizeTyped = sizeTyped;
+
+      async function viewDidLoad() {
+        view.ui.select("font-family").ui.addNewOptions(
+          FACES.map(function(face) {
+            return { id: face.id, name: face.name };
+          })
+        );
+        view.ui.select("font-size").ui.addNewOptions(
+          SIZES.map(function(pt) {
+            return { id: String(pt), name: String(pt) };
+          })
+        );
+        view.ui.select("font-family").ui.delegate = {
+          didSelectListBoxOption: function(option) {
+            family = option.value;
+            fillStyles(faceNamed(family), weight);
+            paintSample();
+          }
+        };
+        view.ui.select("font-style").ui.delegate = {
+          didSelectListBoxOption: function(option) {
+            weight = option.value;
+            paintSample();
+          }
+        };
+        view.ui.select("font-size").ui.delegate = {
+          didSelectListBoxOption: function(option) {
+            size = parseInt(option.value, 10);
+            view.ui.input("font-size-field").value = option.value;
+            paintSample();
+          }
+        };
+        ready = true;
+        applyCurrent();
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+  <div class="title">Font</div>
+  <div class="container vbox gap-10" style="width: 480px;">
+    <p name="font-sample" class="font-sample">The quick brown fox</p>
+    <div class="hbox gap-10">
+      <div class="vbox gap-5">
+        <span>Font</span>
+        <div class="ui-list-box" style="width: 150px; height: 180px;">
+          <select name="font-family"></select>
+        </div>
+      </div>
+      <div class="vbox gap-5">
+        <span>Style</span>
+        <div class="ui-list-box" style="width: 140px; height: 180px;">
+          <select name="font-style"></select>
+        </div>
+      </div>
+      <div class="vbox gap-5">
+        <span>Size</span>
+        <div class="ui-list-box" style="width: 80px; height: 148px;">
+          <select name="font-size"></select>
+        </div>
+        <div class="text-field">
+          <input type="number" name="font-size-field" min="8" max="144"
+            oninput="$(this.controller).sizeTyped();">
+        </div>
+      </div>
+    </div>
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="default" name="select-font" disabled onclick="$(this.controller).select();">Select</button>
+    </div>
+  </div>
+</div>

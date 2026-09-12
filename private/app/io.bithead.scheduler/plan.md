@@ -12,7 +12,7 @@
 - **Reference app for UI components:** `public/boss/app/io.bithead.tutorial/controller/Example.html`
 - **Reference for settings-style left-side navigation:** `io.bithead.settings` app (`Home.html`)
 - **Reference for test harness setup:** `private/tests/test_wordy.py` + `private/tests/libtest/`
-- **What is left:** Theme still needs a visual pass. Every stage is finished and every flow in `ui-plan.md` has a spec. Live job updates are private-suite coverage.
+- **What is left:** BOSS font picker (replaces Theme font menus and size fields; upload is gone). Every earlier stage is finished and every flow in `ui-plan.md` has a spec. Live job updates are private-suite coverage.
 
 ---
 
@@ -510,7 +510,7 @@ Multi-step state machine. Steps shown/hidden by JS state variable `currentStep`.
 
 **Header.** The business name is the `title` token. A logo, when one is set, hangs to the left of the 560px column, about 100px tall, its vertical middle on the name. The tag line is the heading of the first booking step only (`subtitle` token) — employee grid if customers pick a person, otherwise job-type. Later steps keep their own headings.
 
-**Theme.** `GET /kiosk/{id}` includes `tagLine`, `logoUrl`, `theme`, and `fonts`. The kiosk sets CSS variables on `.kiosk-page` from `theme`, injects `@font-face` from `fonts`, and clears both in `viewWillUnload`. Enter on `step-contact` is Next (`submitContact`).
+**Theme.** `GET /kiosk/{id}` includes `tagLine`, `logoUrl`, and `theme`. The kiosk sets CSS variables on `.kiosk-page` from `theme` and clears them in `viewWillUnload`. Enter on `step-contact` is Next (`submitContact`).
 
 **Start Over**, centred and 20px below the confirmation, hands the kiosk to the
 next customer. It clears two different things:
@@ -918,7 +918,7 @@ owner to one by name:
 1. **General** (`general`) — name, phone(s), address, owner info, description, site link, timezone dropdown (default from signup), read-only public URL
 2. **Business Type** (`business-type`) — the template that fills in the rest; choosing one asks before overwriting what is already set
 3. **Schedule** (`schedule`) — **Time Slots** (Reserved / Unlimited), **Operating Hours** (seven days, one range each, closable), cutoff window (days), slot increment (dropdown: 15m/30m/1h), min booking notice (hours), **minimum change notice (minutes)**, buffer time (minutes), reminder toggle (1 day before, email/SMS), completion mode (auto/manual), reminder opt-out per channel
-4. **Theme** (`theme`) — how the kiosk looks: tag line, logo, uploaded fonts, and a row per token (font, size, color). See **Kiosk theme** below.
+4. **Theme** (`theme`) — how the kiosk looks: tag line, logo, and a row per token (font picker, color). See **Kiosk theme** below.
 5. **Notifications** (`notifications`) — which channels this business uses for confirmation (SMS, email). The platform vendor is chosen on `Vendors`, not here.
 
 **No Save button.** Business Settings writes as the owner works —
@@ -927,8 +927,8 @@ has the pattern. Five triggers: a field losing focus, an option being chosen,
 Enter, the section changing, and the window closing. Each write says so with
 `view.ui.showMessage("Saved")`, which clears after a moment; a failure stays
 until the next write succeeds and leaves the form dirty so the next trigger
-retries. Connect Stripe, the logo, and a font upload keep their buttons — they
-are actions, not fields.
+retries. Connect Stripe and the logo keep their buttons — they are actions,
+not fields. The font picker is a field: choosing in it is `didChooseOption`.
 
 **The business name is required**, and it is the one field that does not save
 around a mistake: leaving it empty says so and writes nothing for it. Every
@@ -947,14 +947,49 @@ Tab order is **General, Business Type, Schedule, Theme, Notifications, Payment**
 Business Type sits second because choosing one fills in the tabs below it — a
 new operator wants it before the settings it drives, not after them.
 
+### Font picker (BOSS)
+
+A system modal, the same kind as `ColorPicker`. `os.ui.showFontPicker(fn, current)`
+opens it from `io.bithead.boss`. `fn` receives `{ family, weight, size }`.
+`current` is that same shape when a token already has a choice, so the lists
+open on it; omit it for empty.
+
+Three lists, Mac Font panel: **family** | **style** | **size**.
+
+| Column | What it holds |
+|---|---|
+| Family | Chicago, Geneva — the catalog, not a table |
+| Style | Regular, Bold, Italic, Bold Italic, only the ones that family lists |
+| Size | 8, 9, 10, 11, 12, 14, 18, 24, 36, 48, 72, 96, 144. Any other integer 8–144 can be typed |
+
+A sample line above the lists draws in the selection. Cancel and Select, Enter
+is Select, Select disabled until a family and a size are chosen. Style defaults
+to Regular when the family changes.
+
+The catalog is code in `io.bithead.boss`, the way Scheduler's contact fields
+and business types are code. Nothing about a system font is a row.
+
+```
+GET /api/io.bithead.boss/fonts
+→ [ { id: "ChicagoFLF", name: "Chicago", styles: ["regular", "bold", "italic", "boldItalic"] },
+    { id: "Geneva",     name: "Geneva",  styles: ["regular", "bold", "italic", "boldItalic"] } ]
+```
+
+`id` is the CSS `font-family`. `styles` map to CSS: `regular` 400/normal,
+`bold` 700/normal, `italic` 400/italic, `boldItalic` 700/italic. Both faces
+offer all four: ChicagoFLF is one file and Geneva is a CSS name; the browser
+draws the weight.
+
+No upload. A later face is a file under `/boss/` and a row in that list.
+
 ### Kiosk theme
 
 The kiosk has a **design language**: named tokens, not a generated stylesheet
-and not the BOSS OS theme. Each token is font, size (px), and color. Empty
-cells keep the BOSS default for that part. Applying a value writes CSS
-variables on `.kiosk-page`. `viewWillUnload` clears them, so the desktop is
-Chicago and Geneva again. `Appointment` uses `.kiosk-page` too and reads the
-same tokens.
+and not the BOSS OS theme. Each token is font (family, weight, size) and color.
+Empty cells keep the BOSS default for that part. Applying a value writes CSS
+variables on `.kiosk-page` (`--kiosk-{token}-{font|weight|style|size|color}`).
+`viewWillUnload` clears them, so the desktop is Chicago and Geneva again.
+`Appointment` uses `.kiosk-page` too and reads the same tokens.
 
 | Token | What it paints | Example |
 |---|---|---|
@@ -970,11 +1005,10 @@ same tokens.
 
 The Theme tab is a table of those rows: token name, what it is for, an example
 (the business name, the tag line, today's hours — interpolated from this
-business), then a font menu, a size field, and a color swatch. Color is
-`os.ui.showColorPicker`. Font is a popup of **ChicagoFLF**, **Geneva**, and
-every font this business has uploaded. Upload sits once at the top of the tab,
-next to the logo, not on every row. Licensing an uploaded font is the
-operator's.
+business), then a **font** button and a color swatch. Color is
+`os.ui.showColorPicker`. Font is `os.ui.showFontPicker`. The button reads
+`Chicago 12` or `Default` when the cell is empty. There is no size column and
+no font upload.
 
 **Tag line.** Stored copy. Empty means `What can we help you with?`. It is the
 heading on the **first booking step only** — `step-employee` when customers
@@ -993,13 +1027,11 @@ unchanged.
 
 **Stub endpoints** (Theme, in addition to the config PUT that already writes
 as the owner works):
-- `PUT /api/io.bithead.scheduler/business/{id}/config` — also `{ tagLine, theme }` (`theme` is `{ token: { font, size, color } }`; omitted keys stay default)
+- `PUT /api/io.bithead.scheduler/business/{id}/config` — also `{ tagLine, theme }` (`theme` is `{ token: { font, weight, size, color } }`; omitted keys stay default; `weight` is `regular` / `bold` / `italic` / `boldItalic`)
 - `POST /api/io.bithead.scheduler/business/{id}/logo` — multipart image; `{ url }`
 - `DELETE /api/io.bithead.scheduler/business/{id}/logo`
-- `GET /api/io.bithead.scheduler/business/{id}/fonts` → uploaded fonts
-- `POST /api/io.bithead.scheduler/business/{id}/font` — multipart `ttf` / `otf` / `woff` / `woff2`
-- `DELETE /api/io.bithead.scheduler/business/{id}/font/{id}`
-- `GET /api/io.bithead.scheduler/kiosk/{id}` — also `tagLine`, `logoUrl`, `theme`, `fonts` (`{ family, url }` for `@font-face`)
+- `GET /api/io.bithead.boss/fonts` — system catalog (not a scheduler route)
+- `GET /api/io.bithead.scheduler/kiosk/{id}` — also `tagLine`, `logoUrl`, `theme` (no uploaded `fonts`)
 
 **Send confirmation:** a fieldset in the Notifications tab with two checkboxes,
 **Text message** and **Email**. Either, both, or neither.
@@ -1301,16 +1333,9 @@ CREATE TABLE businesses (
     tag_line TEXT,              -- kiosk first-step heading; empty is
                                 -- "What can we help you with?"
     logo_filename TEXT,         -- public media; hanging left of the name
-    kiosk_theme TEXT,           -- JSON { token: { font, size, color } }
+    kiosk_theme TEXT,           -- JSON { token: { font, weight, size, color } }
     create_date TEXT NOT NULL DEFAULT (datetime('now')),
     update_date TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE TABLE business_fonts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    business_id INTEGER NOT NULL REFERENCES businesses(id),
-    filename TEXT NOT NULL,     -- stored name under public media
-    family TEXT NOT NULL        -- CSS font-family, from the file's name
 );
 
 CREATE TABLE business_users (
@@ -1733,9 +1758,8 @@ from io.bithead.scheduler import db
 - `describe: a logo` → `logoUrl` is the public media URL
 - `describe: empty theme` → every token is omitted; the kiosk keeps BOSS defaults
 - `describe: a title color` → that token is in `theme`; the others stay omitted
-- `describe: upload a font` → listed on GET fonts and on the kiosk as `{ family, url }`
-- `describe: a file that is not a font` → refused
-- `describe: another business` → never lists somebody else's fonts or logo
+- `describe: a title font` → `font`, `weight`, and `size` are in that token
+- `describe: another business` → never lists somebody else's logo
 
 #### `test_business_template()`
 - `describe: apply template` → business config fields updated to template defaults

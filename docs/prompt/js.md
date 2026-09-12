@@ -3101,6 +3101,7 @@ os.ui.showDelete("Are you sure?", cancelFn, okFn)  // Confirmation delete modal
 os.ui.hideBusy()                      // Hide spinner
 os.ui.showImageViewer([url1, url2])   // Open image viewer
 os.ui.showColorPicker(fn)             // Show color picker modal; fn(hexColor) called on selection
+os.ui.showFontPicker(fn, current)     // Show font picker modal; fn({ family, weight, size }); current preselects
 os.ui.showEmbeddedControllers(app)    // Show list of shared embedded controllers for an app
 os.ui.showEmbeddedControllerDetail(bundleId, name)  // Open live embedded controller detail window
 

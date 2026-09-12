@@ -2987,6 +2987,17 @@ div.ui-toolbox button:hover {
 }
 
 /**
+ * Font picker
+ */
+.font-sample {
+  font-family: "ChicagoFLF";
+  font-size: 18px;
+  min-height: 28px;
+  border: 1px solid #000;
+  padding: 8px;
+}
+
+/**
  * Icon buttons
  *
  * Combine with button.primary for border and hover styles.

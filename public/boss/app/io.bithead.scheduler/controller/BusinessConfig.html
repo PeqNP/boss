@@ -30,8 +30,6 @@
         { id: "footer", name: "Footer", role: "Opening hours" }
       ];
 
-      let uploadedFonts = [];
-
       // The page to open on. `SetupAssistant` sends an owner straight to the
       // one holding whatever it asked them to fix.
       let section = TAB_NAMES[0];
@@ -364,15 +362,17 @@
       function collectTheme() {
         const theme = {};
         for (const token of KIOSK_TOKENS) {
-          const font = view.ui.select(`token-font-${token.id}`).value;
-          const sizeRaw = view.ui.input(`token-size-${token.id}`).value;
+          const fontBtn = view.ui.button(`token-font-${token.id}`);
           const color = view.ui.button(`token-color-${token.id}`).dataset.color || "";
           const spec = {};
-          if (!isEmpty(font)) {
-            spec.font = font;
+          if (!isEmpty(fontBtn.dataset.font)) {
+            spec.font = fontBtn.dataset.font;
           }
-          if (!isEmpty(sizeRaw) && isNumeric(parseInt(sizeRaw))) {
-            spec.size = parseInt(sizeRaw);
+          if (!isEmpty(fontBtn.dataset.weight)) {
+            spec.weight = fontBtn.dataset.weight;
+          }
+          if (!isEmpty(fontBtn.dataset.size) && isNumeric(parseInt(fontBtn.dataset.size))) {
+            spec.size = parseInt(fontBtn.dataset.size);
           }
           if (!isEmpty(color)) {
             spec.color = color;
@@ -384,22 +384,59 @@
         return theme;
       }
 
-      function fontChoices() {
-        return [{ id: "", name: "BOSS default" }].concat(
-          [{ id: "ChicagoFLF", name: "Chicago" }, { id: "Geneva", name: "Geneva" }].concat(
-            uploadedFonts.map(function(f) {
-              return { id: f.family, name: f.family };
-            })
-          )
-        );
+      function fontFaceName(family) {
+        if (family === "ChicagoFLF") {
+          return "Chicago";
+        }
+        return family || "";
+      }
+
+      function fontStyleName(weight) {
+        if (weight === "bold") {
+          return "Bold";
+        }
+        if (weight === "italic") {
+          return "Italic";
+        }
+        if (weight === "boldItalic") {
+          return "Bold Italic";
+        }
+        return "";
+      }
+
+      function fontButtonLabel(spec) {
+        if (isEmpty(spec.font) && isEmpty(spec.size)) {
+          return "Default";
+        }
+        const parts = [fontFaceName(spec.font)];
+        const style = fontStyleName(spec.weight);
+        if (!isEmpty(style)) {
+          parts.push(style);
+        }
+        if (!isEmpty(spec.size)) {
+          parts.push(String(spec.size));
+        }
+        return parts.filter(Boolean).join(" ");
+      }
+
+      function cssWeight(weight) {
+        return (weight === "bold" || weight === "boldItalic") ? "700" : "400";
+      }
+
+      function cssStyle(weight) {
+        return (weight === "italic" || weight === "boldItalic") ? "italic" : "normal";
       }
 
       function paintTokenExample(tokenId) {
         const example = view.ui.span(`token-example-${tokenId}`);
-        const font = view.ui.select(`token-font-${tokenId}`).value;
-        const sizeRaw = view.ui.input(`token-size-${tokenId}`).value;
+        const fontBtn = view.ui.button(`token-font-${tokenId}`);
+        const font = fontBtn.dataset.font || "";
+        const weight = fontBtn.dataset.weight || "regular";
+        const sizeRaw = fontBtn.dataset.size || "";
         const color = view.ui.button(`token-color-${tokenId}`).dataset.color || "";
         example.style.fontFamily = isEmpty(font) ? "" : font;
+        example.style.fontWeight = isEmpty(font) ? "" : cssWeight(weight);
+        example.style.fontStyle = isEmpty(font) ? "" : cssStyle(weight);
         example.style.fontSize = isEmpty(sizeRaw) ? "" : `${sizeRaw}px`;
         example.style.color = isEmpty(color) ? "" : color;
         if (tokenId === "background") {
@@ -418,7 +455,6 @@
       function renderTokenTable(theme) {
         const body = view.ui.table("theme-tokens").querySelector("tbody");
         body.innerHTML = "";
-        const choices = fontChoices();
         for (const token of KIOSK_TOKENS) {
           const spec = (theme && theme[token.id]) || {};
           const row = document.createElement("tr");
@@ -438,32 +474,25 @@
           row.appendChild(exampleCell);
 
           const fontCell = document.createElement("td");
-          const select = document.createElement("select");
-          select.name = `token-font-${token.id}`;
-          for (const choice of choices) {
-            const option = document.createElement("option");
-            option.value = choice.id;
-            option.textContent = choice.name;
-            select.appendChild(option);
-          }
+          const fontBtn = document.createElement("button");
+          fontBtn.type = "button";
+          fontBtn.className = "primary";
+          fontBtn.name = `token-font-${token.id}`;
+          fontBtn.innerText = fontButtonLabel(spec);
           if (!isEmpty(spec.font)) {
-            select.value = spec.font;
+            fontBtn.dataset.font = spec.font;
           }
-          fontCell.appendChild(select);
-          row.appendChild(fontCell);
-
-          const sizeCell = document.createElement("td");
-          const size = document.createElement("input");
-          size.type = "number";
-          size.name = `token-size-${token.id}`;
-          size.min = "8";
-          size.max = "96";
-          size.style.width = "56px";
+          if (!isEmpty(spec.weight)) {
+            fontBtn.dataset.weight = spec.weight;
+          }
           if (!isEmpty(spec.size)) {
-            size.value = spec.size;
+            fontBtn.dataset.size = String(spec.size);
           }
-          sizeCell.appendChild(size);
-          row.appendChild(sizeCell);
+          fontBtn.onclick = (function(id) {
+            return function() { pickTokenFont(id); };
+          })(token.id);
+          fontCell.appendChild(fontBtn);
+          row.appendChild(fontCell);
 
           const colorCell = document.createElement("td");
           const swatch = document.createElement("button");
@@ -485,6 +514,28 @@
         }
         paintAllTokenExamples();
       }
+
+      function pickTokenFont(tokenId) {
+        const btn = view.ui.button(`token-font-${tokenId}`);
+        const current = isEmpty(btn.dataset.font) ? null : {
+          family: btn.dataset.font,
+          weight: btn.dataset.weight || "regular",
+          size: parseInt(btn.dataset.size, 10) || 12
+        };
+        os.ui.showFontPicker(function(choice) {
+          btn.dataset.font = choice.family;
+          btn.dataset.weight = choice.weight;
+          btn.dataset.size = String(choice.size);
+          btn.innerText = fontButtonLabel({
+            font: choice.family,
+            weight: choice.weight,
+            size: choice.size
+          });
+          paintTokenExample(tokenId);
+          didChooseOption();
+        }, current);
+      }
+      this.pickTokenFont = pickTokenFont;
 
       function pickTokenColor(tokenId) {
         os.ui.showColorPicker(function(color) {
@@ -555,77 +606,9 @@
       }
       this.removeLogo = removeLogo;
 
-      function renderFontList() {
-        const list = view.ui.select("theme-fonts").ui;
-        list.addNewOptions(uploadedFonts.map(function(f) {
-          return { id: String(f.id), name: f.family };
-        }));
-        view.ui.button("remove-font-btn").disabled = uploadedFonts.length === 0;
-      }
-
-      async function uploadFont() {
-        const input = document.createElement("input");
-        input.type = "file";
-        input.accept = ".ttf,.otf,.woff,.woff2";
-        input.onchange = async function() {
-          const file = input.files[0];
-          if (isEmpty(file)) {
-            return;
-          }
-          const formData = new FormData();
-          formData.append("file", file);
-          let response;
-          try {
-            response = await os.network.upload(
-              `/api/io.bithead.scheduler/business/${businessId}/font`,
-              formData
-            );
-          }
-          catch (error) {
-            os.ui.showError(error);
-            return;
-          }
-          uploadedFonts.push(response);
-          renderFontList();
-          const theme = collectTheme();
-          renderTokenTable(theme);
-          wireAutoSave();
-          view.ui.showMessage("Saved");
-        };
-        input.click();
-      }
-      this.uploadFont = uploadFont;
-
-      async function removeFont() {
-        const value = view.ui.select("theme-fonts").ui.selectedValue();
-        if (isEmpty(value)) {
-          return;
-        }
-        try {
-          await os.network.delete(
-            `/api/io.bithead.scheduler/business/${businessId}/font/${value}`
-          );
-        }
-        catch (error) {
-          os.ui.showError(error);
-          return;
-        }
-        uploadedFonts = uploadedFonts.filter(function(f) {
-          return String(f.id) !== value;
-        });
-        renderFontList();
-        const theme = collectTheme();
-        renderTokenTable(theme);
-        wireAutoSave();
-        view.ui.showMessage("Saved");
-      }
-      this.removeFont = removeFont;
-
       function loadTheme(response) {
         view.ui.input("tag-line").value = response.tagLine || "";
         showLogo(response.logoUrl);
-        uploadedFonts = response.fonts || [];
-        renderFontList();
         renderTokenTable(response.theme || {});
       }
 
@@ -1156,19 +1139,6 @@
               <button name="remove-logo-btn" class="primary" disabled onclick="$(this.controller).removeLogo();">Remove</button>
             </div>
           </fieldset>
-          <fieldset class="vbox gap-10">
-            <legend>Fonts</legend>
-            <p>Chicago and Geneva are always offered. An uploaded font is this business's; licensing it is yours.</p>
-            <div class="hbox gap-10">
-              <div class="ui-list-box" style="width: 220px; height: 80px;">
-                <select name="theme-fonts"></select>
-              </div>
-              <div class="vbox gap-10">
-                <button class="primary" onclick="$(this.controller).uploadFont();">Upload font</button>
-                <button name="remove-font-btn" class="primary" disabled onclick="$(this.controller).removeFont();">Remove</button>
-              </div>
-            </div>
-          </fieldset>
           <table name="theme-tokens" style="width: 100%;">
             <thead>
               <tr>
@@ -1176,7 +1146,6 @@
                 <th>For</th>
                 <th>Example</th>
                 <th>Font</th>
-                <th>Size</th>
                 <th>Color</th>
               </tr>
             </thead>
