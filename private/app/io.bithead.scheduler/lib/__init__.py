@@ -45,3 +45,4 @@ from .appointment import *
 from .booking import *
 from .portal import *
 from .schedule import *
+from .job_events import *

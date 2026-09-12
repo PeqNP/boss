@@ -32,12 +32,13 @@ Dependency first, then how often a break there would go unnoticed.
 | 5 | Employees | `scheduler-employees.spec.js` | Create, working days, time off, the work they may be given, a linked BOSS account, and a draft left unsaved | **Done** — 9 specs |
 | 6 | Kiosk booking | `scheduler-kiosk.spec.js` | The whole path a customer walks: service, size, employee, slot, contact, OTP, confirm — and the appointment exists afterwards with what they chose | **Done** — 5 specs. OTP and deposit use mock vendors |
 | 7 | Appointment lookup | `scheduler-lookup.spec.js` | A job code and a verification code let a customer back in; a wrong code refuses; six wrong codes lock it and the operator can still change it | **Done** — 5 specs |
-| 8 | Operator calendar | `scheduler-calendar.spec.js` | Month, week and day draw what was booked; a day opens; a job opens from it; assigning a week puts somebody on each | **Done** — 4 specs |
+| 8 | Operator calendar | `scheduler-calendar.spec.js` | Month, week and day draw what was booked; a day opens; a job opens from it; assigning a week puts somebody on each. Live redraw on `io.bithead.scheduler.job.changed` is the private suite plus the listener | **Done** — 4 specs |
 | 9 | Job detail and payment | `scheduler-job.spec.js` | Reschedule, reassign, complete, take payment, write off, cancel — each reads back | **Done** — 8 specs |
 | 10 | Customers | `scheduler-customers.spec.js` | List, search, detail, notes, and the appointments a customer holds | **Done** — 11 specs |
 | 11 | Financial report | `scheduler-report.spec.js` | The figures match what was booked and paid over a period, and the CSV downloads | **Done** — 5 specs, no defects found |
-| 12 | Employee portal | `scheduler-portal.spec.js` | The dashboard shows today's work, the calendar shows their own jobs and no colleague's, the profile saves | **Done** — 7 specs |
+| 12 | Employee portal | `scheduler-portal.spec.js` | The dashboard shows today's work, the calendar shows their jobs and unassigned work of a type they can do and no colleague's assigned job, the profile saves | **Done** — 7 specs |
 | 13 | Platform screens | `scheduler-platform.spec.js` | Businesses, holidays, timeout, vendors — each list and its editor | **Done** — 9 specs |
+| 14 | Live job updates | — | A booked, cancelled, or moved job banners the staff who see it and redraws an open Dashboard or calendar | **Private suite** — `test_job_events`. The banner and websocket are BOSS OS; a spec cannot fire `send_events` |
 
 ## Findings
 

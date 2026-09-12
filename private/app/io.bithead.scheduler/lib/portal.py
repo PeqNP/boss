@@ -2,8 +2,9 @@
 # Scheduler — what an employee sees of their own day.
 #
 # The schedule routes narrow by who is asking, so this is the same work read
-# through the employee's own record: what they have been given, one day at a
-# time, and what they may say about themselves.
+# through the employee's own record: what they have been given, unassigned
+# work of a type they can perform, one day at a time, and what they may say
+# about themselves.
 #
 
 from datetime import datetime
@@ -13,6 +14,7 @@ from .. import db
 from ..model import *
 from .employee import (get_employee, get_employee_job_types, get_time_off,
                        get_working_days, set_employee_job_types)
+from .job_events import jobs_visible_to_employee
 from .contact_fields import typed_contact
 from .exception import ValidationError
 from .time import _end_time, display_date, display_time
@@ -112,7 +114,10 @@ def get_employee_today(
     date = date or (now or datetime.now()).strftime("%Y-%m-%d")
 
     jobs = []
-    for job in db.get_jobs_for_employee(row.id, date):
+    for job in jobs_visible_to_employee(
+        row.id,
+        db.get_scheduled_jobs(row.business_id, date, date)
+    ):
         typed = typed_contact(db.get_job_contact(job.id))
         jobs.append(EmployeeTodayJob(
             id=job.id,

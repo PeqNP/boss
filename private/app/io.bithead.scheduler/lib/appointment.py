@@ -17,8 +17,8 @@ from .. import db
 from ..model import *
 from .code import _access_handle, _hash_code, _mask
 from .contact_fields import typed_contact
-from .employee import _crew_for
 from .exception import *
+from .job_events import employee_sees_job
 from .business import get_business
 from .money import _business_job, get_payments
 from .notify import send, sender
@@ -78,13 +78,13 @@ def get_job_detail(
     codes somebody has tried — the last being what they are usually being
     called about.
 
-    `employee_id` narrows it to a booking they are on, which is what an
-    employee reaches. `None` is the operator, who reaches the business.
+    `employee_id` narrows it to a booking they may see, which is what an
+    employee reaches: one they are on, or an unassigned job of a type they
+    can perform. `None` is the operator, who reaches the business.
     """
     row = db.get_job_detail(business_id, job_id)
     if row is not None and employee_id is not None:
-        crew = _crew_for([row.id]).get(row.id, [])
-        if not any(c.employee_id == employee_id for c in crew):
+        if not employee_sees_job(employee_id, row.id):
             return None
     if row is None:
         return None

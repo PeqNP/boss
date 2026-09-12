@@ -1639,7 +1639,8 @@ def get_jobs_for_employee(employee_id: int, date: str) -> List[ScheduleJobRow]:
     return _all_as(
         ScheduleJobRow,
         f"""
-                   SELECT j.id, j.job_code, jt.name AS job_type_name,
+                   SELECT j.id, j.job_code, j.job_type_id,
+                          jt.name AS job_type_name,
                           j.scheduled_date, j.scheduled_time, j.duration_minutes,
                           j.status, j.payment_status,
                           {CONTACT_VALUE(1)} AS name
@@ -1677,8 +1678,9 @@ def get_employees_for_job_type(job_type_id: int) -> List[EmployeeRow]:
     return _all_as(
         EmployeeRow,
         """
-                   SELECT e.id, e.business_id, e.first_name, e.last_name,
-                          e.include_in_schedule, e.can_manage_own_schedule
+                   SELECT e.id, e.business_id, e.user_id, e.role, e.first_name,
+                          e.last_name, e.include_in_schedule,
+                          e.can_manage_own_schedule
                    FROM employees e
                    JOIN job_type_employees jte ON jte.employee_id = e.id
                    WHERE jte.job_type_id = ? AND e.include_in_schedule = 1
@@ -2924,6 +2926,7 @@ class ScheduleJobRow(BaseModel):
     """One appointment on the operator's calendar."""
     id: int
     job_code: str
+    job_type_id: int
     job_type_name: str
     scheduled_date: str
     scheduled_time: str
@@ -2946,7 +2949,8 @@ def get_scheduled_jobs(
     return _all_as(
         ScheduleJobRow,
         f"""
-                   SELECT j.id, j.job_code, jt.name AS job_type_name,
+                   SELECT j.id, j.job_code, j.job_type_id,
+                          jt.name AS job_type_name,
                           j.scheduled_date, j.scheduled_time, j.duration_minutes,
                           j.status, j.payment_status,
                           {CONTACT_VALUE(1)} AS name

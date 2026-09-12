@@ -24,7 +24,8 @@
       async function manageSchedule() {
         // The same calendar the operator opens. `schedule/*` narrows by who is
         // asking — an operator gets the business, an employee gets the jobs
-        // they are on — so one page serves both.
+        // they are on and unassigned work of a type they can perform — so one
+        // page serves both.
         const win = await $(app.controller).loadController("ScheduleCalendar");
         win.ui.show();
       }

@@ -1091,6 +1091,16 @@ class BusinessTemplate(Model):
     config: Dict[str, Any] = {}
 
 
+class JobChangeNotice(Model):
+    """Who to tell that a job was booked, cancelled, or moved, and what to say."""
+    eventName: str
+    userIds: List[int]
+    payload: Dict[str, str]
+    title: str
+    body: str
+    kind: str
+
+
 class JobSession(Model):
     """A customer's hold on a time while they finish scheduling.
 

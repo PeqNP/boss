@@ -3,7 +3,8 @@
 #
 # A month, a week, a day: the same appointments read at three widths. The
 # routes narrow by who is asking — an operator gets the business, an employee
-# gets the jobs they are on — so one calendar serves both.
+# gets the jobs they are on and unassigned work of a type they can perform —
+# so one calendar serves both.
 #
 # A recurrence is an arrangement rather than a booking. Nothing is held until
 # it is materialised, which happens on a schedule as the horizon moves.
@@ -23,6 +24,7 @@ from .job_type import get_job_type
 from .transform import _business
 from .employee import _crew_for
 from .exception import ValidationError
+from .job_events import jobs_visible_to_employee
 from .kiosk import _month_bounds
 from .time import _end_time, day_of_week, display_date, display_time, to_minutes
 
@@ -119,18 +121,16 @@ def get_schedule_week(
 
 
 def _for_employee(rows: list, employee_id: Optional[int]) -> list:
-    """The jobs this employee is on.
+    """The jobs this employee may see.
 
     `None` leaves the rows as they are, which is what an operator sees. An
     employee's calendar reads the same routes as the operator's, so the caller
-    is what narrows them.
+    is what narrows them: assigned to them, or unassigned of a type they can
+    perform.
     """
     if employee_id is None:
         return rows
-    crew = _crew_for([r.id for r in rows])
-    return [r for r in rows
-            if any(c.employee_id == employee_id
-                   for c in crew.get(r.id, []))]
+    return jobs_visible_to_employee(employee_id, rows)
 
 
 def _lay_out(jobs: List[tuple]) -> Dict[int, tuple]:

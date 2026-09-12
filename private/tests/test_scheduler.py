@@ -3577,6 +3577,96 @@ def test_kiosk_business():
     assert get_kiosk(9999) is None
 
 
+def test_job_events():
+    """Who sees a job, and what they are told when it is booked, cancelled, or moved."""
+    fresh_database()
+
+    made = sign_up(user_id=42, details={
+        "name": "Salon", "ownerName": "Pat Owner"})
+    business_id = made.businessId
+    set_scheduling(business_id, 30, 30, 0, 0)
+    for day in range(7):
+        set_operating_hours(business_id, day, "09:00", "17:00")
+    job_type_id, size_id = a_job_type(business_id, duration=60)
+    alice = an_employee(business_id, job_type_id, first="Alice", last="Kim")
+    bob = an_employee(business_id, job_type_id, first="Bob", last="Lee")
+    link_employee_to_user(business_id, alice, 77)
+    link_employee_to_user(business_id, bob, 88)
+    dana = create_employee(business_id, "Dana", "Ng")
+    allow_job_type(dana.id, job_type_id)
+    add_working_day(business_id, dana.id, 1, "09:00", "17:00")
+
+    # describe: a reserved job with a crew
+    held = create_job_session(
+        business_id, job_type_id, size_id, MONDAY, "10:00",
+        employee_ids=[alice]
+    )
+    booked = confirm_session(held.sessionToken)
+    ids = staff_who_see_job(booked.jobId)
+    assert 42 in ids, "it: the operator"
+    assert 77 in ids, "it: the assigned employee"
+    assert 88 not in ids, "it: a colleague who can do the type is omitted"
+    day = get_schedule_day(business_id, MONDAY, alice)
+    assert [j.id for j in day.jobs] == [booked.jobId], \
+        "it: the assigned employee's calendar shows it"
+    day = get_schedule_day(business_id, MONDAY, bob)
+    assert day.jobs == [], "it: the colleague's calendar does not"
+    assert get_job_detail(business_id, booked.jobId, employee_id=alice) is not None, \
+        "it: the assigned employee may open it"
+    assert get_job_detail(business_id, booked.jobId, employee_id=bob) is None, \
+        "it: the colleague may not"
+    today = get_employee_today(77, date=MONDAY)
+    assert [j.id for j in today.jobs] == [booked.jobId], \
+        "it: the assigned employee's today list shows it"
+    today = get_employee_today(88, date=MONDAY)
+    assert today.jobs == [], "it: the colleague's today list does not"
+
+    # describe: an unassigned job
+    open_held = create_job_session(
+        business_id, job_type_id, size_id, TUESDAY, "11:00"
+    )
+    open_job = confirm_session(open_held.sessionToken)
+    ids = staff_who_see_job(open_job.jobId)
+    assert ids == [42, 77, 88], \
+        "it: the operator and every in-schedule employee who can do the type; Dana has no BOSS account and is omitted"
+    assert get_job_detail(business_id, open_job.jobId, employee_id=alice) is not None
+    assert get_job_detail(business_id, open_job.jobId, employee_id=bob) is not None
+    assert get_job_detail(business_id, open_job.jobId, employee_id=dana.id) is not None, \
+        "it: an unlinked employee still sees it on the calendar they cannot open"
+    day = get_schedule_day(business_id, TUESDAY, bob)
+    assert [j.id for j in day.jobs] == [open_job.jobId], \
+        "it: the colleague's calendar shows the unassigned job"
+
+    # describe: no BOSS account
+    assert dana.id not in ids, "it: an employee id is not sent as a user id"
+
+    # describe: booked / cancelled / moved
+    notice = job_change_notice(booked.jobId, "booked")
+    assert notice.kind == "booked"
+    assert notice.payload == {
+        "jobId": str(booked.jobId),
+        "kind": "booked",
+        "date": MONDAY,
+        "businessId": str(business_id),
+    }
+    assert notice.eventName == "io.bithead.scheduler.job.changed"
+    assert notice.body == "Lawn Mowing booked — Monday, July 13 10:00 AM"
+    reschedule_appointment(booked.jobId, TUESDAY, "14:00", as_operator=True)
+    notice = job_change_notice(booked.jobId, "moved")
+    assert notice.kind == "moved"
+    assert notice.payload["kind"] == "moved"
+    assert notice.payload["date"] == TUESDAY
+    assert notice.body == "Lawn Mowing moved to Tuesday, July 14 2:00 PM"
+    cancel_appointment(booked.jobId, as_operator=True)
+    notice = job_change_notice(booked.jobId, "cancelled")
+    assert notice.kind == "cancelled"
+    assert "cancelled —" in notice.body
+    with pytest.raises(ValidationError):
+        job_change_notice(booked.jobId, "completed")
+    with pytest.raises(ValidationError):
+        job_change_notice(booked.jobId, "paid")
+
+
 def test_kiosk_theme():
     """Tag line, logo, tokens, and fonts the kiosk paints with."""
     fresh_database()

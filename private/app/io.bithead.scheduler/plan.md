@@ -12,7 +12,7 @@
 - **Reference app for UI components:** `public/boss/app/io.bithead.tutorial/controller/Example.html`
 - **Reference for settings-style left-side navigation:** `io.bithead.settings` app (`Home.html`)
 - **Reference for test harness setup:** `private/tests/test_wordy.py` + `private/tests/libtest/`
-- **What is left:** live job updates (banner + Dashboard and calendar redraw when a job is booked, cancelled, or moved). Every earlier stage is finished and every flow in `ui-plan.md` has a spec. Theme still needs a visual pass.
+- **What is left:** Theme still needs a visual pass. Every stage is finished and every flow in `ui-plan.md` has a spec. Live job updates are private-suite coverage.
 
 ---
 

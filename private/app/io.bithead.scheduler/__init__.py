@@ -9,6 +9,8 @@ from datetime import datetime, timedelta, timezone
 
 from functools import wraps
 
+import logging
+
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
@@ -20,7 +22,7 @@ import debug
 
 from lib.server import (get_user, grant_license, grant_role, lookup_users,
                         require_acl, require_admin, require_user, revoke_role,
-                        ADMIN_USER_ID)
+                        send_events, send_notifications, ADMIN_USER_ID)
 
 from . import db, lib
 from .db import start_database
@@ -32,6 +34,29 @@ router = APIRouter(prefix="/api/io.bithead.scheduler")
 # value is per-install, from `system_config.schedule_timeout_minutes` — which is
 # what `GET /superadmin/timeout` reads and writes.
 SESSION_TIMEOUT_MINUTES = 10
+
+
+async def _announce_job_change(request: Request, job_id: int, kind: str) -> None:
+    """Tell staff a job was booked, cancelled, or moved."""
+    try:
+        notice = lib.job_change_notice(job_id, kind)
+    except lib.ValidationError:
+        return
+    if not notice.userIds:
+        return
+    try:
+        await send_events(
+            request, notice.eventName, notice.payload, notice.userIds
+        )
+        await send_notifications(
+            request,
+            notice.userIds,
+            title=notice.title,
+            body=notice.body,
+            persist=False
+        )
+    except Exception:
+        logging.exception("Scheduler could not announce a job change")
 
 
 def _expires_in(minutes):
@@ -380,6 +405,7 @@ async def confirm_kiosk_session(
     # The domain answer is a list of channels; the screen reads an object with
     # one key per channel, so the shaping happens here.
     sent = {c.channel: c.sentTo for c in session.confirmationSentTo}
+    await _announce_job_change(request, session.jobId, "booked")
     return KioskSessionConfirm(
         jobId=session.jobId,
         jobCode=session.jobCode,
@@ -544,6 +570,7 @@ async def reschedule_appointment(
         body.scheduledDate,
         body.scheduledTime
     )
+    await _announce_job_change(request, a.id, "moved")
     return Success(success=True)
 
 
@@ -557,6 +584,7 @@ async def cancel_appointment(handle: str, request: Request):
             detail={"reason": "That appointment no longer exists."}
         )
     lib.cancel_appointment(a.id)
+    await _announce_job_change(request, a.id, "cancelled")
     return Success(success=True)
 
 
@@ -722,25 +750,31 @@ async def update_job(
     body: JobBody
 ):
     _working_for(business_id, boss_user)
-    # An employee reaches a job they are on, which is the same narrowing the
-    # read side uses — so a job they are not on is absent rather than refused.
+    # An employee reaches a job they may see, which is the same narrowing the
+    # read side uses — so a job they may not see is absent rather than refused.
     employee_id = _get_employee_id(business_id, boss_user)
-    if employee_id is not None and lib.get_job_detail(
+    existing = lib.get_job_detail(
         business_id,
         job_id,
         employee_id=employee_id
-    ) is None:
+    )
+    if existing is None:
         raise HTTPException(
             status_code=404,
             detail="That appointment no longer exists."
         )
-    return lib.update_job(
+    updated = lib.update_job(
         business_id,
         job_id,
         body.scheduledDate,
         body.scheduledTime,
         body.employeeIds
     )
+    if (existing.scheduledDate, existing.scheduledTime) != (
+        updated.scheduledDate, updated.scheduledTime
+    ):
+        await _announce_job_change(request, job_id, "moved")
+    return updated
 
 
 @router.post(
@@ -774,6 +808,7 @@ async def cancel_job(
 ):
     _working_for(business_id, boss_user)
     lib.cancel_job(business_id, job_id)
+    await _announce_job_change(request, job_id, "cancelled")
     return Success(success=True)
 
 
