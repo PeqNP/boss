@@ -213,6 +213,64 @@
       }
       this.getBusinessId = getBusinessId;
 
+      const KIOSK_TOKENS = ["background", "title", "subtitle", "heading", "body",
+                            "selected", "button-primary", "button-default", "footer"];
+
+      /**
+       * Paints kiosk tokens onto `.kiosk-page`. Cleared on unload.
+       *
+       * @param {HTMLElement} page
+       * @param {object} config - tagLine, theme, fonts from GET /kiosk
+       */
+      function applyKioskTheme(page, config) {
+        if (isEmpty(page) || isEmpty(config)) {
+          return;
+        }
+        let faces = page.querySelector("style[name='kiosk-faces']");
+        if (isEmpty(faces)) {
+          faces = document.createElement("style");
+          faces.setAttribute("name", "kiosk-faces");
+          page.appendChild(faces);
+        }
+        faces.textContent = (config.fonts || []).map(function(f) {
+          return `@font-face { font-family: "${f.family}"; src: url("${f.url}"); }`;
+        }).join("\n");
+        const theme = config.theme || {};
+        for (const token of KIOSK_TOKENS) {
+          const spec = theme[token] || {};
+          setKioskVar(page, token, "font", spec.font);
+          setKioskVar(page, token, "size",
+                      isEmpty(spec.size) ? "" : `${spec.size}px`);
+          setKioskVar(page, token, "color", spec.color);
+        }
+      }
+      this.applyKioskTheme = applyKioskTheme;
+
+      function setKioskVar(page, token, part, value) {
+        const name = `--kiosk-${token}-${part}`;
+        if (isEmpty(value)) {
+          page.style.removeProperty(name);
+          return;
+        }
+        page.style.setProperty(name, value);
+      }
+
+      function clearKioskTheme(page) {
+        if (isEmpty(page)) {
+          return;
+        }
+        const faces = page.querySelector("style[name='kiosk-faces']");
+        if (!isEmpty(faces)) {
+          faces.remove();
+        }
+        for (const token of KIOSK_TOKENS) {
+          setKioskVar(page, token, "font", "");
+          setKioskVar(page, token, "size", "");
+          setKioskVar(page, token, "color", "");
+        }
+      }
+      this.clearKioskTheme = clearKioskTheme;
+
       /**
        * The business operator screens should call. `/me` is who you are;
        * this is which business you are working on.

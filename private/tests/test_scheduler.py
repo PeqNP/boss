@@ -3577,6 +3577,66 @@ def test_kiosk_business():
     assert get_kiosk(9999) is None
 
 
+def test_kiosk_theme():
+    """Tag line, logo, tokens, and fonts the kiosk paints with."""
+    fresh_database()
+
+    business_id = a_business(slot_mode="unlimited", increment=30)
+
+    # describe: empty tag line
+    kiosk = get_kiosk(business_id)
+    assert kiosk.tagLine == "What can we help you with?", \
+        "it: the first step still has something to say"
+
+    # describe: a tag line
+    update_business_config(business_id, {"tagLine": "Please select an option"})
+    assert get_kiosk(business_id).tagLine == "Please select an option"
+    assert get_business_config(business_id).tagLine == "Please select an option"
+
+    # describe: no logo
+    assert get_kiosk(business_id).logoUrl is None
+
+    # describe: a logo
+    url = set_business_logo(business_id, "mark.png", b"png-bytes")
+    assert url.endswith(".png")
+    assert get_kiosk(business_id).logoUrl == url
+    clear_business_logo(business_id)
+    assert get_kiosk(business_id).logoUrl is None
+
+    # describe: empty theme
+    assert get_kiosk(business_id).theme == {}
+
+    # describe: a title color
+    update_business_config(business_id, {
+        "theme": {"title": KioskTokenStyle(color="#ff0080", size=24)}
+    })
+    titled = get_kiosk(business_id).theme["title"]
+    assert titled.color == "#ff0080" and titled.size == 24
+    assert "subtitle" not in get_kiosk(business_id).theme
+
+    # describe: a color that is not hex
+    with pytest.raises(ValidationError):
+        update_business_config(business_id, {
+            "theme": {"title": KioskTokenStyle(color="red")}
+        })
+
+    # describe: upload a font
+    font = add_business_font(business_id, "Camp.woff2", b"woff2-bytes")
+    assert font.family == "Camp"
+    assert font.url.endswith(".woff2")
+    assert [f.family for f in get_business_fonts(business_id)] == ["Camp"]
+    assert get_kiosk(business_id).fonts[0].family == "Camp"
+
+    # describe: a file that is not a font
+    with pytest.raises(ValidationError):
+        add_business_font(business_id, "notes.txt", b"hello")
+
+    # describe: another business
+    other = a_business(increment=30)
+    assert get_business_fonts(other) == []
+    assert get_kiosk(other).logoUrl is None
+
+
 def test_kiosk_job_types():
     """A draft, or somebody taken out of the schedule, reaches no customer."""
     fresh_database()

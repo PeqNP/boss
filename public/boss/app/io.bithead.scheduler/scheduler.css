@@ -433,8 +433,10 @@
 .kiosk-option-btn.selected,
 .kiosk-slot-btn.selected,
 .cal-day.selected {
-  background-color: #000;
+  background-color: var(--kiosk-selected-color, #000);
   color: #fff;
+  font-family: var(--kiosk-selected-font, "ChicagoFLF");
+  font-size: var(--kiosk-selected-size, inherit);
 }
 
 .kiosk-option-btn.selected .kiosk-size-meta,
@@ -475,6 +477,39 @@
   flex-direction: column;
   align-items: center;
   padding: 40px 20px;
+  background: var(--kiosk-background-color, transparent);
+}
+
+.kiosk-page h2 {
+  font-family: var(--kiosk-heading-font, "ChicagoFLF");
+  font-size: var(--kiosk-heading-size, 1.5em);
+  color: var(--kiosk-heading-color, inherit);
+}
+
+.kiosk-page .kiosk-landing-heading {
+  font-family: var(--kiosk-subtitle-font, "ChicagoFLF");
+  font-size: var(--kiosk-subtitle-size, 1.5em);
+  color: var(--kiosk-subtitle-color, inherit);
+}
+
+.kiosk-page p,
+.kiosk-page .kiosk-field,
+.kiosk-page .kiosk-field input {
+  font-family: var(--kiosk-body-font, "Geneva");
+  font-size: var(--kiosk-body-size, inherit);
+  color: var(--kiosk-body-color, inherit);
+}
+
+.kiosk-page button.primary {
+  font-family: var(--kiosk-button-primary-font, "ChicagoFLF");
+  font-size: var(--kiosk-button-primary-size, inherit);
+  color: var(--kiosk-button-primary-color, inherit);
+}
+
+.kiosk-page button.default {
+  font-family: var(--kiosk-button-default-font, "ChicagoFLF");
+  font-size: var(--kiosk-button-default-size, inherit);
+  color: var(--kiosk-button-default-color, inherit);
 }
 
 /* The readable column inside it. Width is the page's to choose — the booking
@@ -494,14 +529,27 @@
 }
 
 .kiosk-header {
+  position: relative;
   display: flex;
   align-items: center;
   margin-bottom: 30px;
 }
 
+.kiosk-logo {
+  position: absolute;
+  right: 100%;
+  margin-right: 16px;
+  height: 100px;
+  width: auto;
+  object-fit: contain;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
 .kiosk-title {
-  font-family: "ChicagoFLF";
-  font-size: 20px;
+  font-family: var(--kiosk-title-font, "ChicagoFLF");
+  font-size: var(--kiosk-title-size, 20px);
+  color: var(--kiosk-title-color, inherit);
   flex: 1;
 }
 
@@ -557,5 +605,7 @@
 .kiosk-footer {
   margin-top: 30px;
   text-align: center;
-  font-size: 14px;
+  font-family: var(--kiosk-footer-font, "Geneva");
+  font-size: var(--kiosk-footer-size, 14px);
+  color: var(--kiosk-footer-color, inherit);
 }

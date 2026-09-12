@@ -12,7 +12,7 @@
 - **Reference app for UI components:** `public/boss/app/io.bithead.tutorial/controller/Example.html`
 - **Reference for settings-style left-side navigation:** `io.bithead.settings` app (`Home.html`)
 - **Reference for test harness setup:** `private/tests/test_wordy.py` + `private/tests/libtest/`
-- **What is left:** the app's `memory.md` — every stage here is finished and every flow in `ui-plan.md` has a spec.
+- **What is left:** kiosk Theme (tag line, logo, tokens, fonts) is the open slice. Every earlier stage is finished and every flow in `ui-plan.md` has a spec.
 
 ---
 
@@ -455,7 +455,7 @@ Multi-step state machine. Steps shown/hidden by JS state variable `currentStep`.
 
 **Steps:**
 1. `step-employee` — Employee selection grid (shown only if `business.allowCustomerEmployeeSelection`)
-2. `step-job-type` — 2×N table of job types (icon left of title)
+2. `step-job-type` — 2×N table of job types (icon left of title). Heading is the **tag line** when this is the first booking step.
 3. `step-slot` — First 5 available slots list; "Select custom date and time" button
 4. `step-calendar` — Month calendar (unavailable days greyed); tap day → `step-day-slots`
 5. `step-day-slots` — Vertical list of slots for selected day
@@ -463,6 +463,10 @@ Multi-step state machine. Steps shown/hidden by JS state variable `currentStep`.
 7. `step-otp` — OTP entry (shown only if the job type requires verification and a phone or email was given; 3 attempts max)
 8. `step-deposit` — Stripe redirect trigger (shown only if the chosen size requires a deposit or payment)
 9. `step-confirmation` — Job type, date/time, employee(s) (first name + last initial), business phone (tel: link), Job ID (short alphanumeric), create-account prompt, and a centred **Start Over** button beneath the text
+
+**Header.** The business name is the `title` token. A logo, when one is set, hangs to the left of the 560px column, about 100px tall, its vertical middle on the name. The tag line is the heading of the first booking step only (`subtitle` token) — employee grid if customers pick a person, otherwise job-type. Later steps keep their own headings.
+
+**Theme.** `GET /kiosk/{id}` includes `tagLine`, `logoUrl`, `theme`, and `fonts`. The kiosk sets CSS variables on `.kiosk-page` from `theme`, injects `@font-face` from `fonts`, and clears both in `viewWillUnload`. Enter on `step-contact` is Next (`submitContact`).
 
 **Start Over**, centred and 20px below the confirmation, hands the kiosk to the
 next customer. It clears two different things:
@@ -549,7 +553,7 @@ The kiosk hides the menu bar and the dock and has no other close affordance, so 
 **Resource lock timer:** Displayed after slot selection. Counts down from timeout value. On expiry: modal "Do you want to continue?" → yes: re-lock attempt → failure: back to `step-slot` (contact info preserved in JS); no: reset flow.
 
 **Stub endpoints:**
-- `GET /api/io.bithead.scheduler/kiosk/{businessId}` → business config, job types, slot increment, cutoff window, `allowCustomerEmployeeSelection`
+- `GET /api/io.bithead.scheduler/kiosk/{businessId}` → business config, job types, slot increment, cutoff window, `allowCustomerEmployeeSelection`, `tagLine`, `logoUrl`, `theme`, `fonts`
 - `GET /api/io.bithead.scheduler/kiosk/{businessId}/employees` → employee list (if customer selection enabled)
 - `GET /api/io.bithead.scheduler/kiosk/{businessId}/job-types` → job types with sizes, icons, contact fields, attributes
 - `GET /api/io.bithead.scheduler/kiosk/{businessId}/slots?jobTypeId=&sizeId=&employeeId=&limit=5` → first N available slots
@@ -868,7 +872,8 @@ owner to one by name:
 1. **General** (`general`) — name, phone(s), address, owner info, description, site link, timezone dropdown (default from signup), read-only public URL
 2. **Business Type** (`business-type`) — the template that fills in the rest; choosing one asks before overwriting what is already set
 3. **Schedule** (`schedule`) — **Time Slots** (Reserved / Unlimited), **Operating Hours** (seven days, one range each, closable), cutoff window (days), slot increment (dropdown: 15m/30m/1h), min booking notice (hours), **minimum change notice (minutes)**, buffer time (minutes), reminder toggle (1 day before, email/SMS), completion mode (auto/manual), reminder opt-out per channel
-4. **Notifications** (`notifications`) — which channels this business uses for confirmation (SMS, email). The platform vendor is chosen on `Vendors`, not here.
+4. **Theme** (`theme`) — how the kiosk looks: tag line, logo, uploaded fonts, and a row per token (font, size, color). See **Kiosk theme** below.
+5. **Notifications** (`notifications`) — which channels this business uses for confirmation (SMS, email). The platform vendor is chosen on `Vendors`, not here.
 
 **No Save button.** Business Settings writes as the owner works —
 [`js.md` § Saving as the user works](../../../docs/prompt/js.md#saving-as-the-user-works)
@@ -876,7 +881,8 @@ has the pattern. Five triggers: a field losing focus, an option being chosen,
 Enter, the section changing, and the window closing. Each write says so with
 `view.ui.showMessage("Saved")`, which clears after a moment; a failure stays
 until the next write succeeds and leaves the form dirty so the next trigger
-retries. Connect Stripe keeps its button — it is an action, not a field.
+retries. Connect Stripe, the logo, and a font upload keep their buttons — they
+are actions, not fields.
 
 **The business name is required**, and it is the one field that does not save
 around a mistake: leaving it empty says so and writes nothing for it. Every
@@ -889,11 +895,65 @@ sent them.
 already open as well as one being created — `SetupAssistant` sends an owner
 here more than once, and the second tap must move the page. `null` opens
 `general`. The pattern is `Home.configure(loc)` in `io.bithead.settings`.
-5. **Payment** (`payment`) — Stripe Connect OAuth button; show connected account info when connected
+6. **Payment** (`payment`) — Stripe Connect OAuth button; show connected account info when connected
 
-Tab order is **General, Business Type, Schedule, Notifications, Payment**.
+Tab order is **General, Business Type, Schedule, Theme, Notifications, Payment**.
 Business Type sits second because choosing one fills in the tabs below it — a
 new operator wants it before the settings it drives, not after them.
+
+### Kiosk theme
+
+The kiosk has a **design language**: named tokens, not a generated stylesheet
+and not the BOSS OS theme. Each token is font, size (px), and color. Empty
+cells keep the BOSS default for that part. Applying a value writes CSS
+variables on `.kiosk-page`. `viewWillUnload` clears them, so the desktop is
+Chicago and Geneva again. `Appointment` uses `.kiosk-page` too and reads the
+same tokens.
+
+| Token | What it paints | Example |
+|---|---|---|
+| `background` | Page fill | cream |
+| `title` | Business name | Camp Coffee |
+| `subtitle` | Tag line, first landing step only | What can we help you with? |
+| `heading` | Per-step h2 after the first | Your Information |
+| `body` | Instructions, field text | Reserved: Monday at 10:00 AM |
+| `selected` | Chosen job type, size, or slot | the marked option |
+| `button-primary` | Back, Close, secondary | ← Back |
+| `button-default` | The action | Next → |
+| `footer` | Opening hours | Mon–Fri 9:00 AM – 5:00 PM |
+
+The Theme tab is a table of those rows: token name, what it is for, an example
+(the business name, the tag line, today's hours — interpolated from this
+business), then a font menu, a size field, and a color swatch. Color is
+`os.ui.showColorPicker`. Font is a popup of **ChicagoFLF**, **Geneva**, and
+every font this business has uploaded. Upload sits once at the top of the tab,
+next to the logo, not on every row. Licensing an uploaded font is the
+operator's.
+
+**Tag line.** Stored copy. Empty means `What can we help you with?`. It is the
+heading on the **first booking step only** — `step-employee` when customers
+may pick a person, otherwise `step-job-type`. Later steps keep their own
+headings (`heading` token). Start Over returns to that first step, so the tag
+line is there again. `not-configured` and `error` do not use it.
+
+**Logo.** Public media, same store as custom icons. About 100px tall, **outside**
+the 560px column, hanging to the left of the name. The vertical middle of the
+logo lines up with the company name. No file means no hanging image, and the
+header is as today.
+
+**Enter on contact.** The contact step's default is Next. `didHitEnter` fires
+`submitContact`, the way a document gives Enter to Save. Other steps are
+unchanged.
+
+**Stub endpoints** (Theme, in addition to the config PUT that already writes
+as the owner works):
+- `PUT /api/io.bithead.scheduler/business/{id}/config` — also `{ tagLine, theme }` (`theme` is `{ token: { font, size, color } }`; omitted keys stay default)
+- `POST /api/io.bithead.scheduler/business/{id}/logo` — multipart image; `{ url }`
+- `DELETE /api/io.bithead.scheduler/business/{id}/logo`
+- `GET /api/io.bithead.scheduler/business/{id}/fonts` → uploaded fonts
+- `POST /api/io.bithead.scheduler/business/{id}/font` — multipart `ttf` / `otf` / `woff` / `woff2`
+- `DELETE /api/io.bithead.scheduler/business/{id}/font/{id}`
+- `GET /api/io.bithead.scheduler/kiosk/{id}` — also `tagLine`, `logoUrl`, `theme`, `fonts` (`{ family, url }` for `@font-face`)
 
 **Send confirmation:** a fieldset in the Notifications tab with two checkboxes,
 **Text message** and **Email**. Either, both, or neither.
@@ -1117,8 +1177,8 @@ same input names. It is gone.
 
 Write the full DDL for all tables before writing any backend logic. Schema is the contract between Stage 3 tests and Stage 4 implementation.
 
-**No migrations until the next plan.** While this one is being built the DDL is
-edited in place at `1.0.0` and the development database is deleted and created
+**No migrations until a different plan.** Amending this one keeps `1.0.0`. The
+DDL is edited in place and the development database is deleted and created
 again whenever it falls behind — see
 [`python.md` § Changing the schema](../../../docs/prompt/python.md#changing-the-schema).
 The schema this plan lands on is what a migration would start from.
@@ -1191,8 +1251,19 @@ CREATE TABLE businesses (
     notify_employees INTEGER NOT NULL DEFAULT 0,
     is_active INTEGER NOT NULL DEFAULT 1,
     stripe_account_id TEXT,
+    tag_line TEXT,              -- kiosk first-step heading; empty is
+                                -- "What can we help you with?"
+    logo_filename TEXT,         -- public media; hanging left of the name
+    kiosk_theme TEXT,           -- JSON { token: { font, size, color } }
     create_date TEXT NOT NULL DEFAULT (datetime('now')),
     update_date TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE business_fonts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    business_id INTEGER NOT NULL REFERENCES businesses(id),
+    filename TEXT NOT NULL,     -- stored name under public media
+    family TEXT NOT NULL        -- CSS font-family, from the file's name
 );
 
 CREATE TABLE business_users (
@@ -1601,6 +1672,17 @@ from io.bithead.scheduler import db
 - `describe: weekly template` → employee available on configured days/times
 - `describe: time-off window partial day` → employee available only outside the time-off window
 - `describe: include_in_schedule = false` → employee excluded from all slot computation
+
+#### `test_kiosk_theme()`
+- `describe: empty tag line` → kiosk reads `What can we help you with?`
+- `describe: a tag line` → kiosk reads what was stored
+- `describe: no logo` → `logoUrl` is empty
+- `describe: a logo` → `logoUrl` is the public media URL
+- `describe: empty theme` → every token is omitted; the kiosk keeps BOSS defaults
+- `describe: a title color` → that token is in `theme`; the others stay omitted
+- `describe: upload a font` → listed on GET fonts and on the kiosk as `{ family, url }`
+- `describe: a file that is not a font` → refused
+- `describe: another business` → never lists somebody else's fonts or logo
 
 #### `test_business_template()`
 - `describe: apply template` → business config fields updated to template defaults

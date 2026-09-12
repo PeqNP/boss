@@ -14,6 +14,9 @@ from typing import Dict, List, Optional
 from .. import db
 from ..model import *
 from .exception import ValidationError
+from .kiosk_theme import (
+    check_token_style, encode_theme, get_business_fonts, logo_url, parse_theme
+)
 from .templates import get_business_template
 from .transform import _business, _hours, _job_type
 from .vendor import channel_chosen, payment_connected
@@ -212,6 +215,7 @@ CONFIG_FIELDS = {
     "completionMode": "completion_mode",
     "allowCustomerEmployeeSelection": "allow_customer_employee_selection",
     "notifyEmployees": "notify_employees",
+    "tagLine": "tag_line",
 }
 
 
@@ -255,6 +259,10 @@ def _config(row: "db.BusinessConfigRow") -> BusinessConfig:
         publicUrl=f"{PUBLIC_URL_BASE}/{row.id}",
         stripeAccountId=db.get_business_stripe_account(row.id),
         paymentVendorChosen=channel_chosen("payment") is not None,
+        tagLine=row.tag_line or "",
+        logoUrl=logo_url(row.logo_filename),
+        theme=parse_theme(row.kiosk_theme),
+        fonts=get_business_fonts(row.id),
     )
 
 
@@ -282,7 +290,7 @@ def update_business_config(
     if db.get_business_config(business_id) is None:
         raise ValidationError("That business no longer exists.")
 
-    unknown = set(settings) - set(CONFIG_FIELDS)
+    unknown = set(settings) - set(CONFIG_FIELDS) - {"theme"}
     if unknown:
         raise ValidationError(
             f"Not a business setting: {', '.join(sorted(unknown))}.")
@@ -291,10 +299,23 @@ def update_business_config(
 
     columns = {}
     for field, value in settings.items():
+        if field == "theme":
+            families = [f.family for f in get_business_fonts(business_id)]
+            packed = {}
+            for token, spec in (value or {}).items():
+                style = spec if isinstance(spec, KioskTokenStyle) \
+                    else KioskTokenStyle(**spec)
+                check_token_style(style, families)
+                packed[token] = style
+            encoded = encode_theme(packed)
+            columns["kiosk_theme"] = encoded
+            continue
         if field == "name":
             if blank_name:
                 continue
             value = str(value).strip()
+        elif field == "tagLine":
+            value = ("" if value is None else str(value)).strip() or None
         elif field in CONFIG_BOOLEANS:
             value = 1 if value else 0
         columns[CONFIG_FIELDS[field]] = value

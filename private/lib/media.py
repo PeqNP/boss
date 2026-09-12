@@ -54,9 +54,18 @@ MAX_ICON_BYTES = 1024 * 1024
 # execute when the file is opened directly.
 IMAGE_EXTENSIONS = (".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp")
 
+FONT_EXTENSIONS = (".ttf", ".otf", ".woff", ".woff2")
+
+# A webfont is larger than an icon. Two megabytes covers a family cut.
+MAX_FONT_BYTES = 2 * 1024 * 1024
+
 
 class NotAnImage(Exception):
     """A file that is not one a browser draws."""
+
+
+class NotAFont(Exception):
+    """A file that is not a font a browser can load."""
 
 
 class TooLarge(Exception):
@@ -141,6 +150,19 @@ def check_image(filename: str, content: bytes,
         raise NotAnImage("That file is empty.")
     if len(content) > limit:
         raise TooLarge(f"An image is at most {limit // 1024}KB.")
+
+
+def check_font(filename: str, content: bytes,
+               limit: int = MAX_FONT_BYTES) -> None:
+    """Refuse a file that is not a font, or is larger than one should be."""
+    extension = os.path.splitext(os.path.basename(filename or ""))[1].lower()
+    if extension not in FONT_EXTENSIONS:
+        raise NotAFont(
+            f"A font is one of: {', '.join(FONT_EXTENSIONS)}.")
+    if not content:
+        raise NotAFont("That file is empty.")
+    if len(content) > limit:
+        raise TooLarge(f"A font is at most {limit // 1024}KB.")
 
 
 def store_public(bundle: str, filename: str, content: bytes) -> Stored:

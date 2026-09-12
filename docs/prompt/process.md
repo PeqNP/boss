@@ -7,6 +7,7 @@ Read the index, then the sections that apply. Do not ingest the rest.
 | Size, kind, what to load | [Classify the work](#classify-the-work) |
 | Interview and spec | [Phase 0](#phase-0--design-interview) |
 | `plan.md` | [Phase 1](#phase-1--write-the-plan) |
+| A slice on an app whose stages are already done | [Iteration](#iteration--a-slice-on-a-finished-plan) |
 | Layers, Python vs Swift, localhost bridge | [System Layers](#system-layers) |
 | Domain vs network models | [Network and Domain Models](#network-and-domain-models) |
 | Private tests vs UI tests | [When to Write Tests](#when-to-write-tests) |
@@ -35,10 +36,50 @@ Name the kind and the size before reading a layer document or writing anything. 
 | Size | What it is | Process |
 |---|---|---|
 | Small | Copy, one control, a bug, a field whose contract does not change | No interview. Load the layer index, then the section that applies. Amend `plan.md` only if a signature, actor, or window kind changes. |
-| Medium | A screen, a rule, an endpoint group, a new window on an existing actor | Interview only the new questions. Amend the spec where the answers changed, then the relevant `plan.md` sections. Walk the stages for that slice only, still top-down. Stop after the current stage. |
+| Medium | A screen, a rule, an endpoint group, a new window on an existing actor | Interview only the new questions. Amend the spec where the answers changed, then the relevant `plan.md` sections. Walk the stages for that slice only, still top-down. Stop after the current stage. A finished plan is still this path — [Iteration](#iteration--a-slice-on-a-finished-plan). |
 | Large | A new app, a new actor, a new public surface, a data-model change other screens hang off | Full interview → spec → plan → stages, with a stop after each. |
 
 Do not load this file whole for a small change. Do not use the generic design-doc skill or Grok plan mode for a BOSS app: they write the wrong artifact. The spec is `description.md`; the contract is `private/app/<bundle_id>/plan.md`.
+
+---
+
+## Iteration — a slice on a finished plan
+
+Every stage of `plan.md` being done is not permission to skip them. A new
+tab, a new screen, a new field whose contract changes, is a **slice**: the
+same eight steps, the same stop after each, only the surfaces that slice
+names.
+
+**UI first. The developer looks at it. Then the rest.** Stage 1 of the slice
+is the tactile surface. `bin/validate-app` at the end of it. Then stop.
+Schema, routes, tests, and wiring wait until they say the UI is right.
+
+"Please begin", "implement it", "build it", "do the slice" mean the **current**
+stage. After a confirmed plan that is Stage 1, not stages 1–8 in one turn.
+
+### What is different from the first pass
+
+The steps do not change. What is already live does:
+
+| First pass | Iteration |
+|---|---|
+| Every network call is a stub | Existing calls stay live. **New** calls are stubbed, so the developer can walk the new surface without a 404 |
+| Stage 6 splits `lib.py` into a package | The package exists. Add a module only if this slice grew one |
+| Stage 8 writes `ui-plan.md` | Amend `ui-plan.md` with the new flow. Do not rewrite the rest |
+
+A window that already saves as the user works keeps doing that for the fields
+it had. The new fields do not ride that write until Stage 3 replaces the stub
+— otherwise a blur 404s, and the look cannot be judged.
+
+Small work still skips this: copy, one control, a bug, a field whose contract
+does not change.
+
+### After the UI is approved
+
+Walk [Development Order](#development-order) from step 3 for that slice
+only. Step 2 (OS) only if the slice needs it and the developer asked. The
+schema the UI now requires is steps 3–5, not step 1. The version does not
+move — see [`python.md` § Changing the schema](python.md#changing-the-schema).
 
 ---
 
@@ -458,9 +499,12 @@ While a stage is open, `public/boss/app/<bundle_id>/memory.md` records the curre
 
 The `commit` skill writes the message. The `report` skill ends the response. Step 4 uses the `private-service-tests` skill.
 
+A slice on an app whose stages are already done still starts here, at step 1.
+See [Iteration](#iteration--a-slice-on-a-finished-plan).
+
 ### Steps (complete each step fully before moving to the next; stop and wait for confirmation between steps)
 
-1. **Define UI/UX** — Create the tactile surfaces (windows, modals, forms). Stub every network call with static data:
+1. **Define UI/UX** — Create the tactile surfaces (windows, modals, forms). Stub every network call with static data (on iteration, stub only the **new** calls; existing ones stay live):
    ```javascript
    const friends = [{ id: 1, name: "Alice" }];
    ```
@@ -490,6 +534,9 @@ The `commit` skill writes the message. The `report` skill ends the response. Ste
    `bin/validate-app` reports every controller `plan.md` describes and the app
    has yet to register. Run it before calling this step finished, and again
    before step 3.
+
+   **The confirmation for this step is visual.** The developer opens the
+   window. Schema, routes, and tests are the next steps, not this one.
 
 2. **Implement BOSS OS features** — Only if new OS-level support is needed and approved by the developer.
 

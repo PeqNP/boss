@@ -41,6 +41,31 @@
                      "contact", "otp", "otp-failed", "deposit", "confirmation",
                      "error", "not-configured"];
 
+      function showLogo(url) {
+        const img = view.ui.img("kiosk-logo");
+        if (isEmpty(url)) {
+          img.style.display = "none";
+          img.removeAttribute("src");
+          return;
+        }
+        img.src = url;
+        img.style.display = "";
+      }
+
+      function applyTagLine(tagLine) {
+        const text = isEmpty(tagLine) ? "What can we help you with?" : tagLine;
+        const employee = view.ui.div("step-employee").querySelector("h2");
+        const jobType = view.ui.div("step-job-type").querySelector("h2");
+        if (rootStep() === "employee") {
+          employee.innerText = text;
+          employee.classList.add("kiosk-landing-heading");
+        }
+        else {
+          jobType.innerText = text;
+          jobType.classList.add("kiosk-landing-heading");
+        }
+      }
+
       // --- Private helpers ---
 
       /**
@@ -787,6 +812,9 @@
 
         businessConfig = response;
         view.ui.span("kiosk-business-name").textContent = response.name;
+        showLogo(response.logoUrl);
+        $(app.controller).applyKioskTheme(view.ui.div("kiosk-page"), response);
+        applyTagLine(response.tagLine);
         renderHoursFooter();
 
         if (response.allowCustomerEmployeeSelection) {
@@ -818,16 +846,24 @@
 
       function viewWillUnload() {
         clearLockTimer();
+        $(app.controller).clearKioskTheme(view.ui.div("kiosk-page"));
       }
       this.viewWillUnload = viewWillUnload;
+
+      this.didHitEnter = function() {
+        if (currentStep === "contact") {
+          submitContact();
+        }
+      };
     }
   </script>
 
   <!-- Kiosk layout -->
-  <div class="kiosk-page">
+  <div class="kiosk-page" name="kiosk-page">
 
     <!-- Header -->
     <div class="kiosk-column kiosk-header" style="max-width: 560px;">
+      <img name="kiosk-logo" class="kiosk-logo" alt="" style="display: none;">
       <span name="kiosk-business-name" class="kiosk-title"></span>
       <span name="lock-timer" style="font-size: 0.9em; margin-right: 12px;"></span>
       <button name="edit-appointment-btn" class="primary" style="display: none; margin-right: 8px;" onclick="$(this.controller).editAppointment();">Edit my appointment</button>

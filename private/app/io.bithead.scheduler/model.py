@@ -188,6 +188,27 @@ class Success(Model):
     success: bool
 
 
+class KioskTokenStyle(Model):
+    """Font, size and color for one kiosk token. Omitted keys keep the default."""
+    font: Optional[str] = None
+    size: Optional[int] = None
+    color: Optional[str] = None
+
+
+class KioskFont(Model):
+    id: int
+    family: str
+    url: str
+
+
+class Logo(Model):
+    url: str
+
+
+class KioskFonts(Model):
+    fonts: List[KioskFont] = []
+
+
 #   GET /admin/config
 #   GET /admin/config
 #
@@ -230,6 +251,10 @@ class BusinessConfig(Model):
     publicUrl: str
     stripeAccountId: Optional[str] = None
     paymentVendorChosen: bool = False
+    tagLine: str = ""
+    logoUrl: Optional[str] = None
+    theme: Dict[str, KioskTokenStyle] = {}
+    fonts: List[KioskFont] = []
 
 
 #   GET /admin/config/stripe/connect
@@ -694,6 +719,10 @@ class Kiosk(Model):
     slotMode: str
     operatingHours: List[BusinessHours] = []
     configured: bool
+    tagLine: str = ""
+    logoUrl: Optional[str] = None
+    theme: Dict[str, KioskTokenStyle] = {}
+    fonts: List[KioskFont] = []
 
 
 #   GET /kiosk/{business_id}/calendar
@@ -1338,6 +1367,8 @@ class BusinessConfigBody(Model):
     completionMode: Optional[str] = None
     allowCustomerEmployeeSelection: Optional[bool] = None
     notifyEmployees: Optional[bool] = None
+    tagLine: Optional[str] = None
+    theme: Optional[Dict[str, KioskTokenStyle]] = None
 
 
 class HolidaysBody(Model):

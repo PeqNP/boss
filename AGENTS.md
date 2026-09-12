@@ -10,7 +10,7 @@ Name the **kind** and the **size** before reading a layer document or writing an
 |---|---|
 | **New app** — no bundle yet | `new-app` skill. No code until `plan.md` is confirmed. |
 | **Existing app, small** — copy, one control, a bug, a field whose contract does not change | Layer index, then the section that applies. No interview. Amend `plan.md` only if a signature, actor, or window kind changes. |
-| **Existing app, medium or large** | `develop` skill. Read `process.md` from Classify through the current stage, not the rest. |
+| **Existing app, medium or large** | `develop` skill. Read `process.md` from Classify through the current stage, not the rest. A finished plan still starts at Stage 1 UI — [`process.md` § Iteration](docs/prompt/process.md#iteration--a-slice-on-a-finished-plan). |
 | **BOSS OS** — `public/boss/*.js`, `public/boss/*.css` | Ask before changing. An existing API likely covers it. |
 | **Process / docs / checks** | A rule lives in one document; others point at it. |
 

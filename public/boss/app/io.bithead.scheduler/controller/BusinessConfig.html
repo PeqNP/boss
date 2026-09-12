@@ -14,7 +14,23 @@
       // Order matches the nav, which is read by index. Business Type sits
       // second because choosing one fills in the tabs below it — a new
       // operator wants it before the settings it drives, not after them.
-      const TAB_NAMES = ["general", "business-type", "schedule", "notifications", "payment"];
+      const TAB_NAMES = ["general", "business-type", "schedule", "theme", "notifications", "payment"];
+
+      const DEFAULT_TAG_LINE = "What can we help you with?";
+
+      const KIOSK_TOKENS = [
+        { id: "background", name: "Background", role: "Page fill" },
+        { id: "title", name: "Title", role: "Business name" },
+        { id: "subtitle", name: "Subtitle", role: "Tag line, first step only" },
+        { id: "heading", name: "Heading", role: "Later step titles" },
+        { id: "body", name: "Body", role: "Instructions and field text" },
+        { id: "selected", name: "Selected", role: "Chosen job type, size, or slot" },
+        { id: "button-primary", name: "Primary button", role: "Back, Close, secondary" },
+        { id: "button-default", name: "Default button", role: "The action" },
+        { id: "footer", name: "Footer", role: "Opening hours" }
+      ];
+
+      let uploadedFonts = [];
 
       // The page to open on. `SetupAssistant` sends an owner straight to the
       // one holding whatever it asked them to fix.
@@ -232,7 +248,9 @@
           confirmByEmail: view.ui.input("confirm-by-email").checked,
           completionMode: view.ui.radio("completion-mode", "auto").checked ? "auto" : "manual",
           allowCustomerEmployeeSelection: view.ui.input("allow-employee-selection").checked,
-          notifyEmployees: view.ui.input("notify-employees").checked
+          notifyEmployees: view.ui.input("notify-employees").checked,
+          tagLine: view.ui.input("tag-line").value,
+          theme: collectTheme()
         };
         try {
           await os.network.put(`/api/io.bithead.scheduler/business/${businessId}/config`, payload);
@@ -262,6 +280,9 @@
        */
       function didEdit() {
         isDirty = true;
+        if (!isEmpty(view.ui.table("theme-tokens").querySelector("tbody tr"))) {
+          paintAllTokenExamples();
+        }
       }
       this.didEdit = didEdit;
 
@@ -309,6 +330,304 @@
         view.ui.button("connect-stripe"),
         "Generating link..."
       );
+
+      function tokenExample(tokenId) {
+        const name = view.ui.input("biz-name").value || "Camp Coffee";
+        const tag = view.ui.input("tag-line").value.trim() || DEFAULT_TAG_LINE;
+        if (tokenId === "title") {
+          return name;
+        }
+        if (tokenId === "subtitle") {
+          return tag;
+        }
+        if (tokenId === "heading") {
+          return "Your Information";
+        }
+        if (tokenId === "body") {
+          return "Reserved: Monday at 10:00 AM";
+        }
+        if (tokenId === "selected") {
+          return "Lawn Mowing";
+        }
+        if (tokenId === "button-primary") {
+          return "← Back";
+        }
+        if (tokenId === "button-default") {
+          return "Next →";
+        }
+        if (tokenId === "footer") {
+          return "Mon–Fri 9:00 AM – 5:00 PM";
+        }
+        return "";
+      }
+
+      function collectTheme() {
+        const theme = {};
+        for (const token of KIOSK_TOKENS) {
+          const font = view.ui.select(`token-font-${token.id}`).value;
+          const sizeRaw = view.ui.input(`token-size-${token.id}`).value;
+          const color = view.ui.button(`token-color-${token.id}`).dataset.color || "";
+          const spec = {};
+          if (!isEmpty(font)) {
+            spec.font = font;
+          }
+          if (!isEmpty(sizeRaw) && isNumeric(parseInt(sizeRaw))) {
+            spec.size = parseInt(sizeRaw);
+          }
+          if (!isEmpty(color)) {
+            spec.color = color;
+          }
+          if (Object.keys(spec).length > 0) {
+            theme[token.id] = spec;
+          }
+        }
+        return theme;
+      }
+
+      function fontChoices() {
+        return [{ id: "", name: "BOSS default" }].concat(
+          [{ id: "ChicagoFLF", name: "Chicago" }, { id: "Geneva", name: "Geneva" }].concat(
+            uploadedFonts.map(function(f) {
+              return { id: f.family, name: f.family };
+            })
+          )
+        );
+      }
+
+      function paintTokenExample(tokenId) {
+        const example = view.ui.span(`token-example-${tokenId}`);
+        const font = view.ui.select(`token-font-${tokenId}`).value;
+        const sizeRaw = view.ui.input(`token-size-${tokenId}`).value;
+        const color = view.ui.button(`token-color-${tokenId}`).dataset.color || "";
+        example.style.fontFamily = isEmpty(font) ? "" : font;
+        example.style.fontSize = isEmpty(sizeRaw) ? "" : `${sizeRaw}px`;
+        example.style.color = isEmpty(color) ? "" : color;
+        if (tokenId === "background") {
+          example.style.backgroundColor = isEmpty(color) ? "" : color;
+          example.style.color = "";
+        }
+        example.innerText = tokenExample(tokenId) || " ";
+      }
+
+      function paintAllTokenExamples() {
+        for (const token of KIOSK_TOKENS) {
+          paintTokenExample(token.id);
+        }
+      }
+
+      function renderTokenTable(theme) {
+        const body = view.ui.table("theme-tokens").querySelector("tbody");
+        body.innerHTML = "";
+        const choices = fontChoices();
+        for (const token of KIOSK_TOKENS) {
+          const spec = (theme && theme[token.id]) || {};
+          const row = document.createElement("tr");
+
+          const name = document.createElement("td");
+          name.innerText = token.name;
+          row.appendChild(name);
+
+          const role = document.createElement("td");
+          role.innerText = token.role;
+          row.appendChild(role);
+
+          const exampleCell = document.createElement("td");
+          const example = document.createElement("span");
+          example.setAttribute("name", `token-example-${token.id}`);
+          exampleCell.appendChild(example);
+          row.appendChild(exampleCell);
+
+          const fontCell = document.createElement("td");
+          const select = document.createElement("select");
+          select.name = `token-font-${token.id}`;
+          for (const choice of choices) {
+            const option = document.createElement("option");
+            option.value = choice.id;
+            option.textContent = choice.name;
+            select.appendChild(option);
+          }
+          if (!isEmpty(spec.font)) {
+            select.value = spec.font;
+          }
+          fontCell.appendChild(select);
+          row.appendChild(fontCell);
+
+          const sizeCell = document.createElement("td");
+          const size = document.createElement("input");
+          size.type = "number";
+          size.name = `token-size-${token.id}`;
+          size.min = "8";
+          size.max = "96";
+          size.style.width = "56px";
+          if (!isEmpty(spec.size)) {
+            size.value = spec.size;
+          }
+          sizeCell.appendChild(size);
+          row.appendChild(sizeCell);
+
+          const colorCell = document.createElement("td");
+          const swatch = document.createElement("button");
+          swatch.type = "button";
+          swatch.className = "primary";
+          swatch.name = `token-color-${token.id}`;
+          swatch.innerText = isEmpty(spec.color) ? "Default" : spec.color;
+          if (!isEmpty(spec.color)) {
+            swatch.dataset.color = spec.color;
+            swatch.style.backgroundColor = spec.color;
+          }
+          swatch.onclick = (function(id) {
+            return function() { pickTokenColor(id); };
+          })(token.id);
+          colorCell.appendChild(swatch);
+          row.appendChild(colorCell);
+
+          body.appendChild(row);
+        }
+        paintAllTokenExamples();
+      }
+
+      function pickTokenColor(tokenId) {
+        os.ui.showColorPicker(function(color) {
+          const swatch = view.ui.button(`token-color-${tokenId}`);
+          swatch.dataset.color = color;
+          swatch.innerText = color;
+          swatch.style.backgroundColor = color;
+          paintTokenExample(tokenId);
+          didChooseOption();
+        });
+      }
+      this.pickTokenColor = pickTokenColor;
+
+      function showLogo(url) {
+        const img = view.ui.img("theme-logo");
+        if (isEmpty(url)) {
+          img.style.display = "none";
+          img.removeAttribute("src");
+          view.ui.button("remove-logo-btn").disabled = true;
+          return;
+        }
+        img.src = url;
+        img.style.display = "";
+        view.ui.button("remove-logo-btn").disabled = false;
+      }
+
+      async function uploadLogo() {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*";
+        input.onchange = async function() {
+          const file = input.files[0];
+          if (isEmpty(file)) {
+            return;
+          }
+          const formData = new FormData();
+          formData.append("file", file);
+          let response;
+          try {
+            response = await os.network.upload(
+              `/api/io.bithead.scheduler/business/${businessId}/logo`,
+              formData
+            );
+          }
+          catch (error) {
+            os.ui.showError(error);
+            return;
+          }
+          showLogo(response.url);
+          view.ui.showMessage("Saved");
+        };
+        input.click();
+      }
+      this.uploadLogo = uploadLogo;
+
+      async function removeLogo() {
+        try {
+          await os.network.delete(
+            `/api/io.bithead.scheduler/business/${businessId}/logo`
+          );
+        }
+        catch (error) {
+          os.ui.showError(error);
+          return;
+        }
+        showLogo(null);
+        view.ui.showMessage("Saved");
+      }
+      this.removeLogo = removeLogo;
+
+      function renderFontList() {
+        const list = view.ui.select("theme-fonts").ui;
+        list.addNewOptions(uploadedFonts.map(function(f) {
+          return { id: String(f.id), name: f.family };
+        }));
+        view.ui.button("remove-font-btn").disabled = uploadedFonts.length === 0;
+      }
+
+      async function uploadFont() {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = ".ttf,.otf,.woff,.woff2";
+        input.onchange = async function() {
+          const file = input.files[0];
+          if (isEmpty(file)) {
+            return;
+          }
+          const formData = new FormData();
+          formData.append("file", file);
+          let response;
+          try {
+            response = await os.network.upload(
+              `/api/io.bithead.scheduler/business/${businessId}/font`,
+              formData
+            );
+          }
+          catch (error) {
+            os.ui.showError(error);
+            return;
+          }
+          uploadedFonts.push(response);
+          renderFontList();
+          const theme = collectTheme();
+          renderTokenTable(theme);
+          wireAutoSave();
+          view.ui.showMessage("Saved");
+        };
+        input.click();
+      }
+      this.uploadFont = uploadFont;
+
+      async function removeFont() {
+        const value = view.ui.select("theme-fonts").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        try {
+          await os.network.delete(
+            `/api/io.bithead.scheduler/business/${businessId}/font/${value}`
+          );
+        }
+        catch (error) {
+          os.ui.showError(error);
+          return;
+        }
+        uploadedFonts = uploadedFonts.filter(function(f) {
+          return String(f.id) !== value;
+        });
+        renderFontList();
+        const theme = collectTheme();
+        renderTokenTable(theme);
+        wireAutoSave();
+        view.ui.showMessage("Saved");
+      }
+      this.removeFont = removeFont;
+
+      function loadTheme(response) {
+        view.ui.input("tag-line").value = response.tagLine || "";
+        showLogo(response.logoUrl);
+        uploadedFonts = response.fonts || [];
+        renderFontList();
+        renderTokenTable(response.theme || {});
+      }
 
       /**
        * Applies a business template, asking first.
@@ -427,6 +746,8 @@
         }
         view.ui.input("allow-employee-selection").checked = response.allowCustomerEmployeeSelection;
         view.ui.input("notify-employees").checked = response.notifyEmployees;
+
+        loadTheme(response);
 
         view.ui.span("stripe-account-id").innerText = isEmpty(response.stripeAccountId)
           ? "Not connected"
@@ -566,7 +887,7 @@
         }
         // A `UIPopupMenu` reports a choice by calling `select.onchange`
         // directly — see js.md. A listener on the container never fires.
-        for (const menu of content.querySelectorAll(".ui-popup-menu select")) {
+        for (const menu of content.querySelectorAll("select")) {
           alsoOnChange(menu);
         }
       }
@@ -634,6 +955,7 @@
         <option>General</option>
         <option>Business Type</option>
         <option>Schedule</option>
+        <option>Theme</option>
         <option>Notifications</option>
         <option>Payment</option>
       </select>
@@ -819,6 +1141,49 @@
       </div>
 
       <!-- Notifications tab -->
+      <div name="tab-theme" style="display: none;">
+        <div class="vbox gap-20">
+          <div class="text-field">
+            <label for="tag-line">Tag line</label>
+            <input type="text" name="tag-line" placeholder="What can we help you with?">
+          </div>
+          <p>Shown as the heading on the first page a customer lands on.</p>
+          <fieldset class="vbox gap-10">
+            <legend>Logo</legend>
+            <img name="theme-logo" alt="" style="display: none; height: 100px; width: auto;">
+            <div class="hbox gap-10">
+              <button class="primary" onclick="$(this.controller).uploadLogo();">Upload logo</button>
+              <button name="remove-logo-btn" class="primary" disabled onclick="$(this.controller).removeLogo();">Remove</button>
+            </div>
+          </fieldset>
+          <fieldset class="vbox gap-10">
+            <legend>Fonts</legend>
+            <p>Chicago and Geneva are always offered. An uploaded font is this business's; licensing it is yours.</p>
+            <div class="hbox gap-10">
+              <div class="ui-list-box" style="width: 220px; height: 80px;">
+                <select name="theme-fonts"></select>
+              </div>
+              <div class="vbox gap-10">
+                <button class="primary" onclick="$(this.controller).uploadFont();">Upload font</button>
+                <button name="remove-font-btn" class="primary" disabled onclick="$(this.controller).removeFont();">Remove</button>
+              </div>
+            </div>
+          </fieldset>
+          <table name="theme-tokens" style="width: 100%;">
+            <thead>
+              <tr>
+                <th>Token</th>
+                <th>For</th>
+                <th>Example</th>
+                <th>Font</th>
+                <th>Size</th>
+                <th>Color</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
       <div name="tab-notifications" style="display: none;">
         <div class="vbox gap-20">
           <p>Email and SMS are sent by the vendor the platform has chosen on Vendor Integrations.</p>

@@ -9,6 +9,7 @@ Read the index, then the sections that apply. Do not ingest the rest.
 | Routes, auth, startup, shutdown | [§ 15 Backend](#15-backend--python-private-services) |
 | Hardening notes from lean-visualizer | [§ 16 Lessons Learned](#16-lessons-learned--private-python-app-hardening) |
 | Modules, models, schema, files | [§ 19 Module Layout and Layering](#19-module-layout-and-layering) |
+| Schema version, when to migrate | [§ 19 Changing the schema](#changing-the-schema) |
 | Tests | [§ 20 Testing Private Services](#20-testing-private-services), then the `private-service-tests` skill |
 
 ---
@@ -468,14 +469,19 @@ whose config says anything other than `env: dev`. `bin/update` calls
 
 ### Changing the schema
 
-**A new plan is what calls for a migration.** Until one exists, the schema is
-still being worked out: `CURRENT_VERSION` stays where it is, the DDL for that
-version keeps changing, and the development database is deleted and created
-again whenever it falls behind. It holds nothing anyone needs, and versioning a
-schema that moves daily buys nothing but ceremony.
+**A different plan is what calls for a migration.** An amendment, an iteration
+of a finished plan, a new slice on this one — the version stays.
+`CURRENT_VERSION` does not move. The DDL for that version keeps changing, and
+the development database is deleted and created again whenever it falls behind.
+It holds nothing anyone needs, and versioning a schema that moves daily buys
+nothing but ceremony.
 
-Once a plan is written for a new feature — the developer says so explicitly —
-the schema it lands on is the one people have. From then on a change is a
+The developer says when the work is a different plan. Until they do, edit
+`create_version_<current>` in place. Deleting the app's sqlite under `db_path`
+is how the next start applies it — an agent may delete that file.
+
+Once a different plan is written — the developer says so explicitly — the
+schema it lands on is the one people have. From then on a change is a
 `create_version_<next>` function added to the chain in `start_database`, and the
 version is bumped.
 

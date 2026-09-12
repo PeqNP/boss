@@ -1666,6 +1666,82 @@ async def update_config(
     return lib.update_business_config(business_id, settings)
 
 
+@router.post("/business/{business_id}/logo", response_model=Logo)
+@require_acl("config.w", roles=[Role.OPERATOR])
+@handled
+async def upload_logo(
+    business_id: int,
+    boss_user: User,
+    request: Request,
+    file: UploadFile = File(...)
+):
+    _working_for(business_id, boss_user)
+    return Logo(url=lib.set_business_logo(
+        business_id,
+        file.filename,
+        await file.read()
+    ))
+
+
+@router.delete("/business/{business_id}/logo", response_model=Success)
+@require_acl("config.w", roles=[Role.OPERATOR])
+@handled
+async def delete_logo(
+    business_id: int,
+    boss_user: User,
+    request: Request
+):
+    _working_for(business_id, boss_user)
+    lib.clear_business_logo(business_id)
+    return Success(success=True)
+
+
+@router.get("/business/{business_id}/fonts", response_model=KioskFonts)
+@require_acl("config.r", roles=[Role.OPERATOR])
+@handled
+async def get_fonts(
+    business_id: int,
+    boss_user: User,
+    request: Request
+):
+    _working_for(business_id, boss_user)
+    return KioskFonts(fonts=lib.get_business_fonts(business_id))
+
+
+@router.post("/business/{business_id}/font", response_model=KioskFont)
+@require_acl("config.w", roles=[Role.OPERATOR])
+@handled
+async def upload_font(
+    business_id: int,
+    boss_user: User,
+    request: Request,
+    file: UploadFile = File(...)
+):
+    _working_for(business_id, boss_user)
+    return lib.add_business_font(
+        business_id,
+        file.filename,
+        await file.read()
+    )
+
+
+@router.delete(
+    "/business/{business_id}/font/{font_id}",
+    response_model=Success
+)
+@require_acl("config.w", roles=[Role.OPERATOR])
+@handled
+async def delete_font(
+    business_id: int,
+    font_id: int,
+    boss_user: User,
+    request: Request
+):
+    _working_for(business_id, boss_user)
+    lib.delete_business_font(business_id, font_id)
+    return Success(success=True)
+
+
 @router.get(
     "/business/{business_id}/config/stripe/connect",
     response_model=ConfigStripeConnect

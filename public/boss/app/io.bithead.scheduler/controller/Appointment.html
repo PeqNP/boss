@@ -170,12 +170,26 @@
         view.ui.span("appt-employees").textContent = employees || "To be assigned";
 
         showStep("detail");
+        try {
+          const kiosk = await os.network.get(
+            `/api/io.bithead.scheduler/kiosk/${response.businessId}`
+          );
+          $(app.controller).applyKioskTheme(view.ui.div("kiosk-page"), kiosk);
+        }
+        catch {
+          // The appointment still draws; it just keeps BOSS type.
+        }
       }
       this.viewDidLoad = viewDidLoad;
+
+      function viewWillUnload() {
+        $(app.controller).clearKioskTheme(view.ui.div("kiosk-page"));
+      }
+      this.viewWillUnload = viewWillUnload;
     }
   </script>
 
-  <div class="kiosk-page">
+  <div class="kiosk-page" name="kiosk-page">
 
     <div class="kiosk-column" style="max-width: 520px;">
 

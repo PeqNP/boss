@@ -34,6 +34,7 @@ from .money import *
 from .platform import *
 from .templates import *
 from .contact_fields import *
+from .kiosk_theme import *
 from .vendor import *
 
 from .customer import *
