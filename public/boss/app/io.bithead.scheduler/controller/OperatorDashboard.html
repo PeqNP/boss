@@ -77,6 +77,15 @@
         }
       }
       this.viewDidLoad = viewDidLoad;
+
+      this.events = {
+        "io.bithead.scheduler.job.changed": async function(ev) {
+          if (ev.data.businessId && String(ev.data.businessId) !== String(businessId)) {
+            return;
+          }
+          await viewDidLoad();
+        }
+      };
     }
   </script>
 

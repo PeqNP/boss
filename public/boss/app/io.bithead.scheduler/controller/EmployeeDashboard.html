@@ -2,6 +2,8 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
+      const businessId = $(app.controller).getBusinessId();
+
       // --- Controller functions ---
 
       async function openJob(jobId) {
@@ -78,6 +80,15 @@
           view.ui.div("self-manage-actions").style.display = "none";
         }
       }
+
+      this.events = {
+        "io.bithead.scheduler.job.changed": async function(ev) {
+          if (ev.data.businessId && String(ev.data.businessId) !== String(businessId)) {
+            return;
+          }
+          await loadToday();
+        }
+      };
     }
   </script>
 

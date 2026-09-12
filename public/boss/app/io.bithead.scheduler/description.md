@@ -13,7 +13,7 @@ A multi-tenant scheduling app for service businesses. Customers book from a publ
 
 ## What happens
 
-A customer opens the kiosk from a public URL, picks a service and a time, and leaves a contact. They get a job code to come back. The first page they land on carries the business's tag line; a logo may hang to the left of the name. An operator opens the business, sets hours and job types, puts people on the schedule, takes payment, and on Theme sets how the kiosk looks — tag line, logo, and the type for each named part of the page. An employee sees the work assigned to them.
+A customer opens the kiosk from a public URL, picks a service and a time, and leaves a contact. They get a job code to come back. The first page they land on carries the business's tag line; a logo may hang to the left of the name. An operator opens the business, sets hours and job types, puts people on the schedule, takes payment, and on Theme sets how the kiosk looks — tag line, logo, and the type for each named part of the page. An employee sees the work assigned to them, and the unassigned work of a type they can perform — a haircut on their chair, or every cafe order on the day. When a job is booked, cancelled, or moved, those people get a banner and the Dashboard and calendar they have open redraw. The owner sees every job.
 
 ## Out of scope
 

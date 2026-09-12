@@ -12,7 +12,7 @@
 - **Reference app for UI components:** `public/boss/app/io.bithead.tutorial/controller/Example.html`
 - **Reference for settings-style left-side navigation:** `io.bithead.settings` app (`Home.html`)
 - **Reference for test harness setup:** `private/tests/test_wordy.py` + `private/tests/libtest/`
-- **What is left:** kiosk Theme (tag line, logo, tokens, fonts) is the open slice. Every earlier stage is finished and every flow in `ui-plan.md` has a spec.
+- **What is left:** live job updates (banner + Dashboard and calendar redraw when a job is booked, cancelled, or moved). Every earlier stage is finished and every flow in `ui-plan.md` has a spec. Theme still needs a visual pass.
 
 ---
 
@@ -199,7 +199,7 @@ so there is no Add on that window.
 |---|---|---|---|---|
 | Super admin | BOSS user id 1 | any, named in the path | every record | — |
 | Operator | `employees.role = operator` | the one they run | every record of it | — |
-| Employee | `employees.role = employee` | the one they work for | their own record, and jobs assigned to them | `canManageOwnSchedule` |
+| Employee | `employees.role = employee` | the one they work for | their own record, jobs assigned to them, and unassigned jobs of a type they can perform | `canManageOwnSchedule` |
 | Customer | nobody — a customer is never signed in | named in the path | the kiosk, and the booking a job code opens | a verified code |
 
 ### Who reaches each page
@@ -264,7 +264,7 @@ may reach, and that sentence is the scoping rule the route implements.
 | `Appointment` | Customer · Operator | the appointment a verified lookup opened, or one belonging to the business the caller runs |
 | `EmployeeSchedule` | Employee · Operator | an operator reaches any employee of their business; an employee reaches their own record, and only while `canManageOwnSchedule` is set |
 | `EmployeeTimeOff` | Employee · Operator | the same |
-| `Job` · `QRPayment` | Employee · Operator | an operator reaches any job of their business; an employee reaches a job they are assigned to, and may edit it and take payment for it |
+| `Job` · `QRPayment` | Employee · Operator | an operator reaches any job of their business; an employee reaches a job they are assigned to, or an unassigned job of a type they can perform, and may edit it and take payment for it |
 | `SearchJob` | Employee · Operator | an operator searches every job of their business; an employee searches the jobs they are assigned to |
 | `IconPicker` | Operator · Admin | the caller's own business icons, plus the system set |
 
@@ -276,17 +276,61 @@ operator from `Employee` to edit anybody, and by an employee from
 no colleague's, and only while `canManageOwnSchedule` is set. The flag is
 stored and returned today and enforces nothing.
 
-**Assigned to them.** The schedule routes narrow by caller: an operator gets
-the business, an employee gets the jobs they are on. So `ScheduleCalendar` is
-one page serving both, and `EmployeeCalendar` is gone: it read the same two
-routes and held no function that one lacked. The week view came with the
-merge, being the same span of whatever the caller is shown; the employee
-filter did not, having never been built — the fetch behind it loaded a list
-nothing read.
+**Assigned to them, or the work of a type they can do.** The schedule routes
+narrow by caller: an operator gets the business. An employee gets the jobs they
+are on, and also an unassigned job of a type they can perform — a cafe order
+nobody is allocated to, a reserved slot still showing ⚠. A colleague's assigned
+haircut is not theirs. So `ScheduleCalendar` is one page serving both, and
+`EmployeeCalendar` is gone: it read the same two routes and held no function
+that one lacked. The week view came with the merge, being the same span of
+whatever the caller is shown; the employee filter did not, having never been
+built — the fetch behind it loaded a list nothing read.
 
-An employee reaches a job they are on. They may edit it
-and take payment for it; a colleague's job is not theirs to open, and
-`SearchJob` returns only their own.
+An employee may open a job they are on, or an unassigned job of a type they can
+perform, and may edit it and take payment for it. A colleague's assigned job is
+not theirs to open. `SearchJob` returns only jobs they are on.
+
+### Live job updates
+
+Staff watching the Dashboard or a date on the calendar see a booking land
+without reopening the window. Same for a cancel and a reschedule. Completing or
+taking payment does not redraw.
+
+**BOSS already routes by person.** `send_events` and `send_notifications` take
+`user_ids`. There is no client-side filter and no wrapper in the app: a banner
+that reached someone who should not see the job would already be the leak. The
+scheduler names the recipients; the OS delivers.
+
+Recipients of a job, one set, used for the banner, the event, and (for an
+employee) whether the job appears on their calendar and today list:
+
+| Who | When |
+|---|---|
+| Every operator of the business who has a BOSS account | Always. The owner sees everything. |
+| Assigned employees who have a BOSS account | The job has a crew (a reserved haircut). |
+| Employees who can perform the job type, are in the schedule, and have a BOSS account | The job has no crew (unlimited / cafe, or reserved still unassigned). |
+
+An employee with no linked account cannot receive a banner or an event. They
+are omitted, not queued.
+
+Event name: `io.bithead.scheduler.job.changed`. Payload strings:
+`jobId`, `kind` (`booked` / `cancelled` / `moved`), `date`, `businessId`.
+`OperatorDashboard`, `EmployeeDashboard`, and `ScheduleCalendar` listen and
+reload the view they already have open. The calendar stays on the month, week,
+or day it was showing.
+
+Banner, not persisted: `{job type} booked — {date} {time}`, or `cancelled` /
+`moved to` for the other kinds. No customer name — the screen is what has the
+detail, and a banner is forwarded more easily than a window.
+
+Emitted from the routes that book, cancel, and reschedule (kiosk confirm,
+appointment reschedule/cancel, operator job cancel). `send_events` /
+`send_notifications` stay in the route; the rule returns the recipient ids and
+the copy. A kiosk confirm has no operator session. `/private/send/events` is
+the localhost bridge and does not need one.
+
+**Stub endpoints:** none. Existing GETs stay. The new work is who those GETs
+return for an employee, and the event after a writer.
 
 **Their own choices.** `/my/profile` lets an employee say which job types they
 take. Ungated by `canManageOwnSchedule`, which names the schedule.
@@ -750,6 +794,7 @@ an owner tapping a second row is moved to the page that row names.
 **Stats:** Jobs today, jobs this week, revenue this month, upcoming jobs, unassigned one-time jobs, unassigned recurring jobs.
 **Buttons:** Enter Site (opens `SchedulerKiosk` for this business), View Schedule, Search Jobs (the last two also in the app menu).
 **"Needs Attention" fieldset:** Shown when unassigned jobs or recurring conflicts exist. Contains an "Assign Employees" button that opens `AssignEmployees`.
+Listens for `io.bithead.scheduler.job.changed` and reloads the stats.
 
 **Stub endpoints:**
 - `GET /api/io.bithead.scheduler/dashboard` → `{ businessId, jobsToday, jobsThisWeek, revenueThisMonth, upcomingJobs, unassignedJobs, unassignedConflicts }`
@@ -767,6 +812,7 @@ Checkbox table of all unassigned jobs (one-time and recurring). Header checkbox 
 
 #### `ScheduleCalendar`
 Three view modes: month, week, day. Toggled by segment buttons.
+Listens for `io.bithead.scheduler.job.changed` and reloads the view it is on.
 
 - **Month:** Highlighted days showing job count; tap day → day view
 - **Week:** Sun–Sat (fixed, always 7 columns); condensed rows (time + truncated job name + employee initials); unassigned jobs show `⚠` prefix
@@ -1012,7 +1058,8 @@ Shows Stripe Payment Link as a QR code + job amount. Opened by operator or emplo
 ### 1.3 Employee Portal Controllers
 
 #### `EmployeeDashboard`
-Default view: today's day schedule. Full job info visible: customer contact, co-workers (full names), job attributes, address if applicable. If `can_manage_own_schedule` flag: show buttons for schedule management and job type management.
+Default view: today's day schedule. Full job info visible: customer contact, co-workers (full names), job attributes, address if applicable. Jobs they are on, and unassigned jobs of a type they can perform. If `can_manage_own_schedule` flag: show buttons for schedule management and job type management.
+Listens for `io.bithead.scheduler.job.changed` and reloads today.
 
 **Stub endpoints:**
 - `GET /api/io.bithead.scheduler/my/today` → today's jobs for the logged-in employee
@@ -1673,6 +1720,12 @@ from io.bithead.scheduler import db
 - `describe: time-off window partial day` → employee available only outside the time-off window
 - `describe: include_in_schedule = false` → employee excluded from all slot computation
 
+#### `test_job_events()`
+- `describe: a reserved job with a crew` → operator and the assigned employee; a colleague who can do the type is omitted
+- `describe: an unassigned job` → operator and every in-schedule employee who can do the type
+- `describe: no BOSS account` → that employee is omitted
+- `describe: booked / cancelled / moved` → `kind` matches; complete and pay do not announce
+
 #### `test_kiosk_theme()`
 - `describe: empty tag line` → kiosk reads `What can we help you with?`
 - `describe: a tag line` → kiosk reads what was stored
@@ -1732,6 +1785,8 @@ private/app/io.bithead.scheduler/
 - `cancel_job(job_id, cancelled_by)` → updated job; triggers notification
 - `complete_job(job_id, completed_by)` → updated job; triggers receipt
 - `add_payment(job_id, amount, method, stripe_intent_id, collected_by)` → `Transaction`
+- `staff_who_see_job(job_id)` → `List[int]` user ids (operators always; crew when there is one; otherwise the in-schedule employees of that job type)
+- `job_change_notice(job_id, kind)` → recipient ids, event payload, banner title and body
 - `assign_employees_for_week(business_id, week_start_date)` → `List[JobAssignment]`
 - `get_financial_report(business_id, period, year, quarter)` → `FinancialReport`
 - `generate_job_code()` → short alphanumeric (e.g. 6 chars, uppercase A-Z0-9, collision-checked)
