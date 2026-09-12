@@ -22,6 +22,10 @@ git diff HEAD -- <paths> | grep "^[-+]def \|^[-+].*CREATE TABLE \|^[-+]@router\.
 The second command lists the symbols that moved. Those are the bullets.
 Omit `<paths>` when every uncommitted file is this changeset.
 
+Leave `plan.md`, `memory.md`, and index documents (`js.md`, `js-api.md`,
+other `docs/prompt/` lookups) out of `<paths>`. They travel with the work
+and are not named in the message.
+
 ## 2. Check any claim before making it
 
 `git show HEAD:<file>` settles what was already there — whether a column was
@@ -50,7 +54,6 @@ scheduler: cover working days, time off, and the work an employee takes
 - Record flow 5 as done in `ui-plan.md`, with deleting a working day and a
   time-off window still to cover
 - Record the missing BOSS account picker as a finding in `ui-plan.md`
-- Record it in `memory.md` under Open
 ```
 
 **Name every removal.** A removal exists only in history, so one a message
@@ -73,3 +76,5 @@ same `<paths>` as step 1.
   report's lessons, where the developer reads it once.
 - Counts, timings, or that tests pass.
 - Which files were read to work it out.
+- `plan.md`, `memory.md`, or index documents (`js.md`, `js-api.md`, other
+  `docs/prompt/` lookups). The bullets are the code.
