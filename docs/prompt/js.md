@@ -89,6 +89,13 @@ Set the controller width on `div.container`, not on `div.ui-window`:
 
 The container's content is what stretches the window chrome — the chrome wraps the container, not the other way around. Set `width` on `div.container`, not `div.ui-window`.
 
+A window that can be resized takes `resizable` on `div.container`, not on
+`div.ui-window`. Give the container a height as well as a width.
+
+```html
+<div class="container vbox gap-10 resizable" style="width: 480px; height: 400px;">
+```
+
 ### Minimal skeleton
 
 > For a complete CRUD controller (save + delete + cancel + delegate), see [Model controller — full CRUD skeleton](#model-controller--full-crud-skeleton).
