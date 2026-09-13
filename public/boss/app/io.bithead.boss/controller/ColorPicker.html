@@ -7,12 +7,11 @@
       let delegate = protocol(
         "ColorPickerDelegate", this, "delegate",
         [
-            // Color was selected
             "didSelectColor"
         ]
       );
 
-      const colors = [
+      const SYSTEM = [
         "#ff0080", "#ff0050", "#ff0020", "#ff1000",
         "#ff4000", "#ff7000", "#ff9f00", "#ffcf00",
         "#ffff00", "#cfff00", "#9fff00", "#70ff00",
@@ -23,30 +22,46 @@
         "#bf00ff", "#ef00ff", "#ff00df", "#ff00af"
       ];
 
-      let grid = view.ui.div("color-grid");
-      for (let i = 0; i < colors.length; i++) {
-        let swatch = document.createElement("div");
-        swatch.classList.add("swatch");
-        let fill = document.createElement("div");
-        fill.classList.add("fill");
-        fill.style.backgroundColor = colors[i];
-        swatch.appendChild(fill);
-        (function(s, c) {
-          s.addEventListener("click", function() { selectSwatch(s, c); });
-        })(swatch, colors[i]);
-        grid.appendChild(swatch);
+      const GREYS = (function() {
+        const n = SYSTEM.length;
+        const colors = [];
+        for (let i = 0; i < n; i++) {
+          const v = Math.round(255 * (n - 1 - i) / (n - 1));
+          const h = v.toString(16).padStart(2, "0");
+          colors.push(`#${h}${h}${h}`);
+        }
+        return colors;
+      })();
+
+      function fillGrid(grid, colors) {
+        grid.innerHTML = "";
+        for (let i = 0; i < colors.length; i++) {
+          const swatch = document.createElement("div");
+          swatch.classList.add("swatch");
+          const fill = document.createElement("div");
+          fill.classList.add("fill");
+          fill.style.backgroundColor = colors[i];
+          swatch.appendChild(fill);
+          (function(s, c) {
+            s.addEventListener("click", function() { selectSwatch(s, c); });
+          })(swatch, colors[i]);
+          grid.appendChild(swatch);
+        }
+      }
+
+      function showTab(name) {
+        view.ui.div("tab-system").style.display = name === "system" ? "" : "none";
+        view.ui.div("tab-greyscale").style.display = name === "greyscale" ? "" : "none";
       }
 
       function selectSwatch(swatch, color) {
-        // De-select selected swatch
         if (selectedSwatch === swatch) {
           selectedSwatch = null;
           selectedColor = null;
           view.ui.button("select-color").disabled = true;
           return;
         }
-        // Remove selected state from previous swatch
-        else if (!isEmpty(selectedSwatch)) {
+        if (!isEmpty(selectedSwatch)) {
           selectedSwatch.classList.remove("selected");
         }
 
@@ -71,11 +86,32 @@
       this.select = select;
 
       this.didHitEnter = select;
+
+      async function viewDidLoad() {
+        fillGrid(view.ui.div("color-grid-system"), SYSTEM);
+        fillGrid(view.ui.div("color-grid-greyscale"), GREYS);
+        view.ui.select("color-tabs").ui.delegate = {
+          didSelectTab: function(option) { showTab(option.value); }
+        };
+        showTab("system");
+      }
+      this.viewDidLoad = viewDidLoad;
     }
   </script>
   <div class="title">Color picker</div>
-  <div class="container vbox gap-10 align-center" style="width: 284px;">
-    <div name="color-grid" class="hbox gap-5" style="flex-wrap: wrap; width:156px;"></div>
+  <div class="container vbox gap-10" style="width: 284px;">
+    <div class="ui-tabs">
+      <select name="color-tabs">
+        <option value="system">System</option>
+        <option value="greyscale">Greyscale</option>
+      </select>
+    </div>
+    <div name="tab-system" class="hbox" style="justify-content: center;">
+      <div name="color-grid-system" class="hbox gap-5" style="flex-wrap: wrap; width:156px;"></div>
+    </div>
+    <div name="tab-greyscale" class="hbox" style="display: none; justify-content: center;">
+      <div name="color-grid-greyscale" class="hbox gap-5" style="flex-wrap: wrap; width:156px;"></div>
+    </div>
     <div class="controls">
       <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
       <button class="default" name="select-color" disabled onclick="$(this.controller).select();">Select color</button>

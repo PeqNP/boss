@@ -1729,8 +1729,8 @@ function UI(os) {
     /**
      * Show a color picker modal.
      *
-     * Displays a 32-color palette grid. The selected color is returned via the
-     * delegate callback.
+     * Displays System and Greyscale palettes of 32 swatches. The selected
+     * color is returned via the delegate callback.
      *
      * @param {function} selectColor - Called with the selected hex color string (e.g. "#ff0080") when the user taps "Select color"
      */
