@@ -243,18 +243,9 @@ def create_version_1_0_0(conn, version):
             tag_line TEXT,              -- kiosk first-step heading; empty is
                                         -- "What can we help you with?"
             logo_filename TEXT,         -- public media; hanging left of the name
-            kiosk_theme TEXT,           -- JSON { token: { font, size, color } }
+            kiosk_theme TEXT,           -- JSON { token: { font, weight, size, color } }
             create_date TEXT NOT NULL DEFAULT (datetime('now')),
             update_date TEXT NOT NULL DEFAULT (datetime('now'))
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE business_fonts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            business_id INTEGER NOT NULL REFERENCES businesses(id),
-            filename TEXT NOT NULL,     -- stored name under public media
-            family TEXT NOT NULL        -- CSS font-family, from the file's name
         )
     """)
 
@@ -3647,38 +3638,3 @@ def set_business_logo(business_id: int, filename: Optional[str]) -> int:
     )
 
 
-class BusinessFontRow(BaseModel):
-    id: int
-    business_id: int
-    filename: str
-    family: str
-
-
-def get_business_fonts(business_id: int) -> List["BusinessFontRow"]:
-    return _all_as(
-        BusinessFontRow,
-        "SELECT id, business_id, filename, family FROM business_fonts"
-        " WHERE business_id = ? ORDER BY id",
-        (business_id,)
-    )
-
-
-def get_business_font(font_id: int) -> Optional["BusinessFontRow"]:
-    return _one_as(
-        BusinessFontRow,
-        "SELECT id, business_id, filename, family FROM business_fonts"
-        " WHERE id = ?",
-        (font_id,)
-    )
-
-
-def insert_business_font(business_id: int, filename: str, family: str) -> int:
-    return insert(
-        "INSERT INTO business_fonts (business_id, filename, family)"
-        " VALUES (?, ?, ?)",
-        (business_id, filename, family)
-    )
-
-
-def delete_business_font(font_id: int) -> int:
-    return update("DELETE FROM business_fonts WHERE id = ?", (font_id,))

@@ -2,20 +2,19 @@
 # Scheduler — how a kiosk looks.
 #
 # Named tokens, not a generated stylesheet. Empty cells keep the BOSS
-# default. Uploaded fonts are this business's; Chicago and Geneva are the
-# system's.
+# default. Chicago and Geneva come from the OS catalog, not a table.
 #
 
 import json
 import os
 import re
 
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from lib import media
 
 from .. import db
-from ..model import KioskFont, KioskTokenStyle
+from ..model import KioskTokenStyle
 from .exception import ValidationError
 
 BUNDLE = "io.bithead.scheduler"
@@ -23,6 +22,7 @@ BUNDLE = "io.bithead.scheduler"
 DEFAULT_TAG_LINE = "What can we help you with?"
 
 SYSTEM_FONTS = ("ChicagoFLF", "Geneva")
+WEIGHTS = ("regular", "bold", "italic", "boldItalic")
 
 TOKENS = (
     "background",
@@ -66,10 +66,11 @@ def parse_theme(stored: Optional[str]) -> Dict[str, KioskTokenStyle]:
             continue
         style = KioskTokenStyle(
             font=spec.get("font") or None,
+            weight=spec.get("weight") or None,
             size=spec.get("size"),
             color=spec.get("color") or None
         )
-        if style.font or style.size or style.color:
+        if style.font or style.weight or style.size or style.color:
             theme[token] = style
     return theme
 
@@ -83,6 +84,8 @@ def encode_theme(theme: Dict[str, KioskTokenStyle]) -> Optional[str]:
         spec = {}
         if style.font:
             spec["font"] = style.font
+        if style.weight:
+            spec["weight"] = style.weight
         if style.size is not None:
             spec["size"] = style.size
         if style.color:
@@ -92,63 +95,15 @@ def encode_theme(theme: Dict[str, KioskTokenStyle]) -> Optional[str]:
     return json.dumps(packed) if packed else None
 
 
-def check_token_style(
-    style: KioskTokenStyle,
-    families: Optional[List[str]] = None
-) -> None:
-    allowed = set(SYSTEM_FONTS) | set(families or [])
-    if style.font and style.font not in allowed:
+def check_token_style(style: KioskTokenStyle) -> None:
+    if style.font and style.font not in SYSTEM_FONTS:
         raise ValidationError("That font is not one this business may use.")
-    if style.size is not None and (style.size < 8 or style.size > 96):
-        raise ValidationError("A size is between 8 and 96 pixels.")
+    if style.weight and style.weight not in WEIGHTS:
+        raise ValidationError("That is not a font style the picker offers.")
+    if style.size is not None and (style.size < 8 or style.size > 144):
+        raise ValidationError("A size is between 8 and 144 points.")
     if style.color and COLOR.match(style.color) is None:
         raise ValidationError("A color is a six-digit hex value.")
-
-
-def _font(row: "db.BusinessFontRow") -> KioskFont:
-    return KioskFont(
-        id=row.id,
-        family=row.family,
-        url=media.public_url(BUNDLE, row.filename)
-    )
-
-
-def get_business_fonts(business_id: int) -> List[KioskFont]:
-    return [_font(r) for r in db.get_business_fonts(business_id)]
-
-
-def _family_name(filename: str) -> str:
-    stem = os.path.splitext(os.path.basename(filename or ""))[0].strip()
-    cleaned = re.sub(r"[^A-Za-z0-9 _-]+", "", stem).strip()
-    return cleaned or "Custom"
-
-
-def add_business_font(
-    business_id: int,
-    filename: str,
-    content: bytes
-) -> KioskFont:
-    if db.get_business_config(business_id) is None:
-        raise ValidationError("That business no longer exists.")
-    try:
-        media.check_font(filename, content)
-    except (media.NotAFont, media.TooLarge) as e:
-        raise ValidationError(str(e))
-    stored = media.store_public(BUNDLE, filename, content)
-    family = _family_name(filename)
-    return _font(db.get_business_font(
-        db.insert_business_font(business_id, stored.name, family)
-    ))
-
-
-def delete_business_font(business_id: int, font_id: int) -> None:
-    row = db.get_business_font(font_id)
-    if row is None or row.business_id != business_id:
-        raise ValidationError("That font is not this business's to remove.")
-    db.delete_business_font(font_id)
-    path = os.path.join(media.public_directory(BUNDLE), row.filename)
-    if os.path.isfile(path):
-        os.unlink(path)
 
 
 def set_business_logo(business_id: int, filename: str, content: bytes) -> str:

@@ -1,6 +1,6 @@
 # Session Memory — Scheduler
 
-Every stage of `plan.md` is finished. Live job updates redraw the Dashboard and calendar when a job is booked, cancelled, or moved. Mock vendors are offered only when `env` is `dev`. US holidays fill from `python-holidays` when a year is empty. Contact field types are code in `lib/contact_fields.py`. A customer has one `name`. Employees still have first and last name. A Stripe product, payment, and deposit are chosen on a job-type size; its price fills the size's cost and is snapshotted onto the job at hold. Verification is one flag on the job type. Confirmation channels live on the Notifications tab. Font picker is Stage 1. A kiosk Theme tab sets tag line, logo, and tokens. CSS variables on `.kiosk-page` clear when the kiosk unloads. Schema is 1.0.0.
+Every stage of `plan.md` is finished. Live job updates redraw the Dashboard and calendar when a job is booked, cancelled, or moved. Mock vendors are offered only when `env` is `dev`. US holidays fill from `python-holidays` when a year is empty. Contact field types are code in `lib/contact_fields.py`. A customer has one `name`. Employees still have first and last name. A Stripe product, payment, and deposit are chosen on a job-type size; its price fills the size's cost and is snapshotted onto the job at hold. Verification is one flag on the job type. Confirmation channels live on the Notifications tab. Every stage of `plan.md` is finished. A kiosk Theme tab sets tag line, logo, and tokens via the BOSS font picker. Faces come from `GET /api/io.bithead.boss/fonts`. CSS variables on `.kiosk-page` clear when the kiosk unloads. Schema is 1.0.0.
 
 ## Watch out for
 
@@ -11,5 +11,4 @@ Every stage of `plan.md` is finished. Live job updates redraw the Dashboard and 
 
 ## Open
 
-- Font picker: Stage 1. `FontPicker` modal and Theme font buttons. Visual pass, then Stage 3 (`GET /fonts`, drop upload, `weight` on the token, `business_fonts` leaves `1.0.0` CREATE). Catalog is hard-coded in the picker until then.
-- Restart Python so 1.0.0 recreates with Theme columns and so live job events are sent. `scheduler.sqlite3` was deleted. Then re-run `verify a phone` and `pay a deposit`. Agents do not start or restart the service.
+- Restart Python so `GET /fonts` and Theme `weight` land, and so 1.0.0 recreates without `business_fonts`. Then re-run `verify a phone` and `pay a deposit`. Agents do not start or restart the service.

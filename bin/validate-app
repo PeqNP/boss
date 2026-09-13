@@ -618,7 +618,15 @@ def _declared_models(bundle):
     resolved rather than read literally.
     """
     bases, own = {}, {}
-    for source in ("model.py", "__init__.py"):
+    bundle_dir = os.path.join(PRIVATE_DIR, bundle)
+    sources = []
+    if os.path.isdir(bundle_dir):
+        for name in sorted(os.listdir(bundle_dir)):
+            if name.endswith(".py") and name != "db.py":
+                sources.append(name)
+    else:
+        sources = ["model.py", "__init__.py"]
+    for source in sources:
         path = os.path.join(PRIVATE_DIR, bundle, source)
         if not os.path.exists(path):
             continue

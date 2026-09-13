@@ -15,6 +15,7 @@ from lib.model import User
 # TODO: Decorate
 from lib.server import get_dbm_path, require_user
 from fastapi import APIRouter, HTTPException, Request
+from .fonts import SystemFonts, get_system_fonts
 from pydantic import BaseModel
 from starlette.responses import Response
 from starlette.status import HTTP_403_FORBIDDEN
@@ -64,6 +65,13 @@ def check_user(user_id, user):
 # MARK: API
 
 router = APIRouter(prefix="/api/io.bithead.boss")
+
+
+@router.get("/fonts", response_model=SystemFonts)
+async def get_fonts():
+    """Chicago and Geneva, as the font picker lists them."""
+    return SystemFonts(fonts=get_system_fonts())
+
 
 @router.get("/heartbeat", response_model=ServerInfo)
 async def get_heartbeat(request: Request):

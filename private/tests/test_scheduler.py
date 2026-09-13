@@ -3682,9 +3682,9 @@ def test_kiosk_theme():
         "it: the first step still has something to say"
 
     # describe: a tag line
-    update_business_config(business_id, {"tagLine": "Please select an option"})
-    assert get_kiosk(business_id).tagLine == "Please select an option"
-    assert get_business_config(business_id).tagLine == "Please select an option"
+    update_business_config(business_id, {"tagLine": "Please pick an option"})
+    assert get_kiosk(business_id).tagLine == "Please pick an option"
+    assert get_business_config(business_id).tagLine == "Please pick an option"
 
     # describe: no logo
     assert get_kiosk(business_id).logoUrl is None
@@ -3713,20 +3713,62 @@ def test_kiosk_theme():
             "theme": {"title": KioskTokenStyle(color="red")}
         })
 
-    # describe: upload a font
-    font = add_business_font(business_id, "Camp.woff2", b"woff2-bytes")
-    assert font.family == "Camp"
-    assert font.url.endswith(".woff2")
-    assert [f.family for f in get_business_fonts(business_id)] == ["Camp"]
-    assert get_kiosk(business_id).fonts[0].family == "Camp"
+    # describe: a title font
+    update_business_config(business_id, {
+        "theme": {"title": KioskTokenStyle(
+            font="ChicagoFLF", weight="bold", size=18)}
+    })
+    face = get_kiosk(business_id).theme["title"]
+    assert face.font == "ChicagoFLF"
+    assert face.weight == "bold"
+    assert face.size == 18
 
-    # describe: a file that is not a font
+    # describe: Geneva
+    update_business_config(business_id, {
+        "theme": {"body": KioskTokenStyle(font="Geneva", weight="italic")}
+    })
+    body = get_kiosk(business_id).theme["body"]
+    assert body.font == "Geneva"
+    assert body.weight == "italic"
+
+    # describe: a face the catalog does not offer
     with pytest.raises(ValidationError):
-        add_business_font(business_id, "notes.txt", b"hello")
+        update_business_config(business_id, {
+            "theme": {"title": KioskTokenStyle(font="Camp")}
+        })
+
+    # describe: a style the picker does not offer
+    with pytest.raises(ValidationError):
+        update_business_config(business_id, {
+            "theme": {"title": KioskTokenStyle(weight="light")}
+        })
+
+    # describe: a size below 8
+    with pytest.raises(ValidationError):
+        update_business_config(business_id, {
+            "theme": {"title": KioskTokenStyle(size=7)}
+        })
+
+    # describe: a size of 8
+    update_business_config(business_id, {
+        "theme": {"title": KioskTokenStyle(size=8)}
+    })
+    assert get_kiosk(business_id).theme["title"].size == 8
+
+    # describe: a size of 144
+    update_business_config(business_id, {
+        "theme": {"title": KioskTokenStyle(size=144)}
+    })
+    assert get_kiosk(business_id).theme["title"].size == 144
+
+    # describe: a size above 144
+    with pytest.raises(ValidationError):
+        update_business_config(business_id, {
+            "theme": {"title": KioskTokenStyle(size=145)}
+        })
 
     # describe: another business
     other = a_business(increment=30)
-    assert get_business_fonts(other) == []
     assert get_kiosk(other).logoUrl is None
 
 

@@ -15,7 +15,7 @@ from .. import db
 from ..model import *
 from .exception import ValidationError
 from .kiosk_theme import (
-    check_token_style, encode_theme, get_business_fonts, logo_url, parse_theme
+    check_token_style, encode_theme, logo_url, parse_theme
 )
 from .templates import get_business_template
 from .transform import _business, _hours, _job_type
@@ -262,7 +262,6 @@ def _config(row: "db.BusinessConfigRow") -> BusinessConfig:
         tagLine=row.tag_line or "",
         logoUrl=logo_url(row.logo_filename),
         theme=parse_theme(row.kiosk_theme),
-        fonts=get_business_fonts(row.id),
     )
 
 
@@ -300,12 +299,11 @@ def update_business_config(
     columns = {}
     for field, value in settings.items():
         if field == "theme":
-            families = [f.family for f in get_business_fonts(business_id)]
             packed = {}
             for token, spec in (value or {}).items():
                 style = spec if isinstance(spec, KioskTokenStyle) \
                     else KioskTokenStyle(**spec)
-                check_token_style(style, families)
+                check_token_style(style)
                 packed[token] = style
             encoded = encode_theme(packed)
             columns["kiosk_theme"] = encoded

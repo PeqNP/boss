@@ -21,7 +21,7 @@ from .employee import get_employees
 from .job_type import (get_job_types, get_job_type_attributes,
                        get_job_type_contact_fields, get_job_type_sizes)
 from .kiosk_theme import (
-    get_business_fonts, logo_url, parse_theme, resolved_tag_line
+    logo_url, parse_theme, resolved_tag_line
 )
 from .platform import get_schedule_timeout_minutes
 from .time import display_date, display_time
@@ -54,7 +54,6 @@ def get_kiosk(business_id: int) -> Optional[Kiosk]:
         tagLine=resolved_tag_line(row.tag_line),
         logoUrl=logo_url(row.logo_filename),
         theme=parse_theme(row.kiosk_theme),
-        fonts=get_business_fonts(business_id),
     )
 
 

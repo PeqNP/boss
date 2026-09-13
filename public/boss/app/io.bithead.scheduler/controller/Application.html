@@ -220,25 +220,23 @@
        * Paints kiosk tokens onto `.kiosk-page`. Cleared on unload.
        *
        * @param {HTMLElement} page
-       * @param {object} config - tagLine, theme, fonts from GET /kiosk
+       * @param {object} config - tagLine, theme from GET /kiosk
        */
       function applyKioskTheme(page, config) {
         if (isEmpty(page) || isEmpty(config)) {
           return;
         }
-        let faces = page.querySelector("style[name='kiosk-faces']");
-        if (isEmpty(faces)) {
-          faces = document.createElement("style");
-          faces.setAttribute("name", "kiosk-faces");
-          page.appendChild(faces);
-        }
-        faces.textContent = (config.fonts || []).map(function(f) {
-          return `@font-face { font-family: "${f.family}"; src: url("${f.url}"); }`;
-        }).join("\n");
         const theme = config.theme || {};
         for (const token of KIOSK_TOKENS) {
           const spec = theme[token] || {};
+          const weight = spec.weight;
           setKioskVar(page, token, "font", spec.font);
+          setKioskVar(page, token, "weight",
+                      (weight === "bold" || weight === "boldItalic") ? "700"
+                      : isEmpty(weight) ? "" : "400");
+          setKioskVar(page, token, "style",
+                      (weight === "italic" || weight === "boldItalic") ? "italic"
+                      : isEmpty(weight) ? "" : "normal");
           setKioskVar(page, token, "size",
                       isEmpty(spec.size) ? "" : `${spec.size}px`);
           setKioskVar(page, token, "color", spec.color);
@@ -259,12 +257,11 @@
         if (isEmpty(page)) {
           return;
         }
-        const faces = page.querySelector("style[name='kiosk-faces']");
-        if (!isEmpty(faces)) {
-          faces.remove();
-        }
+
         for (const token of KIOSK_TOKENS) {
           setKioskVar(page, token, "font", "");
+          setKioskVar(page, token, "weight", "");
+          setKioskVar(page, token, "style", "");
           setKioskVar(page, token, "size", "");
           setKioskVar(page, token, "color", "");
         }

@@ -436,6 +436,8 @@
   background-color: var(--kiosk-selected-color, #000);
   color: #fff;
   font-family: var(--kiosk-selected-font, "ChicagoFLF");
+  font-weight: var(--kiosk-selected-weight, inherit);
+  font-style: var(--kiosk-selected-style, inherit);
   font-size: var(--kiosk-selected-size, inherit);
 }
 
@@ -482,12 +484,16 @@
 
 .kiosk-page h2 {
   font-family: var(--kiosk-heading-font, "ChicagoFLF");
+  font-weight: var(--kiosk-heading-weight, inherit);
+  font-style: var(--kiosk-heading-style, inherit);
   font-size: var(--kiosk-heading-size, 1.5em);
   color: var(--kiosk-heading-color, inherit);
 }
 
 .kiosk-page .kiosk-landing-heading {
   font-family: var(--kiosk-subtitle-font, "ChicagoFLF");
+  font-weight: var(--kiosk-subtitle-weight, inherit);
+  font-style: var(--kiosk-subtitle-style, inherit);
   font-size: var(--kiosk-subtitle-size, 1.5em);
   color: var(--kiosk-subtitle-color, inherit);
 }
@@ -496,18 +502,24 @@
 .kiosk-page .kiosk-field,
 .kiosk-page .kiosk-field input {
   font-family: var(--kiosk-body-font, "Geneva");
+  font-weight: var(--kiosk-body-weight, inherit);
+  font-style: var(--kiosk-body-style, inherit);
   font-size: var(--kiosk-body-size, inherit);
   color: var(--kiosk-body-color, inherit);
 }
 
 .kiosk-page button.primary {
   font-family: var(--kiosk-button-primary-font, "ChicagoFLF");
+  font-weight: var(--kiosk-button-primary-weight, inherit);
+  font-style: var(--kiosk-button-primary-style, inherit);
   font-size: var(--kiosk-button-primary-size, inherit);
   color: var(--kiosk-button-primary-color, inherit);
 }
 
 .kiosk-page button.default {
   font-family: var(--kiosk-button-default-font, "ChicagoFLF");
+  font-weight: var(--kiosk-button-default-weight, inherit);
+  font-style: var(--kiosk-button-default-style, inherit);
   font-size: var(--kiosk-button-default-size, inherit);
   color: var(--kiosk-button-default-color, inherit);
 }
@@ -548,6 +560,8 @@
 
 .kiosk-title {
   font-family: var(--kiosk-title-font, "ChicagoFLF");
+  font-weight: var(--kiosk-title-weight, inherit);
+  font-style: var(--kiosk-title-style, inherit);
   font-size: var(--kiosk-title-size, 20px);
   color: var(--kiosk-title-color, inherit);
   flex: 1;
@@ -606,6 +620,8 @@
   margin-top: 30px;
   text-align: center;
   font-family: var(--kiosk-footer-font, "Geneva");
+  font-weight: var(--kiosk-footer-weight, inherit);
+  font-style: var(--kiosk-footer-style, inherit);
   font-size: var(--kiosk-footer-size, 14px);
   color: var(--kiosk-footer-color, inherit);
 }

@@ -189,24 +189,15 @@ class Success(Model):
 
 
 class KioskTokenStyle(Model):
-    """Font, size and color for one kiosk token. Omitted keys keep the default."""
+    """Font, weight, size and color for one kiosk token. Omitted keys keep the default."""
     font: Optional[str] = None
+    weight: Optional[str] = None
     size: Optional[int] = None
     color: Optional[str] = None
 
 
-class KioskFont(Model):
-    id: int
-    family: str
-    url: str
-
-
 class Logo(Model):
     url: str
-
-
-class KioskFonts(Model):
-    fonts: List[KioskFont] = []
 
 
 #   GET /admin/config
@@ -254,7 +245,6 @@ class BusinessConfig(Model):
     tagLine: str = ""
     logoUrl: Optional[str] = None
     theme: Dict[str, KioskTokenStyle] = {}
-    fonts: List[KioskFont] = []
 
 
 #   GET /admin/config/stripe/connect
@@ -722,7 +712,6 @@ class Kiosk(Model):
     tagLine: str = ""
     logoUrl: Optional[str] = None
     theme: Dict[str, KioskTokenStyle] = {}
-    fonts: List[KioskFont] = []
 
 
 #   GET /kiosk/{business_id}/calendar

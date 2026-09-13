@@ -2,10 +2,7 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
-      const FACES = [
-        { id: "ChicagoFLF", name: "Chicago", styles: ["regular", "bold", "italic", "boldItalic"] },
-        { id: "Geneva", name: "Geneva", styles: ["regular", "bold", "italic", "boldItalic"] }
-      ];
+      let FACES = [];
 
       const STYLE_NAMES = {
         regular: "Regular",
@@ -35,7 +32,7 @@
             return face;
           }
         }
-        return FACES[0];
+        return FACES[0] || { id: "", name: "", styles: ["regular"] };
       }
 
       function cssWeight(style) {
@@ -68,7 +65,7 @@
 
       function applyCurrent() {
         const current = pending || {};
-        family = current.family || FACES[0].id;
+        family = current.family || (FACES[0] && FACES[0].id);
         size = parseInt(current.size, 10);
         if (!isNumeric(size) || size < 8 || size > 144) {
           size = 12;
@@ -133,6 +130,13 @@
       this.sizeTyped = sizeTyped;
 
       async function viewDidLoad() {
+        try {
+          const catalog = await os.network.get("/api/io.bithead.boss/fonts");
+          FACES = catalog.fonts || [];
+        }
+        catch {
+          FACES = [];
+        }
         view.ui.select("font-family").ui.addNewOptions(
           FACES.map(function(face) {
             return { id: face.id, name: face.name };
