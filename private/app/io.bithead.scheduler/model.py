@@ -997,6 +997,7 @@ class ConfirmationSentTo(Model):
 class KioskSessionConfirm(Model):
     jobId: int
     jobCode: str
+    accessHandle: str
     stripePaymentUrl: Optional[str] = None
     confirmationSentTo: Optional[ConfirmationSentTo] = None
 
@@ -1118,6 +1119,8 @@ class JobSession(Model):
     # Where the booking confirmation went, once confirmed. Empty means nothing
     # was sent, and the kiosk tells the customer to keep their job code.
     confirmationSentTo: List[Delivery] = []
+    # Opens the appointment without a lookup. Set when the hold is confirmed.
+    accessHandle: Optional[str] = None
 
 
 class Appointment(Model):

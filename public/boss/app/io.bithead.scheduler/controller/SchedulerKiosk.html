@@ -20,8 +20,9 @@
       let pendingAttributeData = null;
 
       // The appointment this kiosk just booked. Set on the confirmation step,
-      // and the reason Edit skips the lookup there.
-      let confirmedJobId = null;
+      // and the reason Edit skips the lookup there. The handle is what the
+      // appointment routes take, not the job id.
+      let confirmedAccessHandle = null;
       let otpAttempts = 0;
       const MAX_OTP_ATTEMPTS = 3;
 
@@ -134,7 +135,7 @@
         // Back at the beginning is a new customer, and the last one's
         // appointment is not theirs to open. This is a shared screen.
         if (name === rootStep()) {
-          confirmedJobId = null;
+          confirmedAccessHandle = null;
         }
         showStep(name);
       }
@@ -592,6 +593,7 @@
           return;
         }
         clearLockTimer();
+        confirmedAccessHandle = response.accessHandle;
         if (!isEmpty(response.stripePaymentUrl)) {
           const deposit = !isEmpty(selectedSize) && selectedSize.depositRequired === true;
           view.ui.span("pay-title").textContent = deposit
@@ -633,7 +635,6 @@
       }
 
       function showConfirmation(data) {
-        confirmedJobId = data.jobId;
         view.ui.span("confirm-job-code").textContent = data.jobCode || "";
         view.ui.span("confirm-job-type").textContent = selectedJobType.name;
         view.ui.span("confirm-slot").textContent = `${selectedSlot.displayDate} at ${selectedSlot.displayTime}`;
@@ -686,10 +687,10 @@
       async function editAppointment() {
         // The confirmation step just booked it with the customer standing
         // here, so there is nothing left for them to prove.
-        if (!isEmpty(confirmedJobId)) {
+        if (!isEmpty(confirmedAccessHandle)) {
           const win = await $(app.controller).loadController("Appointment");
           win.ui.show(function(ctrl) {
-            ctrl.configure(confirmedJobId);
+            ctrl.configure(confirmedAccessHandle, businessId);
           });
           return;
         }
@@ -729,6 +730,14 @@
         resetToStep(rootStep());
       }
       this.startOver = startOver;
+
+      function retryHome() {
+        if (isEmpty(businessId)) {
+          return;
+        }
+        viewDidLoad();
+      }
+      this.retryHome = retryHome;
 
       function closeKiosk() {
         // Only shown if user is a verified operator (see viewDidLoad)
@@ -897,7 +906,10 @@
 
       <!-- Step: Error -->
       <div name="step-error" style="display: none; text-align: center;">
-        <p>We're unable to load this business's scheduling page. Please try again later.</p>
+        <p>We're unable to load this page. Please try again.</p>
+        <div class="controls centered" style="margin-top: 20px;">
+          <button class="default" onclick="$(this.controller).retryHome();">Start Over</button>
+        </div>
       </div>
 
       <!-- Step: Employee selection -->

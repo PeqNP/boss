@@ -25,6 +25,7 @@ from .contact_fields import (
 )
 from .platform import get_schedule_timeout_minutes
 from .time import _stamp, display_date, display_time
+from .appointment import grant_access_handle
 
 
 def _expiry(now: Optional[datetime]) -> str:
@@ -172,6 +173,7 @@ def confirm_session(
 
     session = _session(session_token)
     session.confirmationSentTo = send_booking_confirmation(row.job_id)
+    session.accessHandle = grant_access_handle(row.job_id)
     return session
 
 

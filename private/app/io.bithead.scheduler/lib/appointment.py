@@ -357,6 +357,13 @@ def get_appointment_by_code(
     return None if job is None else get_appointment(job.id, now=now)
 
 
+def grant_access_handle(job_id: int) -> str:
+    """Mint the handle the appointment routes take in place of the job id."""
+    handle = _access_handle()
+    db.set_job_access_handle(job_id, handle)
+    return handle
+
+
 def appointment_for_handle(
     handle: str,
     now: Optional[datetime] = None
@@ -418,8 +425,7 @@ def verify_appointment_access(
     db.spend_access_code(record.id, moment)
     # What the customer carries from here. Minted rather than reused, so a
     # handle from an earlier verification stops opening the appointment.
-    handle = _access_handle()
-    db.set_job_access_handle(job.id, handle)
+    handle = grant_access_handle(job.id)
     opened = get_appointment(job.id, now=now)
     return AppointmentAccess(
         accessHandle=handle,

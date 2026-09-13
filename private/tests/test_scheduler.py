@@ -678,6 +678,9 @@ def test_job_session():
     assert confirmed is not None
     assert get_appointment(held.jobId, now=NOW).status == "confirmed", \
         "it: turns the hold into a booking"
+    assert confirmed.accessHandle, "it: hands back a handle, not the job id"
+    assert appointment_for_handle(confirmed.accessHandle).id == held.jobId, \
+        "it: that handle opens the appointment just booked"
 
 
 def test_job_session_expires():

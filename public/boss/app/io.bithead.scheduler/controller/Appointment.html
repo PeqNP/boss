@@ -7,12 +7,13 @@
       // take this rather than the appointment's id, so a screen opened
       // without verifying has nothing to send.
       let accessHandle = null;
+      let businessId = null;
       let appointment = null;
-      let currentStep = "detail"; // detail | reschedule | cancelled
+      let currentStep = "detail"; // detail | reschedule | cancelled | error
 
       // `reschedule-calendar` and `reschedule-day-slots` were listed here and
       // never existed in the markup. The shared picker holds both views now.
-      const STEPS = ["detail", "reschedule-slot", "cancelled"];
+      const STEPS = ["detail", "reschedule-slot", "cancelled", "error"];
 
       // --- Private helpers ---
 
@@ -100,13 +101,7 @@
       this.showCancelConfirm = showCancelConfirm;
 
       function scheduleNew() {
-        // Open the kiosk scheduling flow for the same business
-        if (!isEmpty(appointment) && !isEmpty(appointment.business)) {
-          view.ui.close();
-        }
-        else {
-          view.ui.close();
-        }
+        goHome();
       }
       this.scheduleNew = scheduleNew;
 
@@ -115,10 +110,29 @@
       }
       this.closeKiosk = closeKiosk;
 
+      async function goHome() {
+        const id = businessId || appointment?.businessId;
+        if (!isEmpty(id)) {
+          const win = await $(app.controller).loadController("SchedulerKiosk");
+          win.ui.show(function(ctrl) {
+            ctrl.configure(id);
+          });
+        }
+        view.ui.close();
+      }
+      this.goHome = goHome;
+
+      function showLoadError() {
+        showStep("error");
+        view.ui.button("error-home-btn").style.display =
+          isEmpty(businessId) ? "none" : "";
+      }
+
       // --- Configure ---
 
-      function configure(_accessHandle) {
+      function configure(_accessHandle, _businessId) {
         accessHandle = _accessHandle;
+        businessId = _businessId || null;
       }
       this.configure = configure;
 
@@ -133,7 +147,7 @@
           response = await os.network.get(`/api/io.bithead.scheduler/appointment/${accessHandle}`);
         }
         catch {
-          os.ui.showError("Failed to load appointment. Please try again.");
+          showLoadError();
           return;
         }
         appointment = response;
@@ -256,6 +270,15 @@
         <div class="controls centered" style="margin-top: 20px;">
           <button class="primary" onclick="$(this.controller).closeKiosk();">Close</button>
           <button class="default" onclick="$(this.controller).scheduleNew();">Schedule a New Appointment</button>
+        </div>
+      </div>
+
+      <!-- Step: Error -->
+      <div name="step-error" style="display: none; text-align: center;">
+        <p>We're unable to load this appointment. Please try again.</p>
+        <div class="controls centered" style="margin-top: 20px;">
+          <button class="primary" onclick="$(this.controller).closeKiosk();">Close</button>
+          <button name="error-home-btn" class="default" onclick="$(this.controller).goHome();">Start Over</button>
         </div>
       </div>
 

@@ -409,6 +409,7 @@ async def confirm_kiosk_session(
     return KioskSessionConfirm(
         jobId=session.jobId,
         jobCode=session.jobCode,
+        accessHandle=session.accessHandle,
         stripePaymentUrl=_payment_url(session.jobId, request),
         # Nothing sent is answered as nothing, rather than as an object saying
         # nothing twice.
