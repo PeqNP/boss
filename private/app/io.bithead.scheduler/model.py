@@ -550,6 +550,7 @@ class ScheduleDayJob(Model):
     overlapTotal: int
     status: str
     paymentStatus: str
+    unassigned: bool
 
 
 #   GET /admin/schedule/day
@@ -583,6 +584,7 @@ class ScheduleWeekJob(Model):
     endTime: str
     employeeInitials: List[str] = []
     status: str
+    unassigned: bool
 
 
 class ScheduleWeekDay(Model):

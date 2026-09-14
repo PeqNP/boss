@@ -235,8 +235,7 @@
             const row = document.createElement("div");
             row.className = "week-job";
             const initials = (job.employeeInitials || []).join(", ");
-            const unassigned = !initials;
-            row.innerHTML = (unassigned ? "<span class='week-job-alert'>\u26a0 </span>" : "") + `<span class='week-job-time'>${formatTime(job.startTime)}</span> <span class='week-job-name'>${job.jobType}</span>${(initials ? " <span class='week-job-emp'>" + initials + "</span>" : "")}`;
+            row.innerHTML = (job.unassigned ? "<span class='week-job-alert'>\u26a0 </span>" : "") + `<span class='week-job-time'>${formatTime(job.startTime)}</span> <span class='week-job-name'>${job.jobType}</span>${(initials ? " <span class='week-job-emp'>" + initials + "</span>" : "")}`;
             row.onclick = (function(jid) { return function() { openJobEdit(jid); }; })(job.id);
             col.appendChild(row);
           }
@@ -276,7 +275,7 @@
         el.className = "day-job";
         const body = document.createElement("div");
         body.className = "day-job-body";
-        if (isEmpty(job.employees)) {
+        if (job.unassigned) {
           appendJobLine(body, "day-job-alert", "\u26a0");
         }
         appendJobLine(body, "day-job-time",

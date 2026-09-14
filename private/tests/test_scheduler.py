@@ -4145,6 +4145,21 @@ def test_schedule_week():
     assert monday.jobs[0].endTime == "10:00", "it: says when the work ends"
     assert monday.jobs[0].employeeInitials == ["AK", "BT"], \
         "it: names the crew small enough to fit the column"
+    assert monday.jobs[0].unassigned is False
+
+    # describe: unlimited, nobody on it
+    cafe = book_at(business_id, job_type_id, size_id, "2026-07-16", "10:00")
+    thursday = get_schedule_week(business_id, "2026-07-13").days[4]
+    assert [j.id for j in thursday.jobs] == [cafe]
+    assert thursday.jobs[0].unassigned is False, \
+        "it: unlimited does not mark a job as needing a person"
+
+    # describe: reserved, nobody on it
+    reserved_id, rtype, rsize, _, _ = a_scheduled_business("reserved")
+    book_at(reserved_id, rtype, rsize, "2026-07-13", "10:00")
+    lonely = get_schedule_week(reserved_id, "2026-07-13").days[1].jobs[0]
+    assert lonely.unassigned is True, \
+        "it: a reserved job with no crew needs a person"
 
     assert week.days[3].jobs[0].startTime == "14:00"
     assert week.days[6].jobs == [], "it: the Saturday is empty"
@@ -4220,6 +4235,22 @@ def test_schedule_day():
 
     # describe: a day with nothing on it
     assert get_schedule_day(business_id, "2026-07-16").jobs == []
+
+    # describe: unlimited, nobody on it
+    cafe = book_at(business_id, job_type_id, size_id, "2026-07-17", "10:00")
+    assert get_schedule_day(business_id, "2026-07-17").jobs[0].unassigned is False, \
+        "it: unlimited does not mark a job as needing a person"
+
+    # describe: reserved, nobody on it
+    reserved_id, rtype, rsize, ralice, _ = a_scheduled_business("reserved")
+    book_at(reserved_id, rtype, rsize, "2026-07-13", "10:00")
+    assert get_schedule_day(reserved_id, "2026-07-13").jobs[0].unassigned is True, \
+        "it: a reserved job with no crew needs a person"
+
+    # describe: reserved, somebody on it
+    book_at(reserved_id, rtype, rsize, "2026-07-14", "10:00", [ralice])
+    assert get_schedule_day(reserved_id, "2026-07-14").jobs[0].unassigned is False, \
+        "it: a reserved job with a crew does not"
 
 
 def test_unassigned_jobs():

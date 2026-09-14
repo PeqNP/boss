@@ -96,6 +96,7 @@ def get_schedule_week(
         employee_id
     )
     crew = _crew_for([r.id for r in rows])
+    slot_mode = db.get_business(business_id).slot_mode
 
     days = []
     for offset in range(7):
@@ -112,12 +113,22 @@ def get_schedule_week(
                     startTime=r.scheduled_time,
                     endTime=_end_time(r.scheduled_time, r.duration_minutes),
                     employeeInitials=[_initials(e) for e in crew.get(r.id, [])],
-                    status=r.status
+                    status=r.status,
+                    unassigned=_unassigned(slot_mode, crew.get(r.id, []))
                 )
                 for r in rows if r.scheduled_date == on
             ],
         ))
     return ScheduleWeek(weekStart=start, days=days)
+
+
+def _unassigned(slot_mode: str, crew: list) -> bool:
+    """Whether the calendar should mark this job as needing a person.
+
+    Only under `reserved`. Unlimited allocates nobody, so an empty crew is
+    ordinary and the mark would cry wolf.
+    """
+    return slot_mode == "reserved" and not crew
 
 
 def _for_employee(rows: list, employee_id: Optional[int]) -> list:
@@ -188,6 +199,7 @@ def get_schedule_day(
         employee_id
     )
     crew = _crew_for([r.id for r in rows])
+    slot_mode = db.get_business(business_id).slot_mode
     layout = _lay_out([
         (r.id, to_minutes(r.scheduled_time),
          to_minutes(r.scheduled_time) + r.duration_minutes)
@@ -214,7 +226,8 @@ def get_schedule_day(
                 overlapColumn=layout[r.id][0],
                 overlapTotal=layout[r.id][1],
                 status=r.status,
-                paymentStatus=r.payment_status
+                paymentStatus=r.payment_status,
+                unassigned=_unassigned(slot_mode, crew.get(r.id, []))
             )
             for r in rows
         ],

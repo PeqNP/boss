@@ -815,10 +815,10 @@ Three view modes: month, week, day. Toggled by segment buttons.
 Listens for `io.bithead.scheduler.job.changed` and reloads the view it is on.
 
 - **Month:** Highlighted days showing job count; tap day → day view
-- **Week:** Sun–Sat (fixed, always 7 columns); condensed rows (time + truncated job name + employee initials); unassigned jobs show `⚠` prefix
+- **Week:** Sun–Sat (fixed, always 7 columns); condensed rows (time + truncated job name + employee initials); under `reserved`, a job with no crew shows `⚠`
 - **Day:** Two layouts for the same date. Below the date arrows and Month / Week / Day, a radio group: `Display: (•) Timeline ( ) Queue`. Timeline is the default. An operator sees every job of the business; an employee sees the same slice Day already shows them.
-  - **Timeline:** Overlapping jobs shown side-by-side and time-offset; unassigned jobs show `⚠`; edit via `Job` form (no drag-and-drop). Completed jobs still appear.
-  - **Queue:** Jobs stacked vertically, one block per row, no overlap and no time-offset. Order is scheduled time, then job id — clock order, and the earlier booking above when two share a time. Completed and cancelled jobs are omitted. Unassigned jobs show `⚠`. A tap opens `Job`. Empty copy: "No jobs in the queue." Same `GET .../schedule/day`; the stack is a layout of that list, not a second route.
+  - **Timeline:** Overlapping jobs shown side-by-side and time-offset; under `reserved`, a job with no crew shows `⚠`; edit via `Job` form (no drag-and-drop). Completed jobs still appear.
+  - **Queue:** Jobs stacked vertically, one block per row, no overlap and no time-offset. Order is scheduled time, then job id — clock order, and the earlier booking above when two share a time. Completed and cancelled jobs are omitted. Under `reserved`, a job with no crew shows `⚠`. A tap opens `Job`. Empty copy: "No jobs in the queue." Same `GET .../schedule/day`; the stack is a layout of that list, not a second route.
 
 Edit form for a single scheduled job: date, time, employee reassignment, notes.
 Admin-only actions: mark completed, mark paid (cash), show QR payment code.
