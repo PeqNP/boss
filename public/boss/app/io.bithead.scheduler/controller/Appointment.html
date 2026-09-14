@@ -143,6 +143,7 @@
       // --- Lifecycle ---
 
       async function viewDidLoad() {
+        view.ui.span("kiosk-app-label").innerText = `${app.name} ${app.version}`;
         if (isEmpty(accessHandle)) {
           return;
         }
@@ -286,6 +287,15 @@
         </div>
       </div>
 
+    </div>
+    <div class="kiosk-column kiosk-footer" style="max-width: 520px;">
+      <div class="kiosk-credit">
+        <div>
+          <span name="kiosk-app-label"></span> --
+          <a name="kiosk-signup-link" href="/a/scheduler" target="_blank" rel="noopener">Click here to create your own free scheduling site</a>.
+        </div>
+        <div>Bithead LLC (c) 2026 All rights reserved.</div>
+      </div>
     </div>
   </div>
 </div>

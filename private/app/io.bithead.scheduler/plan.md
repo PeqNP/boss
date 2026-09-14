@@ -510,6 +510,8 @@ Multi-step state machine. Steps shown/hidden by JS state variable `currentStep`.
 
 **Header.** The business name is the `title` token. A logo, when one is set, hangs to the left of the 560px column, about 100px tall, its vertical middle on the name. The tag line is the heading of the first booking step only (`subtitle` token) — employee grid if customers pick a person, otherwise job-type. Later steps keep their own headings.
 
+**Credit.** Always, in the footer, 40px below the hours, on `SchedulerKiosk` and `Appointment`. `Scheduler {application.version} -- Click here to create your own free scheduling site.` then a second line `Bithead LLC (c) 2026 All rights reserved.` Name and version come from `application.json`. The link is `/a/scheduler` in a new window; an empty path opens the app on the desktop (Welcome for a guest). Not a theme token — the `footer` token still paints hours.
+
 **Theme.** `GET /kiosk/{id}` includes `tagLine`, `logoUrl`, and `theme`. The kiosk sets CSS variables on `.kiosk-page` from `theme` and clears them in `viewWillUnload`. Enter on `step-contact` is Next (`submitContact`).
 
 **Start Over**, centred and 20px below the confirmation, hands the kiosk to the

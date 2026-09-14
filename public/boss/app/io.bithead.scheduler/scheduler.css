@@ -660,6 +660,9 @@
 
 /* When the business is open, under everything else on a kiosk page. */
 .kiosk-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   margin-top: 30px;
   text-align: center;
   font-family: var(--kiosk-footer-font, "Geneva");
@@ -667,4 +670,20 @@
   font-style: var(--kiosk-footer-style, inherit);
   font-size: var(--kiosk-footer-size, 14px);
   color: var(--kiosk-footer-color, inherit);
+}
+
+/* Bithead credit. Not a theme token — the business's footer styles hours. */
+.kiosk-credit {
+  margin-top: 40px;
+  font-family: "Geneva";
+  font-size: 11px;
+  color: #444;
+  line-height: 1.4;
+}
+
+.kiosk-page .kiosk-credit a {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  text-decoration: underline;
 }
