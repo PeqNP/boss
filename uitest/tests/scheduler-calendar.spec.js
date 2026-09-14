@@ -16,7 +16,7 @@
 import { test, expect } from "@playwright/test";
 import { signInAsAdmin, signInAsOperator, ensureOperator, bootBOSS,
          openApplication, openController, windowByTitle, clickMenuItem,
-         settled , closeAll } from "../lib/boss.js";
+         settled, action, closeAll } from "../lib/boss.js";
 import { resetDatabase } from "../lib/seed.js";
 import { readyToBook, book } from "../lib/scheduler.js";
 
@@ -167,7 +167,35 @@ test.describe("scheduler calendar", () => {
     await expect(job).toContainText("Haircut");
 
     await job.click();
-    await expect(windowByTitle(page, "Job")).toBeVisible();
+    const sheet = windowByTitle(page, "Job");
+    await expect(sheet).toBeVisible();
+    await settled(sheet);
+    // QueueJob, not the document: Complete and no Save.
+    await expect(sheet.locator("button[name='complete-btn']")).toBeVisible();
+    await expect(sheet.locator("button[name='save-btn']")).toHaveCount(0);
+    await expect(sheet.locator("[name='job-scheduled']")).not.toBeEmpty();
+    await expect(sheet.locator("[name='contact-fields']")).toContainText("Full Name");
+    await expect(sheet.locator("input[name='payment-amount']")).toHaveValue("40.00");
+    await expect(sheet.locator("button[name='qr-payment-btn']")).toBeDisabled();
+  });
+
+  test("queue job completes", async ({ page }) => {
+    const win = await openCalendar(page);
+    await win.locator(".cal-cell.has-jobs").click();
+    await win.locator("input[name='day-layout'][value='queue']").check();
+    await win.locator(".day-queue .day-job").click();
+
+    const sheet = windowByTitle(page, "Job");
+    await expect(sheet).toBeVisible();
+    await settled(sheet);
+    await action(sheet, "complete").click();
+
+    await expect.poll(async () => {
+      const response = await page.request.get(
+        `${API}/business/${businessId}/job/${jobId}`);
+      return (await response.json()).status;
+    }, { message: "the completion never reached the server" }).toBe("completed");
+    await expect(sheet).toHaveCount(0);
   });
 
   test("queue omits a completed job", async ({ page }) => {

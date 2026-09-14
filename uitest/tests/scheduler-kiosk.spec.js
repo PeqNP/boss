@@ -235,4 +235,13 @@ test.describe("scheduler kiosk", () => {
     await expect(win.locator("[name='step-not-configured']")).toBeVisible();
     await expect(win.locator("[name='kiosk-close-btn']")).toBeVisible();
   });
+
+  test("kiosk credit", async ({ page }) => {
+    const win = await openKiosk(page);
+    await expect(win.locator("[name='kiosk-app-label']"))
+      .toHaveText("Scheduler 1.0.0");
+    const link = win.locator("a[name='kiosk-signup-link']");
+    await expect(link).toHaveAttribute("href", "/a/scheduler");
+    await expect(link).toHaveAttribute("target", "_blank");
+  });
 });
