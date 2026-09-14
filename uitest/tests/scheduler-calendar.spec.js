@@ -4,6 +4,7 @@
  * Flow 8 — the operator's view of the work.
  *
  * A month, a week and a day are the same appointments read at three widths,
+ * and Day has a Queue that stacks what is still to do.
  * and the routes narrow by who is asking — so one calendar serves the operator
  * and the employee both. What this proves is that each width draws what was
  * booked and that a day leads to the job.
@@ -153,6 +154,34 @@ test.describe("scheduler calendar", () => {
 
     await job.click();
     await expect(windowByTitle(page, "Job")).toBeVisible();
+  });
+
+  test("schedule queue", async ({ page }) => {
+    const win = await openCalendar(page);
+
+    await win.locator(".cal-cell.has-jobs").click();
+    await win.locator("button[name='day-queue-btn']").click();
+
+    const job = win.locator(".day-queue .day-job");
+    await expect(job).toHaveCount(1);
+    await expect(job).toContainText("Haircut");
+
+    await job.click();
+    await expect(windowByTitle(page, "Job")).toBeVisible();
+  });
+
+  test("queue omits a completed job", async ({ page }) => {
+    const done = await page.request.post(
+      `${API}/business/${businessId}/job/${jobId}/complete`);
+    expect(done.ok(), `could not complete: ${await done.text()}`).toBe(true);
+
+    const win = await openCalendar(page);
+    await win.locator(".cal-cell.has-jobs").click();
+    await win.locator("button[name='day-queue-btn']").click();
+
+    await expect(win.locator(".day-queue"))
+      .toContainText("No jobs in the queue.");
+    await expect(win.locator(".day-queue .day-job")).toHaveCount(0);
   });
 
   test("schedule week", async ({ page }) => {
