@@ -414,7 +414,7 @@
     <div class="zoom-button"></div>
   </div>
 
-  <div name="job-form" class="container vbox gap-20" style="width: 520px;">
+  <div name="job-form" class="container vbox gap-20" style="width: 550px;">
 
     <fieldset>
       <legend>Details</legend>
@@ -502,7 +502,7 @@
       </table>
     </fieldset>
 
-    <fieldset>
+    <fieldset class="vbox gap-10">
       <legend>Payments</legend>
       <table name="transactions-table" style="width: 100%; margin-bottom: 8px;">
         <thead>
@@ -529,10 +529,10 @@
           </select>
         </div>
       </div>
-      <div class="hbox gap-10" style="margin-top: 10px;">
+      <div class="controls">
         <button name="write-off-btn" class="primary" onclick="$(this.controller).writeOff();">Write Off</button>
         <button class="primary" onclick="$(this.controller).showQrPayment();">QR Code</button>
-        <button name="record-payment-btn" class="default" onclick="$(this.controller).addPayment();">Record Payment</button>
+        <button name="record-payment-btn" class="default" onclick="$(this.controller).addPayment();">Record</button>
       </div>
     </fieldset>
 

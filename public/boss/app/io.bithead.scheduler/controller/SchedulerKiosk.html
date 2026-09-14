@@ -792,7 +792,8 @@
       }
 
       async function viewDidLoad() {
-        view.ui.span("kiosk-app-label").innerText = `${app.name} ${app.version}`;
+        view.ui.span("kiosk-app-label").innerText =
+          `${$(app.controller).name} ${$(app.controller).version}`;
         wireSlotPicker();
 
         // Check operator status for close button
