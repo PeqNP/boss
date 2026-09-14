@@ -378,8 +378,8 @@ return Icon(id=..., url=stored.url)      # /media/<bundle>/public/<name>
 visibility, so a call site says which it is and a wrong constant has nowhere to
 be passed. `store_private` hands back no URL.
 
-nginx's default body cap is 1MB, the same as `MAX_ICON_BYTES` and below
-`MAX_FONT_BYTES`. Set `client_max_body_size` on `/api` above both (8m in
+nginx's default body cap is 1MB, below `MAX_ICON_BYTES` (8MB) and
+`MAX_FONT_BYTES` (2MB). Set `client_max_body_size` on `/api` to 8m (in
 `private/nginx.conf` and `private/dev-nginx.conf`) so an oversize file is
 refused by `check_image` / `check_font` as JSON, not by nginx as HTML 413.
 A Python restart does not pick that up — copy the conf into the live include

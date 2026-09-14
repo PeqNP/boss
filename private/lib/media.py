@@ -45,9 +45,11 @@ PUBLIC_URL_PREFIX = "/media"
 INTERNAL_URL_PREFIX = "/_media"
 
 
-# An icon is drawn a few dozen pixels wide. A megabyte is already generous,
-# and the cap is here rather than in one app so every app gets the same answer.
-MAX_ICON_BYTES = 1024 * 1024
+# A kiosk logo is a source PNG, not a few-dozen-pixel icon. Eight megabytes
+# matches nginx `/api` (`client_max_body_size 8m`) so a file that reaches
+# Python is one we accept. The cap is here rather than in one app so every
+# app gets the same answer.
+MAX_ICON_BYTES = 8 * 1024 * 1024
 
 # The kinds a browser draws. SVG is included and served under a sandbox policy
 # — see `private/nginx.conf` — because it is XML the browser would otherwise

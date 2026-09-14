@@ -3704,6 +3704,10 @@ def test_kiosk_theme():
     clear_business_logo(business_id)
     assert get_kiosk(business_id).logoUrl is None
 
+    # describe: a logo larger than an image has cause to be
+    with pytest.raises(ValidationError):
+        set_business_logo(business_id, "huge.png", b"x" * (media.MAX_ICON_BYTES + 1))
+
     # describe: empty theme
     assert get_kiosk(business_id).theme == {}
 
