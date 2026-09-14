@@ -1595,7 +1595,7 @@ this.delete = _delete;
 
 ### List-model window pattern
 
-Use this layout whenever a window displays a list of models and provides actions on them. The list sits on the left; model-agnostic actions (e.g. "Add") go at the top-right, and model-specific actions (e.g. "Edit", "Open") go at the bottom-right in a `separated` group. Model-specific buttons start `disabled` and are enabled only when a row is selected.
+Use this layout whenever a window displays a list of models and provides actions on them. The list sits on the left; model-agnostic actions (e.g. "Add") go at the top-right, and model-specific actions (e.g. "Delete", "Edit") go at the bottom-right in a `separated` group. Model-specific buttons start `disabled` and are enabled only when a row is selected.
 
 ```html
 <div class="container vbox gap-10" style="width: 420px">
@@ -1608,10 +1608,11 @@ Use this layout whenever a window displays a list of models and provides actions
       <div class="vbox gap-10">
         <button class="primary" onclick="$(this.controller).add();">Add</button>
       </div>
-      <!-- Bottom group: actions that require a selection -->
+      <!-- Bottom group: actions that require a selection.
+           CRUD lists: Delete then Edit. Edit is always the default. -->
       <div class="vbox gap-10">
-        <button name="edit" class="primary" disabled onclick="$(this.controller).edit();">Edit</button>
-        <button name="open" class="default" disabled onclick="$(this.controller).open();">Open</button>
+        <button name="delete" class="primary" disabled onclick="$(this.controller).delete();">Delete</button>
+        <button name="edit" class="default" disabled onclick="$(this.controller).edit();">Edit</button>
       </div>
     </div>
   </div>
@@ -1624,12 +1625,12 @@ Wire the list box delegate in `viewDidLoad` to enable/disable the selection-depe
 function viewDidLoad() {
   view.ui.select("items").ui.delegate = {
     didSelectListBoxOption: function(opt) {
+      view.ui.button("delete").disabled = false;
       view.ui.button("edit").disabled = false;
-      view.ui.button("open").disabled = false;
     },
     didRemoveAllOptions: function() {
+      view.ui.button("delete").disabled = true;
       view.ui.button("edit").disabled = true;
-      view.ui.button("open").disabled = true;
     }
   };
 }
@@ -1641,7 +1642,9 @@ After loading, set the button state directly — `UIListBox` auto-selects the fi
 async function loadItems() {
   const response = await os.network.get("/api/my-app/items");
   view.ui.select("items").ui.addNewOptions(response.items);
-  view.ui.button("edit").disabled = response.items.length === 0;
+  const empty = response.items.length === 0;
+  view.ui.button("delete").disabled = empty;
+  view.ui.button("edit").disabled = empty;
 }
 ```
 
@@ -1653,9 +1656,11 @@ view.ui.select("items").ui.setDefaultAction(edit);
 
 Rules:
 - Add opens the model form with no `configure()` call; Edit opens it with `configure(id)` and the selection's value
-- The Delete button lives inside the model's form, not in the list window
-- The Edit button uses `class="default"` — it is the primary action in this context
-- Model-specific buttons (`Open`, `Edit`, etc.) are always `disabled` by default. The list box delegate is responsible for enabling them.
+- Add sits at the top. It does not need a selection.
+- A CRUD list — Add, Delete, and Edit of the selected row — puts **Delete then Edit** in the bottom group. Edit is `class="default"`. That order is primary → default, the same as every other control row.
+- Edit is always the default action of the list: `class="default"` on the button, and `setDefaultAction(edit)` on the list box. A document window's Save stays the Enter-key default of `div.controls`.
+- Deleting the **parent** record (the employee, the job type) still lives on that record's form, not on the list that opens it. Deleting a **row in a child list** (a working day, a time-off window) is the list's Delete button.
+- Model-specific buttons (`Delete`, `Edit`, `Open`) are always `disabled` by default. The list box delegate is responsible for enabling them.
 - Use `hasSelectedOption()` on both `didSelectListBoxOption` and `didDeselectListBoxOption` to toggle button state.
 - A **Remove** button paired with a list box must be disabled when the list is empty — both on initial load and after every removal. If a `refreshList` private function manages the list contents, set `button.disabled = items.length === 0` at the end of that function. Also implement `didRemoveAllOptions` in the list box delegate to disable the button when `removeAllOptions` is called externally.
 - Omit the top `<div class="vbox gap-10">` (and its buttons) if there are no model-agnostic actions; in that case also drop `separated` from `controls-right` and place the model-specific buttons directly inside — they will flex to the bottom automatically
@@ -1663,8 +1668,9 @@ Rules:
 - The `separated` class on `controls-right` creates a visual divider between the two groups; omit it when there is only one group
 
 A list of children *inside* a form follows this same layout — one `fieldset` per
-list, each with its own Add and Edit. What differs is where the model comes
-from: see [A form that owns a list creates its model up front](#a-form-that-owns-a-list-creates-its-model-up-front).
+list, each with Add at the top and Delete then Edit at the bottom. What differs
+is where the model comes from: see [A form that owns a list creates its model up
+front](#a-form-that-owns-a-list-creates-its-model-up-front).
 
 ### Fonts
 
