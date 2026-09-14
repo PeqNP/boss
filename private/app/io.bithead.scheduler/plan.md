@@ -12,7 +12,7 @@
 - **Reference app for UI components:** `public/boss/app/io.bithead.tutorial/controller/Example.html`
 - **Reference for settings-style left-side navigation:** `io.bithead.settings` app (`Home.html`)
 - **Reference for test harness setup:** `private/tests/test_wordy.py` + `private/tests/libtest/`
-- **What is left:** Day Queue mode (this slice). Every earlier stage is finished and every flow in `ui-plan.md` has a spec. Live job updates are private-suite coverage.
+- **What is left:** leftovers in the app's `memory.md`. Every stage is finished and every flow in `ui-plan.md` has a spec.
 
 ---
 
@@ -816,7 +816,7 @@ Listens for `io.bithead.scheduler.job.changed` and reloads the view it is on.
 
 - **Month:** Highlighted days showing job count; tap day → day view
 - **Week:** Sun–Sat (fixed, always 7 columns); condensed rows (time + truncated job name + employee initials); unassigned jobs show `⚠` prefix
-- **Day:** Two layouts for the same date, toggled on the day toolbar: **Timeline** and **Queue**. The date arrows stay. An operator sees every job of the business; an employee sees the same slice Day already shows them.
+- **Day:** Two layouts for the same date. Below the date arrows and Month / Week / Day, a radio group: `Display: (•) Timeline ( ) Queue`. Timeline is the default. An operator sees every job of the business; an employee sees the same slice Day already shows them.
   - **Timeline:** Overlapping jobs shown side-by-side and time-offset; unassigned jobs show `⚠`; edit via `Job` form (no drag-and-drop). Completed jobs still appear.
   - **Queue:** Jobs stacked vertically, one block per row, no overlap and no time-offset. Order is scheduled time, then job id — clock order, and the earlier booking above when two share a time. Completed and cancelled jobs are omitted. Unassigned jobs show `⚠`. A tap opens `Job`. Empty copy: "No jobs in the queue." Same `GET .../schedule/day`; the stack is a layout of that list, not a second route.
 

@@ -160,7 +160,7 @@ test.describe("scheduler calendar", () => {
     const win = await openCalendar(page);
 
     await win.locator(".cal-cell.has-jobs").click();
-    await win.locator("button[name='day-queue-btn']").click();
+    await win.locator("input[name='day-layout'][value='queue']").check();
 
     const job = win.locator(".day-queue .day-job");
     await expect(job).toHaveCount(1);
@@ -177,7 +177,7 @@ test.describe("scheduler calendar", () => {
 
     const win = await openCalendar(page);
     await win.locator(".cal-cell.has-jobs").click();
-    await win.locator("button[name='day-queue-btn']").click();
+    await win.locator("input[name='day-layout'][value='queue']").check();
 
     await expect(win.locator(".day-queue"))
       .toContainText("No jobs in the queue.");
