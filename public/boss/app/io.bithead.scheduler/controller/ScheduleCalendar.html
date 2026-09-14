@@ -302,16 +302,28 @@
         renderTimeline(data);
       }
 
+      /**
+       * Empty Day copy in the Queue box, so Timeline and Queue match.
+       *
+       * @param {string} copy
+       */
+      function renderEmptyDay(copy) {
+        const container = view.ui.div("day-jobs");
+        container.className = "day-queue";
+        container.innerHTML = "";
+        const empty = document.createElement("p");
+        empty.innerText = copy;
+        container.appendChild(empty);
+      }
+
       function renderTimeline(data) {
+        if (data.jobs.length === 0) {
+          renderEmptyDay("No jobs scheduled for this day.");
+          return;
+        }
         const container = view.ui.div("day-jobs");
         container.className = "day-timeline";
         container.innerHTML = "";
-        if (data.jobs.length === 0) {
-          const empty = document.createElement("p");
-          empty.innerText = "No jobs scheduled for this day.";
-          container.appendChild(empty);
-          return;
-        }
         const totalCols = Math.max(1, ...data.jobs.map(j => j.overlapTotal));
         const BASE_PX_PER_MIN = 1.2;
         const COL_WIDTH_PCT = 100 / totalCols;
@@ -338,18 +350,16 @@
       }
 
       function renderQueue(data) {
-        const container = view.ui.div("day-jobs");
-        container.className = "day-queue";
-        container.innerHTML = "";
         const jobs = data.jobs.filter(function(job) {
           return job.status !== "completed";
         });
         if (jobs.length === 0) {
-          const empty = document.createElement("p");
-          empty.innerText = "No jobs in the queue.";
-          container.appendChild(empty);
+          renderEmptyDay("No jobs in the queue.");
           return;
         }
+        const container = view.ui.div("day-jobs");
+        container.className = "day-queue";
+        container.innerHTML = "";
         for (const job of jobs) {
           container.appendChild(jobBlock(job));
         }
