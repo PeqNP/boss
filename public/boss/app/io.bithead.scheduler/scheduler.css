@@ -580,15 +580,25 @@
   margin-bottom: 30px;
 }
 
+.kiosk-logo,
+.theme-logo {
+  height: 100px;
+  width: auto;
+  object-fit: contain;
+}
+
 .kiosk-logo {
   position: absolute;
   right: 100%;
   margin-right: 16px;
-  height: 100px;
-  width: auto;
-  object-fit: contain;
   top: 50%;
   transform: translateY(-50%);
+}
+
+/* Theme's Logo fieldset is a column flex; stretch would set the width to the
+ * fieldset and squash the image against the 100px height. */
+.theme-logo {
+  align-self: flex-start;
 }
 
 .kiosk-title {

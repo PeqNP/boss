@@ -1015,9 +1015,10 @@ headings (`heading` token). Start Over returns to that first step, so the tag
 line is there again. `not-configured` and `error` do not use it.
 
 **Logo.** Public media, same store as custom icons. About 100px tall, **outside**
-the 560px column, hanging to the left of the name. The vertical middle of the
-logo lines up with the company name. No file means no hanging image, and the
-header is as today.
+the 560px column, hanging to the left of the name, keeping its aspect ratio.
+The vertical middle of the logo lines up with the company name. No file means
+no hanging image, and the header is as today. The Theme preview is the same
+size and ratio.
 
 **Enter on contact.** The contact step's default is Next. `didHitEnter` fires
 `submitContact`, the way a document gives Enter to Save. Other steps are
