@@ -27,7 +27,7 @@ the model's name for a form, its plural for a list, no verb suffixes.
 |---|---|---|
 | Entry | `Welcome` | |
 | Kiosk / customer | `SchedulerKiosk`, `AppointmentLookup`, `Appointment` | |
-| Operator | `SetupAssistant`, `OperatorDashboard`, `ScheduleCalendar`, `SearchJob`, `AssignEmployees`, `Job`, `FinancialReport`, `BusinessConfig` | `QRPayment`, `IconPicker` |
+| Operator | `SetupAssistant`, `OperatorDashboard`, `ScheduleCalendar`, `SearchJob`, `AssignEmployees`, `Job`, `QueueJob`, `FinancialReport`, `BusinessConfig` | `QRPayment`, `IconPicker` |
 | Job types | `JobTypes`, `JobType` | `JobTypeSize`, `JobTypeAttribute`, `JobTypeContactField` |
 | Employees | `Employees`, `Employee` | `EmployeeSchedule`, `EmployeeTimeOff` |
 | Customers | `Customers`, `Customer` | `CustomerNote` |
@@ -264,7 +264,7 @@ may reach, and that sentence is the scoping rule the route implements.
 | `Appointment` | Customer · Operator | the appointment a verified lookup opened, or one belonging to the business the caller runs |
 | `EmployeeSchedule` | Employee · Operator | an operator reaches any employee of their business; an employee reaches their own record, and only while `canManageOwnSchedule` is set |
 | `EmployeeTimeOff` | Employee · Operator | the same |
-| `Job` · `QRPayment` | Employee · Operator | an operator reaches any job of their business; an employee reaches a job they are assigned to, or an unassigned job of a type they can perform, and may edit it and take payment for it |
+| `Job` · `QueueJob` · `QRPayment` | Employee · Operator | an operator reaches any job of their business; an employee reaches a job they are assigned to, or an unassigned job of a type they can perform, and may edit it and take payment for it |
 | `SearchJob` | Employee · Operator | an operator searches every job of their business; an employee searches the jobs they are assigned to |
 | `IconPicker` | Operator · Admin | the caller's own business icons, plus the system set |
 
@@ -821,10 +821,20 @@ Listens for `io.bithead.scheduler.job.changed` and reloads the view it is on.
 - **Week:** Sun–Sat (fixed, always 7 columns); condensed rows (time + truncated job name + employee initials); under `reserved`, a job with no crew shows `⚠`
 - **Day:** Two layouts for the same date. On the right, below Month / Week / Day, a radio group: `Display: (•) Timeline ( ) Queue`. Timeline is the default. An operator sees every job of the business; an employee sees the same slice Day already shows them.
   - **Timeline:** Overlapping jobs shown side-by-side and time-offset; under `reserved`, a job with no crew shows `⚠`; edit via `Job` form (no drag-and-drop). Completed jobs still appear. Empty copy uses the Queue box.
-  - **Queue:** Jobs stacked vertically, one block per row, no overlap and no time-offset. Order is scheduled time, then job id — clock order, and the earlier booking above when two share a time. Completed and cancelled jobs are omitted. Under `reserved`, a job with no crew shows `⚠`. A tap opens `Job` in compact form: Details (job type, size, scheduled date and time read-only), Customer (the job type's contact fields), Payments (amount, method, then Write Off / QR Code / Record Payment on its own row, Record Payment the default). Bottom: Close, Cancel, Complete. Recording a payment that leaves the job `fully_paid` marks it complete and closes. Complete without full payment marks it complete and closes. Empty copy: "No jobs in the queue." Same `GET .../schedule/day`; the stack is a layout of that list, not a second route.
+  - **Queue:** Jobs stacked vertically, one block per row, no overlap and no time-offset. Order is scheduled time, then job id — clock order, and the earlier booking above when two share a time. Completed and cancelled jobs are omitted. Under `reserved`, a job with no crew shows `⚠`. A tap opens `QueueJob`. Empty copy: "No jobs in the queue." Same `GET .../schedule/day`; the stack is a layout of that list, not a second route.
 
 Edit form for a single scheduled job: date, time, employee reassignment, notes.
 Admin-only actions: mark completed, mark paid (cash), show QR payment code. QR Code is disabled unless `payment_connected` — a payment vendor and a Stripe account on the business.
+
+#### `QueueJob`
+Not a document. The queue's job sheet: take payment and complete, not edit the appointment.
+
+- **Details:** job type, size, scheduled date and time (read-only)
+- **Customer:** the job type's contact fields
+- **Payments:** amount (pre-filled with `size.cost`), method, then a `controls` row: Write Off, QR Code, Record (default). QR Code is disabled unless `stripeConfigured`
+- **Window controls:** Close, Cancel, Complete
+
+Recording a payment that leaves the job `fully_paid` marks it complete and closes. Complete without full payment marks it complete and closes. Same routes as `Job`.
 
 **Stub endpoints:** none new. Queue reads `GET /business/{id}/schedule/day`. Completing emits `job.changed` kind `completed` so an open Queue drops the job.
 

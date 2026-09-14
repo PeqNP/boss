@@ -77,10 +77,14 @@
       // --- Controller functions ---
 
       async function openJobEdit(jobId) {
-        const win = await $(app.controller).loadController("Job");
+        const name = (currentView === "day" && dayLayout === "queue")
+          ? "QueueJob" : "Job";
+        const win = await $(app.controller).loadController(name);
         win.ui.show(function(ctrl) {
-          ctrl.configure(jobId, currentView === "day" && dayLayout === "queue");
-          ctrl.delegate = { didSaveJob: loadCurrentView, didDeleteJob: loadCurrentView };
+          ctrl.configure(jobId);
+          ctrl.delegate = name === "QueueJob"
+            ? { didSaveJob: loadCurrentView }
+            : { didSaveJob: loadCurrentView, didDeleteJob: loadCurrentView };
         });
       }
       this.openJobEdit = openJobEdit;

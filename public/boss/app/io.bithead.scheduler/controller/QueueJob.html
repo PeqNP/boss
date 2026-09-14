@@ -1,0 +1,327 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      const businessId = $(app.controller).getBusinessId();
+
+      let jobId = null;
+      let productCost = null;
+
+      let delegate = protocol(
+        "QueueJobDelegate", this, "delegate",
+        ["didSaveJob"]
+      );
+
+      function customerValue(customer, fieldName) {
+        if (isEmpty(customer)) {
+          return "";
+        }
+        const map = {
+          "Full Name": customer.name,
+          "Phone": customer.phone,
+          "Email": customer.email,
+          "Address Line 1": customer.addressLine1,
+          "City": customer.city,
+          "State": customer.state,
+          "Zip": customer.zip
+        };
+        return map[fieldName] || "";
+      }
+
+      /**
+       * One read-only row per contact field this job type asks for.
+       *
+       * @param {object} job - A `JobDetail`
+       */
+      async function renderContactFields(job) {
+        const box = view.ui.div("contact-fields");
+        box.innerHTML = "";
+        let fields = [];
+        if (!isEmpty(job.jobType) && !isEmpty(job.jobType.id)) {
+          try {
+            const detail = await os.network.get(
+              `/api/io.bithead.scheduler/business/${businessId}/job-type/${job.jobType.id}`
+            );
+            fields = detail.contactFields || [];
+          }
+          catch {
+            fields = [];
+          }
+        }
+        if (fields.length === 0) {
+          fields = [
+            { name: "Full Name" },
+            { name: "Phone" },
+            { name: "Email" }
+          ];
+        }
+        for (const field of fields) {
+          const row = document.createElement("div");
+          row.className = "read-only";
+          const label = document.createElement("label");
+          label.textContent = field.name;
+          const value = document.createElement("span");
+          const text = customerValue(job.customer, field.name);
+          value.textContent = isEmpty(text) ? "—" : text;
+          row.appendChild(label);
+          row.appendChild(value);
+          box.appendChild(row);
+        }
+      }
+
+      function fillPaymentAmount() {
+        if (!isNumeric(productCost)) {
+          return;
+        }
+        view.ui.input("payment-amount").value = Number(productCost).toFixed(2);
+      }
+
+      function formatTime(t) {
+        if (isEmpty(t)) {
+          return "—";
+        }
+        const [h, m] = t.split(":").map(Number);
+        const ampm = h >= 12 ? "PM" : "AM";
+        const h12 = h % 12 || 12;
+        return `${h12}:${m.toString().padStart(2, "0")} ${ampm}`;
+      }
+
+      function buildTransactionRow(tx) {
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          `<td>$${tx.amount.toFixed(2)}</td><td>${tx.method}</td><td>${(tx.date || "")}</td><td>${(tx.collectedBy || "—")}</td>`;
+        return tr;
+      }
+
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+
+      /**
+       * Marks the job completed and closes.
+       *
+       * @returns {boolean} `true` when the job was marked complete
+       */
+      async function complete() {
+        try {
+          await os.network.post(
+            `/api/io.bithead.scheduler/business/${businessId}/job/${jobId}/complete`
+          );
+        }
+        catch (error) {
+          os.ui.showError(error);
+          return false;
+        }
+        delegate.didSaveJob();
+        view.ui.close();
+        return true;
+      }
+      this.complete = os.ui.mutex(complete);
+
+      async function cancelJob() {
+        os.ui.showConfirmation("Cancel this appointment?", null, async function() {
+          try {
+            await os.network.post(
+              `/api/io.bithead.scheduler/business/${businessId}/job/${jobId}/cancel`
+            );
+          }
+          catch (error) {
+            os.ui.showError(error);
+            return;
+          }
+          delegate.didSaveJob();
+          view.ui.close();
+        });
+      }
+      this.cancelJob = os.ui.mutex(cancelJob);
+
+      async function showQrPayment() {
+        const child = await $(app.controller).loadController("QRPayment");
+        child.ui.show(function(ctrl) {
+          ctrl.configure(jobId);
+        });
+      }
+      this.showQrPayment = showQrPayment;
+
+      async function addPayment() {
+        const amount = parseFloat(view.ui.input("payment-amount").value);
+        if (!isNumeric(amount) || amount <= 0) {
+          os.ui.showAlert("Please provide the amount that was paid.");
+          return;
+        }
+        const method = view.ui.select("payment-method").ui.selectedValue();
+        if (isEmpty(method)) {
+          os.ui.showAlert("Please choose how it was paid.");
+          return;
+        }
+        let response;
+        try {
+          response = await os.network.post(
+            `/api/io.bithead.scheduler/business/${businessId}/job/${jobId}/payment`,
+            { amount, method }
+          );
+        }
+        catch {
+          os.ui.showError("Failed to record payment. Please try again.");
+          return;
+        }
+        fillPaymentAmount();
+        await loadTransactions();
+        if (response.paymentStatus === "fully_paid") {
+          await complete();
+        }
+      }
+      this.addPayment = addPayment;
+
+      async function writeOff() {
+        os.ui.showConfirmation("Stop chasing the balance on this job?", null, async function() {
+          try {
+            await os.network.post(
+              `/api/io.bithead.scheduler/business/${businessId}/job/${jobId}/write-off`
+            );
+          }
+          catch (error) {
+            os.ui.showError(error);
+            return;
+          }
+          view.ui.button("write-off-btn").disabled = true;
+        });
+      }
+      this.writeOff = os.ui.mutex(writeOff);
+
+      function configure(_jobId) {
+        jobId = _jobId;
+      }
+      this.configure = configure;
+
+      async function viewDidLoad() {
+        let response;
+        try {
+          response = await os.network.get(
+            `/api/io.bithead.scheduler/business/${businessId}/job/${jobId}`
+          );
+        }
+        catch {
+          os.ui.showError("Failed to load job. Please try again.");
+          return;
+        }
+
+        view.ui.span("job-type").textContent = response.jobType.name;
+        view.ui.span("job-size").textContent = response.size ? response.size.name : "—";
+        productCost = response.size ? response.size.cost : null;
+        fillPaymentAmount();
+        view.ui.span("job-scheduled").textContent =
+          `${response.scheduledDate} ${formatTime(response.scheduledTime)}`;
+        if (response.paymentStatus === "written_off") {
+          view.ui.button("write-off-btn").disabled = true;
+        }
+        view.ui.button("qr-payment-btn").disabled = response.stripeConfigured !== true;
+        await renderContactFields(response);
+        await loadTransactions();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      async function loadTransactions() {
+        let response;
+        try {
+          response = await os.network.get(
+            `/api/io.bithead.scheduler/business/${businessId}/job/${jobId}`
+          );
+        }
+        catch {
+          return;
+        }
+        const tbody = view.ui.table("transactions-table").querySelector("tbody");
+        tbody.innerHTML = "";
+        for (const tx of response.transactions) {
+          tbody.appendChild(buildTransactionRow(tx));
+        }
+      }
+    }
+  </script>
+
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 160px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).complete();">Complete</option>
+        <option onclick="$(this.controller).cancelJob();">Cancel</option>
+        <option onclick="$(this.controller).close();">Close</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Job</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-20" style="width: 420px;">
+
+    <fieldset>
+      <legend>Details</legend>
+      <div class="vbox gap-10 wider-labels">
+        <div class="read-only">
+          <label>Job Type</label>
+          <span name="job-type"></span>
+        </div>
+        <div class="read-only">
+          <label>Size</label>
+          <span name="job-size"></span>
+        </div>
+        <div class="read-only">
+          <label>Scheduled</label>
+          <span name="job-scheduled"></span>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Customer</legend>
+      <div name="contact-fields" class="vbox gap-10 wider-labels"></div>
+    </fieldset>
+
+    <fieldset class="vbox gap-10">
+      <legend>Payments</legend>
+      <table name="transactions-table" style="width: 100%;">
+        <thead>
+          <tr>
+            <th>Amount</th>
+            <th>Method</th>
+            <th>Date</th>
+            <th>Collected By</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="hbox gap-10" style="align-items: flex-end;">
+        <div class="text-field">
+          <label for="payment-amount">Amount ($)</label>
+          <input type="number" name="payment-amount" placeholder="0.00" step="0.01" style="width: 100px;">
+        </div>
+        <div class="ui-popup-menu stacked" style="--popup-width: 160px;">
+          <label>Method</label>
+          <select name="payment-method">
+            <option>Choose a method</option>
+            <option value="cash">Cash</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="controls">
+        <button name="write-off-btn" class="primary" onclick="$(this.controller).writeOff();">Write Off</button>
+        <button name="qr-payment-btn" class="primary" disabled onclick="$(this.controller).showQrPayment();">QR Code</button>
+        <button name="record-payment-btn" class="default" onclick="$(this.controller).addPayment();">Record</button>
+      </div>
+    </fieldset>
+
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).close();">Close</button>
+      <button class="primary" onclick="$(this.controller).cancelJob();">Cancel</button>
+      <button class="primary" onclick="$(this.controller).complete();">Complete</button>
+    </div>
+
+  </div>
+</div>
