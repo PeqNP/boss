@@ -197,6 +197,39 @@
   align-self: flex-start;
 }
 
+/* Queue: the same blocks, stacked, each as tall as its lines. */
+.day-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 400px;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  padding: 6px;
+  box-sizing: border-box;
+}
+
+.day-queue .day-job {
+  position: static;
+  width: auto;
+  height: auto;
+  left: auto;
+  top: auto;
+}
+
+.day-queue .day-job-body {
+  overflow: visible;
+  min-height: 0;
+  flex: 0 0 auto;
+}
+
+.day-queue .day-job-type,
+.day-queue .day-job-customer {
+  overflow: visible;
+  text-overflow: unset;
+  white-space: normal;
+}
+
 /* -----------------------------------------------------------------------
  * Employee portal — Job cards
  * ----------------------------------------------------------------------- */

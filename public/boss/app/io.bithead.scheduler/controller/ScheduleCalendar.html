@@ -9,7 +9,9 @@
       const MONTH_NAMES = ["January", "February", "March", "April", "May", "June",
                            "July", "August", "September", "October", "November", "December"];
       let currentView = "month";    // month | week | day
+      let dayLayout = "timeline";   // timeline | queue
       let currentDate = new Date();
+      let dayData = null;
 
       // --- Private helpers ---
 
@@ -88,10 +90,29 @@
         view.ui.div("month-view").style.display = v === "month" ? "" : "none";
         view.ui.div("week-view").style.display = v === "week" ? "" : "none";
         view.ui.div("day-view").style.display = v === "day" ? "" : "none";
+        view.ui.button("day-timeline-btn").style.display = v === "day" ? "" : "none";
+        view.ui.button("day-queue-btn").style.display = v === "day" ? "" : "none";
         updateTitle();
         loadCurrentView();
       }
       this.switchView = switchView;
+
+      /**
+       * Timeline or Queue for the day that is already showing.
+       *
+       * @param {string} layout - `timeline` or `queue`
+       */
+      function setDayLayout(layout) {
+        dayLayout = layout;
+        view.ui.button("day-timeline-btn").className =
+          layout === "timeline" ? "default" : "primary";
+        view.ui.button("day-queue-btn").className =
+          layout === "queue" ? "default" : "primary";
+        if (currentView === "day" && !isEmpty(dayData)) {
+          renderDay(dayData);
+        }
+      }
+      this.setDayLayout = setDayLayout;
 
       function navigate(direction) {
         // direction: -1 = previous, 1 = next
@@ -246,11 +267,50 @@
           os.ui.showError("Failed to load schedule. Please try again.");
           return;
         }
+        dayData = response;
         renderDay(response);
       }
 
+      /**
+       * One job block, with the lines Timeline and Queue both show.
+       *
+       * @param {object} job - A `ScheduleDayJob`
+       * @returns {HTMLElement} The `.day-job` element
+       */
+      function jobBlock(job) {
+        const el = document.createElement("div");
+        el.className = "day-job";
+        const body = document.createElement("div");
+        body.className = "day-job-body";
+        if (isEmpty(job.employees)) {
+          appendJobLine(body, "day-job-alert", "\u26a0");
+        }
+        appendJobLine(body, "day-job-time",
+                      `${formatTime(job.startTime)} \u2013 ${formatTime(job.endTime)}`);
+        appendJobLine(body, "day-job-type", job.jobType);
+        appendJobLine(body, "day-job-customer", job.customerName);
+        const employees = (job.employees || []).map(function(e) {
+          return `${e.firstName} ${e.lastInitial}.`;
+        }).join(", ");
+        if (!isEmpty(employees)) {
+          appendJobLine(body, "day-job-emp", employees);
+        }
+        el.appendChild(body);
+        el.onclick = (function(jid) { return function() { openJobEdit(jid); }; })(job.id);
+        return el;
+      }
+
       function renderDay(data) {
+        if (dayLayout === "queue") {
+          renderQueue(data);
+          return;
+        }
+        renderTimeline(data);
+      }
+
+      function renderTimeline(data) {
         const container = view.ui.div("day-jobs");
+        container.className = "day-timeline";
         container.innerHTML = "";
         if (data.jobs.length === 0) {
           const empty = document.createElement("p");
@@ -263,35 +323,13 @@
         const COL_WIDTH_PCT = 100 / totalCols;
         const bodies = [];
         for (const job of data.jobs) {
-          const el = document.createElement("div");
-          el.className = "day-job";
-
-          // The lines live in their own element so the fade applies to the
-          // content without taking the block's border with it.
-          const body = document.createElement("div");
-          body.className = "day-job-body";
-          if (isEmpty(job.employees)) {
-            appendJobLine(body, "day-job-alert", "\u26a0");
-          }
-          appendJobLine(body, "day-job-time",
-                        `${formatTime(job.startTime)} \u2013 ${formatTime(job.endTime)}`);
-          appendJobLine(body, "day-job-type", job.jobType);
-          appendJobLine(body, "day-job-customer", job.customerName);
-          const employees = (job.employees || []).map(function(e) {
-            return `${e.firstName} ${e.lastInitial}.`;
-          }).join(", ");
-          if (!isEmpty(employees)) {
-            appendJobLine(body, "day-job-emp", employees);
-          }
-          el.appendChild(body);
-
-          el.style.top = (job.startMinuteOffset - 480) * `${BASE_PX_PER_MIN}px`;
-          el.style.height = job.durationMinutes * `${BASE_PX_PER_MIN}px`;
+          const el = jobBlock(job);
+          el.style.top = `${(job.startMinuteOffset - 480) * BASE_PX_PER_MIN}px`;
+          el.style.height = `${job.durationMinutes * BASE_PX_PER_MIN}px`;
           el.style.width = `calc(${COL_WIDTH_PCT}% - 4px)`;
           el.style.left = `calc(${(job.overlapColumn * COL_WIDTH_PCT)}%)`;
-          el.onclick = (function(jid) { return function() { openJobEdit(jid); }; })(job.id);
           container.appendChild(el);
-          bodies.push(body);
+          bodies.push(el.querySelector(".day-job-body"));
         }
         // Measured once every block is in the DOM, and measured rather than
         // inferred from the duration: whether the lines fit depends on the
@@ -303,6 +341,24 @@
         // ChicagoFLF are not it until they load — a block measured in a
         // fallback face is measured at the wrong height.
         document.fonts.ready.then(function() { markTruncated(bodies); });
+      }
+
+      function renderQueue(data) {
+        const container = view.ui.div("day-jobs");
+        container.className = "day-queue";
+        container.innerHTML = "";
+        const jobs = data.jobs.filter(function(job) {
+          return job.status !== "completed";
+        });
+        if (jobs.length === 0) {
+          const empty = document.createElement("p");
+          empty.innerText = "No jobs in the queue.";
+          container.appendChild(empty);
+          return;
+        }
+        for (const job of jobs) {
+          container.appendChild(jobBlock(job));
+        }
       }
 
       /**
@@ -361,6 +417,8 @@
       <button class="primary" onclick="$(this.controller).switchView('month');">Month</button>
       <button class="primary" onclick="$(this.controller).switchView('week');">Week</button>
       <button class="primary" onclick="$(this.controller).switchView('day');">Day</button>
+      <button name="day-timeline-btn" class="default" style="display: none;" onclick="$(this.controller).setDayLayout('timeline');">Timeline</button>
+      <button name="day-queue-btn" class="primary" style="display: none;" onclick="$(this.controller).setDayLayout('queue');">Queue</button>
     </div>
 
     <!-- Month view -->
@@ -375,7 +433,7 @@
 
     <!-- Day view -->
     <div name="day-view" style="display: none;">
-      <div name="day-jobs" class="day-timeline" style="position: relative; min-height: 400px;"></div>
+      <div name="day-jobs" class="day-timeline"></div>
     </div>
 
   </div>

@@ -12,7 +12,7 @@
 - **Reference app for UI components:** `public/boss/app/io.bithead.tutorial/controller/Example.html`
 - **Reference for settings-style left-side navigation:** `io.bithead.settings` app (`Home.html`)
 - **Reference for test harness setup:** `private/tests/test_wordy.py` + `private/tests/libtest/`
-- **What is left:** BOSS font picker (replaces Theme font menus and size fields; upload is gone). Every earlier stage is finished and every flow in `ui-plan.md` has a spec. Live job updates are private-suite coverage.
+- **What is left:** Day Queue mode (this slice). Every earlier stage is finished and every flow in `ui-plan.md` has a spec. Live job updates are private-suite coverage.
 
 ---
 
@@ -293,8 +293,8 @@ not theirs to open. `SearchJob` returns only jobs they are on.
 ### Live job updates
 
 Staff watching the Dashboard or a date on the calendar see a booking land
-without reopening the window. Same for a cancel and a reschedule. Completing or
-taking payment does not redraw.
+without reopening the window. Same for a cancel, a reschedule, and a complete.
+Taking payment does not redraw.
 
 **BOSS already routes by person.** `send_events` and `send_notifications` take
 `user_ids`. There is no client-side filter and no wrapper in the app: a banner
@@ -314,20 +314,20 @@ An employee with no linked account cannot receive a banner or an event. They
 are omitted, not queued.
 
 Event name: `io.bithead.scheduler.job.changed`. Payload strings:
-`jobId`, `kind` (`booked` / `cancelled` / `moved`), `date`, `businessId`.
+`jobId`, `kind` (`booked` / `cancelled` / `moved` / `completed`), `date`, `businessId`.
 `OperatorDashboard`, `EmployeeDashboard`, and `ScheduleCalendar` listen and
 reload the view they already have open. The calendar stays on the month, week,
-or day it was showing.
+or day it was showing, and Day stays on Timeline or Queue.
 
 Banner, not persisted: `{job type} booked — {date} {time}`, or `cancelled` /
 `moved to` for the other kinds. No customer name — the screen is what has the
 detail, and a banner is forwarded more easily than a window.
 
-Emitted from the routes that book, cancel, and reschedule (kiosk confirm,
-appointment reschedule/cancel, operator job cancel). `send_events` /
-`send_notifications` stay in the route; the rule returns the recipient ids and
-the copy. A kiosk confirm has no operator session. `/private/send/events` is
-the localhost bridge and does not need one.
+Emitted from the routes that book, cancel, reschedule, and complete (kiosk
+confirm, appointment reschedule/cancel, operator job cancel and mark complete).
+`send_events` / `send_notifications` stay in the route; the rule returns the
+recipient ids and the copy. A kiosk confirm has no operator session.
+`/private/send/events` is the localhost bridge and does not need one.
 
 **Stub endpoints:** none. Existing GETs stay. The new work is who those GETs
 return for an employee, and the event after a writer.
@@ -816,16 +816,14 @@ Listens for `io.bithead.scheduler.job.changed` and reloads the view it is on.
 
 - **Month:** Highlighted days showing job count; tap day → day view
 - **Week:** Sun–Sat (fixed, always 7 columns); condensed rows (time + truncated job name + employee initials); unassigned jobs show `⚠` prefix
-- **Day:** Overlapping jobs shown side-by-side and time-offset; unassigned jobs show `⚠`; edit via `Job` form (no drag-and-drop)
+- **Day:** Two layouts for the same date, toggled on the day toolbar: **Timeline** and **Queue**. The date arrows stay. An operator sees every job of the business; an employee sees the same slice Day already shows them.
+  - **Timeline:** Overlapping jobs shown side-by-side and time-offset; unassigned jobs show `⚠`; edit via `Job` form (no drag-and-drop). Completed jobs still appear.
+  - **Queue:** Jobs stacked vertically, one block per row, no overlap and no time-offset. Order is scheduled time, then job id — clock order, and the earlier booking above when two share a time. Completed and cancelled jobs are omitted. Unassigned jobs show `⚠`. A tap opens `Job`. Empty copy: "No jobs in the queue." Same `GET .../schedule/day`; the stack is a layout of that list, not a second route.
+
 Edit form for a single scheduled job: date, time, employee reassignment, notes.
 Admin-only actions: mark completed, mark paid (cash), show QR payment code.
 
-**Stub endpoints:**
-- `GET /api/io.bithead.scheduler/job/{jobId}` → full job detail
-- `PUT /api/io.bithead.scheduler/job/{jobId}` → update job
-- `POST /api/io.bithead.scheduler/job/{jobId}/complete` → mark completed
-- `POST /api/io.bithead.scheduler/job/{jobId}/payment` → add payment transaction
-- `POST /api/io.bithead.scheduler/business/{id}/job/{jobId}/write-off` → stop chasing the balance
+**Stub endpoints:** none new. Queue reads `GET /business/{id}/schedule/day`. Completing emits `job.changed` kind `completed` so an open Queue drops the job.
 
 ---
 
