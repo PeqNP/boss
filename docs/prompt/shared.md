@@ -976,6 +976,7 @@ What was changed decides whether anything needs restarting:
 |---|---|
 | `public/**` — OS JavaScript, CSS, controllers | Nothing. Reload the page, or just re-run the UI tests; each one loads the page fresh. |
 | `private/**` — Python services | Restart Python. |
+| `private/nginx.conf`, `private/dev-nginx.conf` | Copy into the live nginx include and reload nginx. Python does not pick this up. |
 | `server/**` — Swift web server | Build and start Swift, then restart Python. |
 
 Restart what the change touched, and leave the rest running — between tests,
