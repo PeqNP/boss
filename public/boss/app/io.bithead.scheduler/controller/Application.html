@@ -321,8 +321,18 @@
               "io.bithead.scheduler.stripeConnectCode",
               code
             );
+            // The return is a one-shot query. Leave it in the URL and every
+            // reload of this tab finishes Connect again.
+            const url = new URL(window.location.href);
+            url.searchParams.delete("code");
+            history.replaceState({}, "", url.pathname + url.search + url.hash);
           }
           if (os.isGuestUser(os.user)) {
+            return;
+          }
+          if (isEmpty(code) && isEmpty(sessionStorage.getItem(
+            "io.bithead.scheduler.stripeConnectCode"
+          ))) {
             return;
           }
           const win = await $(this.controller).loadController("BusinessConfig");

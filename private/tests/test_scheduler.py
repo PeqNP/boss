@@ -5121,6 +5121,22 @@ def test_stripe_connect_accounts_v2():
     ], \
         "it: puts the account id on the return URL"
 
+    # describe: the account id on the return URL
+    account = complete_connect(business_id, "acct_v2_1")
+    assert get_business_config(business_id).stripeAccountId == "acct_v2_1", \
+        "it: records the connected account"
+
+    # describe: Connect return after the vendor row is gone
+    set_vendor("payment", None, {})
+    again = complete_connect(business_id, "acct_after_wipe")
+    assert again == "acct_after_wipe", \
+        "it: still records the account Stripe already created"
+    assert get_business_config(business_id).stripeAccountId == "acct_after_wipe"
+
+    # describe: a return with no account
+    with pytest.raises(ValidationError):
+        complete_connect(business_id, "")
+
 
 def test_payment_vendor():
     """Mock Connect, products, a payment link, and a webhook."""

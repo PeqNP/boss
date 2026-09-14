@@ -11,4 +11,4 @@ Every stage of `plan.md` is finished. Live job updates redraw the Dashboard and 
 
 ## Open
 
-- Restart Python so `GET /fonts` and Theme `weight` land, and so 1.0.0 recreates without `business_fonts`. Then re-run `verify a phone` and `pay a deposit`. Agents do not start or restart the service.
+- Restart Python so `GET /fonts`, Theme `weight`, and a Connect return without a payment vendor land, and so 1.0.0 recreates without `business_fonts`. Hard-refresh so the leftover `?code=` is dropped. Then re-run `verify a phone` and `pay a deposit`. Agents do not start or restart the service.

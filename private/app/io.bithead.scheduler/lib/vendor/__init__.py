@@ -290,7 +290,21 @@ def connect_url(business_id: int, return_url: str) -> str:
 
 
 def complete_connect(business_id: int, code: str) -> str:
-    return _payment().complete_connect(business_id, code)
+    """Record the connected account Stripe handed back.
+
+    Onboarding already created the account. The return is just the id, and it
+    still has to land after a vendor row is missing — a deleted development
+    database, or Vendors cleared — so charging can wait on choosing Stripe
+    again without blocking the callback.
+    """
+    adapter = _adapter("payment")
+    if adapter is not None:
+        return adapter.complete_connect(business_id, code)
+    account = (code or "").strip()
+    if not account:
+        raise ValidationError("Stripe did not return an account.")
+    db.set_business_stripe_account(business_id, account)
+    return account
 
 
 def list_products(business_id: int) -> List[PaymentProduct]:

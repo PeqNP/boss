@@ -845,7 +845,9 @@
           os.ui.showError(error);
           return;
         }
-        sessionStorage.removeItem("io.bithead.scheduler.stripeConnectCode");
+        finally {
+          sessionStorage.removeItem("io.bithead.scheduler.stripeConnectCode");
+        }
         if (!isEmpty(response.stripeAccountId)) {
           view.ui.span("stripe-account-id").innerText = response.stripeAccountId;
         }
