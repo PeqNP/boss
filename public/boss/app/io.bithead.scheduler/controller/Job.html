@@ -5,6 +5,7 @@
       const businessId = $(app.controller).getBusinessId();
 
       let jobId = null;
+      let compact = false;
 
       this.document = new UIDocument(null, null);
 
@@ -59,6 +60,63 @@
             win.setDirty(false);
           }
         };
+      }
+
+      function customerValue(customer, fieldName) {
+        if (isEmpty(customer)) {
+          return "";
+        }
+        const map = {
+          "Full Name": customer.name,
+          "Phone": customer.phone,
+          "Email": customer.email,
+          "Address Line 1": customer.addressLine1,
+          "City": customer.city,
+          "State": customer.state,
+          "Zip": customer.zip
+        };
+        return map[fieldName] || "";
+      }
+
+      /**
+       * One read-only row per contact field this job type asks for.
+       *
+       * @param {object} job - A `JobDetail`
+       */
+      async function renderContactFields(job) {
+        const box = win.div("contact-fields");
+        box.innerHTML = "";
+        let fields = [];
+        if (!isEmpty(job.jobType) && !isEmpty(job.jobType.id)) {
+          try {
+            const detail = await os.network.get(
+              `/api/io.bithead.scheduler/business/${businessId}/job-type/${job.jobType.id}`
+            );
+            fields = detail.contactFields || [];
+          }
+          catch {
+            fields = [];
+          }
+        }
+        if (fields.length === 0) {
+          fields = [
+            { name: "Full Name" },
+            { name: "Phone" },
+            { name: "Email" }
+          ];
+        }
+        for (const field of fields) {
+          const row = document.createElement("div");
+          row.className = "read-only";
+          const label = document.createElement("label");
+          label.textContent = field.name;
+          const value = document.createElement("span");
+          const text = customerValue(job.customer, field.name);
+          value.textContent = isEmpty(text) ? "—" : text;
+          row.appendChild(label);
+          row.appendChild(value);
+          box.appendChild(row);
+        }
       }
 
       function formatTime(t) {
@@ -116,22 +174,34 @@
       this.cancel = cancel;
 
       /**
-       * Marks the job completed, asking first.
+       * Marks the job completed and closes.
        *
-       * Closes the window once the job is complete.
+       * @returns {boolean} `true` when the job was marked complete
+       */
+      async function completeJob() {
+        try {
+          await os.network.post(
+            `/api/io.bithead.scheduler/business/${businessId}/job/${jobId}/complete`
+          );
+        }
+        catch (error) {
+          win.showMessage(error.message, { error: true });
+          return false;
+        }
+        delegate.didSaveJob();
+        win.close();
+        return true;
+      }
+
+      /**
+       * Marks the job completed. Queue asks nothing; the full form asks first.
        */
       async function markComplete() {
-        os.ui.showConfirmation("Mark this job as completed?", null, async function() {
-          try {
-            await os.network.post(`/api/io.bithead.scheduler/business/${businessId}/job/${jobId}/complete`);
-          }
-          catch (error) {
-            win.showMessage(error.message, { error: true });
-            return;
-          }
-          delegate.didSaveJob();
-          win.close();
-        });
+        if (compact) {
+          await completeJob();
+          return;
+        }
+        os.ui.showConfirmation("Mark this job as completed?", null, completeJob);
       }
       this.markComplete = os.ui.mutex(markComplete);
 
@@ -186,6 +256,9 @@
         win.input("payment-amount").value = "";
         win.span("payment-status").textContent = response.paymentStatus;
         await loadTransactions();
+        if (compact && response.paymentStatus === "fully_paid") {
+          await completeJob();
+        }
       }
       this.addPayment = addPayment;
 
@@ -212,8 +285,13 @@
 
       // --- Configure ---
 
-      function configure(_jobId) {
+      /**
+       * @param {number} _jobId
+       * @param {boolean} [_compact] - Queue's slimmer sheet
+       */
+      function configure(_jobId, _compact) {
         jobId = _jobId;
+        compact = _compact === true;
       }
       this.configure = configure;
 
@@ -247,6 +325,8 @@
         win.span("job-size").textContent = response.size ? response.size.name : "—";
         win.span("job-duration").textContent = `${response.durationMinutes} min`;
         win.span("job-status").textContent = response.status;
+        win.span("job-scheduled").textContent =
+          `${response.scheduledDate} ${formatTime(response.scheduledTime)}`;
 
         // `locked` means the customer failed too many verification codes and
         // can no longer change this appointment themselves. An operator still
@@ -292,6 +372,22 @@
         await loadTransactions();
         ignoreDirty(win.input("payment-amount"), "oninput");
         ignoreDirty(win.select("payment-method"), "onchange");
+
+        if (compact) {
+          win.div("job-form").style.width = "420px";
+          win.div("job-full-details").style.display = "none";
+          win.div("job-full-details-rest").style.display = "none";
+          win.div("job-scheduled-row").style.display = "";
+          win.fieldset("job-schedule").style.display = "none";
+          win.div("customer-static").style.display = "none";
+          win.div("contact-fields").style.display = "";
+          win.fieldset("job-employees-set").style.display = "none";
+          win.fieldset("job-attributes").style.display = "none";
+          win.button("save-btn").style.display = "none";
+          win.button("cancel-job-btn").innerText = "Cancel";
+          win.button("complete-btn").innerText = "Complete";
+          await renderContactFields(response);
+        }
       }
       this.viewDidLoad = viewDidLoad;
 
@@ -318,14 +414,16 @@
     <div class="zoom-button"></div>
   </div>
 
-  <div class="container vbox gap-20" style="width: 520px;">
+  <div name="job-form" class="container vbox gap-20" style="width: 520px;">
 
     <fieldset>
       <legend>Details</legend>
       <div class="vbox gap-10 wider-labels">
-        <div class="read-only">
-          <label>Job Code</label>
-          <span name="job-code"></span>
+        <div name="job-full-details" class="vbox gap-10">
+          <div class="read-only">
+            <label>Job Code</label>
+            <span name="job-code"></span>
+          </div>
         </div>
         <div class="read-only">
           <label>Job Type</label>
@@ -335,22 +433,28 @@
           <label>Size</label>
           <span name="job-size"></span>
         </div>
-        <div class="read-only">
-          <label>Duration</label>
-          <span name="job-duration"></span>
+        <div name="job-scheduled-row" class="read-only" style="display: none;">
+          <label>Scheduled</label>
+          <span name="job-scheduled"></span>
         </div>
-        <div class="read-only">
-          <label>Status</label>
-          <span name="job-status"></span>
-        </div>
-        <div class="read-only">
-          <label>Payment Status</label>
-          <span name="payment-status"></span>
+        <div name="job-full-details-rest" class="vbox gap-10">
+          <div class="read-only">
+            <label>Duration</label>
+            <span name="job-duration"></span>
+          </div>
+          <div class="read-only">
+            <label>Status</label>
+            <span name="job-status"></span>
+          </div>
+          <div class="read-only">
+            <label>Payment Status</label>
+            <span name="payment-status"></span>
+          </div>
         </div>
       </div>
     </fieldset>
 
-    <fieldset>
+    <fieldset name="job-schedule">
       <legend>Schedule</legend>
       <div class="vbox gap-10 wider-labels">
         <div class="text-field">
@@ -366,7 +470,7 @@
 
     <fieldset>
       <legend>Customer</legend>
-      <div class="vbox gap-10 wider-labels">
+      <div name="customer-static" class="vbox gap-10 wider-labels">
         <div class="read-only">
           <label>Name</label>
           <span name="customer-name"></span>
@@ -380,16 +484,17 @@
           <span name="customer-address"></span>
         </div>
       </div>
+      <div name="contact-fields" class="vbox gap-10 wider-labels" style="display: none;"></div>
     </fieldset>
 
-    <fieldset>
+    <fieldset name="job-employees-set">
       <legend>Employees</legend>
       <div class="ui-token-menu" style="width: 100%;">
         <select name="job-employees"></select>
       </div>
     </fieldset>
 
-    <fieldset>
+    <fieldset name="job-attributes">
       <legend>Job Attributes</legend>
       <table name="attributes-table" style="width: 100%;">
         <thead><tr><th>Attribute</th><th>Value</th></tr></thead>
@@ -415,7 +520,7 @@
           <label for="payment-amount">Amount ($)</label>
           <input type="number" name="payment-amount" placeholder="0.00" step="0.01" style="width: 100px;">
         </div>
-        <div class="ui-popup-menu stacked" style="--popup-width: 120px;">
+        <div class="ui-popup-menu stacked" style="--popup-width: 160px;">
           <label>Method</label>
           <select name="payment-method">
             <option>Choose a method</option>
@@ -423,11 +528,11 @@
             <option value="other">Other</option>
           </select>
         </div>
-        <div class="vbox gap-10" style="align-self: flex-end;">
-          <button class="primary" onclick="$(this.controller).addPayment();">Record Payment</button>
-          <button class="primary" onclick="$(this.controller).showQrPayment();">QR Code</button>
-          <button name="write-off-btn" class="primary" onclick="$(this.controller).writeOff();">Write Off</button>
-        </div>
+      </div>
+      <div class="hbox gap-10" style="margin-top: 10px;">
+        <button name="write-off-btn" class="primary" onclick="$(this.controller).writeOff();">Write Off</button>
+        <button class="primary" onclick="$(this.controller).showQrPayment();">QR Code</button>
+        <button name="record-payment-btn" class="default" onclick="$(this.controller).addPayment();">Record Payment</button>
       </div>
     </fieldset>
 
@@ -440,8 +545,8 @@
     <div class="controls">
       <button class="primary" doc-action="cancel">Cancel</button>
       <button name="cancel-job-btn" class="primary" onclick="$(this.controller).cancelJob();">Cancel Appointment</button>
-      <button class="primary" onclick="$(this.controller).markComplete();">Mark Complete</button>
-      <button name="save-btn" class="default" doc-action="save">Save</button>
+      <button name="complete-btn" class="primary" onclick="$(this.controller).markComplete();">Mark Complete</button>
+      <button name="save-btn" class="primary" doc-action="save">Save</button>
     </div>
 
   </div>

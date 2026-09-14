@@ -79,7 +79,7 @@
       async function openJobEdit(jobId) {
         const win = await $(app.controller).loadController("Job");
         win.ui.show(function(ctrl) {
-          ctrl.configure(jobId);
+          ctrl.configure(jobId, currentView === "day" && dayLayout === "queue");
           ctrl.delegate = { didSaveJob: loadCurrentView, didDeleteJob: loadCurrentView };
         });
       }
