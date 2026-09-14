@@ -571,13 +571,11 @@
           if (isEmpty(file)) {
             return;
           }
-          const formData = new FormData();
-          formData.append("file", file);
           let response;
           try {
             response = await os.network.upload(
               `/api/io.bithead.scheduler/business/${businessId}/logo`,
-              formData
+              file
             );
           }
           catch (error) {

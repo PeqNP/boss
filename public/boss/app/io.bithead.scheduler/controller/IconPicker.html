@@ -52,10 +52,11 @@
           if (isEmpty(file)) {
             return;
           }
-          const formData = new FormData();
-          formData.append("file", file);
           try {
-            await os.network.upload(`/api/io.bithead.scheduler/business/${businessId}/icons`, formData);
+            await os.network.upload(
+              `/api/io.bithead.scheduler/business/${businessId}/icons`,
+              file
+            );
           }
           catch {
             os.ui.showError("Failed to upload icon. Please try again.");

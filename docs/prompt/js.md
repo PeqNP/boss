@@ -3248,8 +3248,8 @@ catch (error) {
 // DELETE
 const result = await os.network._delete("/api/item", { id });
 
-// File upload
-const result = await os.network.upload("/api/upload", formData);
+// File upload — a File, not FormData; upload() builds the multipart body
+const result = await os.network.upload("/api/upload", file);
 
 // Load external CSS/JS into the page (loaded only once)
 await os.network.stylesheet("$(app.resourcePath)/my-styles.css");
