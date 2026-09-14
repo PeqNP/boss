@@ -37,7 +37,7 @@ SESSION_TIMEOUT_MINUTES = 10
 
 
 async def _announce_job_change(request: Request, job_id: int, kind: str) -> None:
-    """Tell staff a job was booked, cancelled, or moved."""
+    """Tell staff a job was booked, cancelled, moved, or completed."""
     try:
         notice = lib.job_change_notice(job_id, kind)
     except lib.ValidationError:
@@ -792,6 +792,7 @@ async def complete_job(
 ):
     _working_for(business_id, boss_user)
     lib.complete_job(business_id, job_id)
+    await _announce_job_change(request, job_id, "completed")
     return Success(success=True)
 
 

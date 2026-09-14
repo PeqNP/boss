@@ -1,5 +1,5 @@
 #
-# Scheduler — who hears that a job was booked, cancelled, or moved.
+# Scheduler — who hears that a job was booked, cancelled, moved, or completed.
 #
 # One set of people: the operators of the business, the crew when there is
 # one, otherwise the in-schedule employees who can do that type. The calendar,
@@ -22,6 +22,7 @@ _KINDS = {
     "booked": "booked —",
     "cancelled": "cancelled —",
     "moved": "moved to",
+    "completed": "completed —",
 }
 
 

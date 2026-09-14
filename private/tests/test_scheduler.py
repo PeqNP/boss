@@ -3581,7 +3581,7 @@ def test_kiosk_business():
 
 
 def test_job_events():
-    """Who sees a job, and what they are told when it is booked, cancelled, or moved."""
+    """Who sees a job, and what they are told when it is booked, cancelled, moved, or completed."""
     fresh_database()
 
     made = sign_up(user_id=42, details={
@@ -3664,10 +3664,18 @@ def test_job_events():
     notice = job_change_notice(booked.jobId, "cancelled")
     assert notice.kind == "cancelled"
     assert "cancelled —" in notice.body
+
+    # describe: completed
+    complete_job(business_id, open_job.jobId)
+    notice = job_change_notice(open_job.jobId, "completed")
+    assert notice.kind == "completed"
+    assert notice.payload["kind"] == "completed"
+    assert "completed —" in notice.body
+    day = get_schedule_day(business_id, TUESDAY)
+    assert day.jobs[0].status == "completed", \
+        "it: Timeline still has it; Queue hides it on the client"
     with pytest.raises(ValidationError):
-        job_change_notice(booked.jobId, "completed")
-    with pytest.raises(ValidationError):
-        job_change_notice(booked.jobId, "paid")
+        job_change_notice(open_job.jobId, "paid")
 
 
 def test_kiosk_theme():
