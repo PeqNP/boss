@@ -3646,6 +3646,7 @@ def test_job_events():
     # describe: booked / cancelled / moved
     notice = job_change_notice(booked.jobId, "booked")
     assert notice.kind == "booked"
+    assert notice.notify is True, "it: booking is a banner"
     assert notice.payload == {
         "jobId": str(booked.jobId),
         "kind": "booked",
@@ -3670,7 +3671,8 @@ def test_job_events():
     notice = job_change_notice(open_job.jobId, "completed")
     assert notice.kind == "completed"
     assert notice.payload["kind"] == "completed"
-    assert "completed —" in notice.body
+    assert notice.notify is False, "it: completing is not a banner"
+    assert notice.body == ""
     day = get_schedule_day(business_id, TUESDAY)
     assert day.jobs[0].status == "completed", \
         "it: Timeline still has it; Queue hides it on the client"

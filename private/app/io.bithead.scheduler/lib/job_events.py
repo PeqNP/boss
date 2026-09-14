@@ -18,11 +18,12 @@ from .time import display_date, display_time
 
 JOB_CHANGED_EVENT = "io.bithead.scheduler.job.changed"
 
-_KINDS = {
+_KINDS = ("booked", "cancelled", "moved", "completed")
+
+_BANNER = {
     "booked": "booked —",
     "cancelled": "cancelled —",
     "moved": "moved to",
-    "completed": "completed —",
 }
 
 
@@ -89,8 +90,7 @@ def staff_who_see_job(job_id: int) -> List[int]:
 
 def job_change_notice(job_id: int, kind: str) -> JobChangeNotice:
     """Recipients, event payload, and banner copy for a job change."""
-    phrase = _KINDS.get(kind)
-    if phrase is None:
+    if kind not in _KINDS:
         raise ValidationError("That is not a change the staff are told about.")
     job = db.get_scheduled_job(job_id)
     if job is None:
@@ -98,6 +98,7 @@ def job_change_notice(job_id: int, kind: str) -> JobChangeNotice:
     job_type = db.get_job_type(job.business_id, job.job_type_id)
     name = job_type.name if job_type is not None else "Appointment"
     when = f"{display_date(job.scheduled_date)} {display_time(job.scheduled_time)}"
+    phrase = _BANNER.get(kind)
     return JobChangeNotice(
         eventName=JOB_CHANGED_EVENT,
         userIds=staff_who_see_job(job_id),
@@ -107,7 +108,8 @@ def job_change_notice(job_id: int, kind: str) -> JobChangeNotice:
             "date": job.scheduled_date,
             "businessId": str(job.business_id),
         },
-        title=name,
-        body=f"{name} {phrase} {when}",
+        title=name if phrase else "",
+        body=f"{name} {phrase} {when}" if phrase else "",
         kind=kind,
+        notify=phrase is not None,
     )

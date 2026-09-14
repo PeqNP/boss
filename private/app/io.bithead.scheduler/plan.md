@@ -320,8 +320,9 @@ reload the view they already have open. The calendar stays on the month, week,
 or day it was showing, and Day stays on Timeline or Queue.
 
 Banner, not persisted: `{job type} booked — {date} {time}`, or `cancelled` /
-`moved to` for the other kinds. No customer name — the screen is what has the
-detail, and a banner is forwarded more easily than a window.
+`moved to` for those kinds. Completing redraws; it does not banner. No customer
+name — the screen is what has the detail, and a banner is forwarded more easily
+than a window.
 
 Emitted from the routes that book, cancel, reschedule, and complete (kiosk
 confirm, appointment reschedule/cancel, operator job cancel and mark complete).

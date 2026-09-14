@@ -1091,6 +1091,7 @@ class JobChangeNotice(Model):
     title: str
     body: str
     kind: str
+    notify: bool = True
 
 
 class JobSession(Model):

@@ -6,6 +6,7 @@
 
       let jobId = null;
       let compact = false;
+      let productCost = null;
 
       this.document = new UIDocument(null, null);
 
@@ -117,6 +118,13 @@
           row.appendChild(value);
           box.appendChild(row);
         }
+      }
+
+      function fillPaymentAmount() {
+        if (!isNumeric(productCost)) {
+          return;
+        }
+        win.input("payment-amount").value = Number(productCost).toFixed(2);
       }
 
       function formatTime(t) {
@@ -253,7 +261,7 @@
           os.ui.showError("Failed to record payment. Please try again.");
           return;
         }
-        win.input("payment-amount").value = "";
+        fillPaymentAmount();
         win.span("payment-status").textContent = response.paymentStatus;
         await loadTransactions();
         if (compact && response.paymentStatus === "fully_paid") {
@@ -323,6 +331,8 @@
         win.span("job-code").textContent = response.jobCode;
         win.span("job-type").textContent = response.jobType.name;
         win.span("job-size").textContent = response.size ? response.size.name : "—";
+        productCost = response.size ? response.size.cost : null;
+        fillPaymentAmount();
         win.span("job-duration").textContent = `${response.durationMinutes} min`;
         win.span("job-status").textContent = response.status;
         win.span("job-scheduled").textContent =

@@ -38,7 +38,7 @@ Dependency first, then how often a break there would go unnoticed.
 | 11 | Financial report | `scheduler-report.spec.js` | The figures match what was booked and paid over a period, and the CSV downloads | **Done** — 5 specs, no defects found |
 | 12 | Employee portal | `scheduler-portal.spec.js` | The dashboard shows today's work, the calendar shows their jobs and unassigned work of a type they can do and no colleague's assigned job, the profile saves | **Done** — 7 specs |
 | 13 | Platform screens | `scheduler-platform.spec.js` | Businesses, holidays, timeout, vendors — each list and its editor | **Done** — 9 specs |
-| 14 | Live job updates | — | A booked, cancelled, moved, or completed job banners the staff who see it and redraws an open Dashboard or calendar | **Private suite** — `test_job_events`. The banner and websocket are BOSS OS; a spec cannot fire `send_events` |
+| 14 | Live job updates | — | A booked, cancelled, or moved job banners the staff who see it and redraws an open Dashboard or calendar. Completing redraws and does not banner | **Private suite** — `test_job_events`. The banner and websocket are BOSS OS; a spec cannot fire `send_events` |
 
 ## Findings
 

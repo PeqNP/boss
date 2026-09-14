@@ -48,13 +48,14 @@ async def _announce_job_change(request: Request, job_id: int, kind: str) -> None
         await send_events(
             request, notice.eventName, notice.payload, notice.userIds
         )
-        await send_notifications(
-            request,
-            notice.userIds,
-            title=notice.title,
-            body=notice.body,
-            persist=False
-        )
+        if notice.notify:
+            await send_notifications(
+                request,
+                notice.userIds,
+                title=notice.title,
+                body=notice.body,
+                persist=False
+            )
     except Exception:
         logging.exception("Scheduler could not announce a job change")
 
