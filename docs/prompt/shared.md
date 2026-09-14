@@ -983,8 +983,8 @@ between prompts, all session. The signal to restart is having edited the source
 yourself. A service that answered a minute ago is serving the same code until
 somebody changes it.
 
-**Python** — also start it when 8082 is quiet. Activate the virtualenv first;
-the start script calls `python3`:
+**Python** — also start it when 8082 is quiet. Restart it yourself; do not
+wait. Activate the virtualenv first; the start script calls `python3`:
 
 ```bash
 source ~/.venv/bin/activate

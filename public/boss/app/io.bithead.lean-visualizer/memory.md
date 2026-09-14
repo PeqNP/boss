@@ -109,8 +109,8 @@ frontend, but it does own a BOSS private (Python) backend.
 
 ## Running it
 
-- Services are started by the developer (`private/start`, `private/restart`); never start
-  them yourself, and never stand up a substitute static server or stub backend.
+- Python is `bin/restart` when `private/**` changed or 8082 is quiet. Never stand
+  up a substitute. See `shared.md` § Running and Validating Locally.
 - Syntax-check the private module before asking for a restart:
   `source ~/.venv/bin/activate && python3 private/app/io.bithead.lean-visualizer/__init__.py`.
 - If backend/frontend ownership of a change is ambiguous, stop and ask.

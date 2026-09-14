@@ -8,7 +8,3 @@ Day Queue is in: Display radios on the right below Month / Week / Day (Timeline 
 - Write-off is `POST .../job/{id}/write-off`. The button sits with Record Payment and asks before it sends.
 - Appointment mail, SMS, and card charges go through `lib/vendor/`. The catalog is code; the choice and credentials are stored in `vendor_configs`. SMTP hands mail to `POST /private/smtp/send`.
 - Development records messages for `/debug/last-message`. A mock payment is `GET /debug/pay/{jobId}`.
-
-## Open
-
-- Restart Python so `GET /fonts`, Theme `weight`, and a Connect return without a payment vendor land, and so 1.0.0 recreates without `business_fonts`. Hard-refresh so the leftover `?code=` is dropped. Then re-run `verify a phone` and `pay a deposit`. Agents do not start or restart the service.

@@ -13,8 +13,8 @@ npm run install-browsers    # downloads Chromium, ~150MB
 ## Running
 
 The tests drive a **BOSS server that is already running** — they never start
-one. The developer owns the service lifecycle; see "Who starts the servers"
-below.
+one. Python is `bin/restart` when `private/**` changed or 8082 is quiet; see
+"Running and Validating Locally" in [`shared.md`](../docs/prompt/shared.md).
 
 ```bash
 cd uitest
@@ -42,10 +42,10 @@ BOSS_URL=http://localhost:8080 npm test
 
 ## Server lifecycle
 
-The developer starts and stops the Python and Swift services — agents never do,
-and never stand up a substitute. See "Running and Validating Locally" in
-[`docs/prompt/shared.md`](../docs/prompt/shared.md) for that rule and for which
-kinds of change require a restart.
+Python is `bin/restart` (or `./private/restart`). Swift is `bin/restart --swift`.
+Never stand up a substitute. See "Running and Validating Locally" in
+[`docs/prompt/shared.md`](../docs/prompt/shared.md) for which change requires a
+restart.
 
 For UI work the short version is: a change under `public/**` needs no restart,
 because every test begins with `page.goto("/")`.

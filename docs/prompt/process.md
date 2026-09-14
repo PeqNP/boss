@@ -645,5 +645,5 @@ measured. The workflow, the helpers, and the rule that the probe becomes a
 regression test once the fix lands are in
 [`uitest/README.md`](../../uitest/README.md) § "Diagnosing a visual bug".
 
-The developer starts the servers — see "Running and Validating Locally" in
-[`shared.md`](shared.md). Confirm they are up before probing.
+Confirm the servers are up before probing. If 8082 is quiet, start Python —
+see "Running and Validating Locally" in [`shared.md`](shared.md).
