@@ -90,6 +90,7 @@
         view.ui.div("month-view").style.display = v === "month" ? "" : "none";
         view.ui.div("week-view").style.display = v === "week" ? "" : "none";
         view.ui.div("day-view").style.display = v === "day" ? "" : "none";
+        view.ui.div("day-layout-group").style.display = v === "day" ? "" : "none";
         updateTitle();
         loadCurrentView();
       }
@@ -411,6 +412,20 @@
       <button class="primary" onclick="$(this.controller).switchView('week');">Week</button>
       <button class="primary" onclick="$(this.controller).switchView('day');">Day</button>
     </div>
+    <div name="day-layout-group" class="hbox gap-10" style="align-items: center; display: none;">
+      <div style="flex: 1;"></div>
+      <span>Display:</span>
+      <label class="radio">
+        <input type="radio" name="day-layout" value="timeline" checked
+               onchange="$(this.controller).setDayLayout(this.value);">
+        Timeline
+      </label>
+      <label class="radio">
+        <input type="radio" name="day-layout" value="queue"
+               onchange="$(this.controller).setDayLayout(this.value);">
+        Queue
+      </label>
+    </div>
 
     <!-- Month view -->
     <div name="month-view">
@@ -423,20 +438,7 @@
     </div>
 
     <!-- Day view -->
-    <div name="day-view" style="display: none;" class="vbox gap-10">
-      <div class="hbox gap-10" style="align-items: center;">
-        <span>Display:</span>
-        <label class="radio">
-          <input type="radio" name="day-layout" value="timeline" checked
-                 onchange="$(this.controller).setDayLayout(this.value);">
-          Timeline
-        </label>
-        <label class="radio">
-          <input type="radio" name="day-layout" value="queue"
-                 onchange="$(this.controller).setDayLayout(this.value);">
-          Queue
-        </label>
-      </div>
+    <div name="day-view" style="display: none;">
       <div name="day-jobs" class="day-timeline"></div>
     </div>
 
