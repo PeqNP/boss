@@ -126,6 +126,7 @@
           })
         );
         win.button("edit-schedule-btn").disabled = days.length === 0;
+        win.button("delete-schedule-btn").disabled = days.length === 0;
       }
 
       function renderTimeOff(windows) {
@@ -135,6 +136,7 @@
           })
         );
         win.button("edit-time-off-btn").disabled = windows.length === 0;
+        win.button("delete-time-off-btn").disabled = windows.length === 0;
       }
 
       /**
@@ -301,6 +303,26 @@
       }
       this.editScheduleDay = editScheduleDay;
 
+      function deleteScheduleDay() {
+        const value = win.select("schedule").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        os.ui.showDelete("Remove this working day?", null, async function() {
+          try {
+            await os.network.delete(
+              `/api/io.bithead.scheduler/business/${businessId}/employee-schedule/${parseInt(value)}`
+            );
+          }
+          catch {
+            os.ui.showError("Failed to remove the working day. Please try again later.");
+            return;
+          }
+          await reloadLists();
+        });
+      }
+      this.deleteScheduleDay = deleteScheduleDay;
+
       async function addTimeOff() {
         const child = await $(app.controller).loadController("EmployeeTimeOff");
         child.ui.show(function(ctrl) {
@@ -322,6 +344,26 @@
         });
       }
       this.editTimeOff = editTimeOff;
+
+      function deleteTimeOff() {
+        const value = win.select("time-off").ui.selectedValue();
+        if (isEmpty(value)) {
+          return;
+        }
+        os.ui.showDelete("Remove this time off?", null, async function() {
+          try {
+            await os.network.delete(
+              `/api/io.bithead.scheduler/business/${businessId}/employee/${employeeId}/time-off/${parseInt(value)}`
+            );
+          }
+          catch {
+            os.ui.showError("Failed to remove the time off. Please try again later.");
+            return;
+          }
+          await reloadLists();
+        });
+      }
+      this.deleteTimeOff = deleteTimeOff;
 
       /**
        * Check the form, write it, and tell whoever opened this window.
@@ -541,6 +583,7 @@
           </div>
           <div class="vbox gap-10">
             <button name="edit-schedule-btn" class="primary" disabled onclick="$(this.controller).editScheduleDay();">Edit</button>
+            <button name="delete-schedule-btn" class="primary" disabled onclick="$(this.controller).deleteScheduleDay();">Delete</button>
           </div>
         </div>
       </div>
@@ -558,6 +601,7 @@
           </div>
           <div class="vbox gap-10">
             <button name="edit-time-off-btn" class="primary" disabled onclick="$(this.controller).editTimeOff();">Edit</button>
+            <button name="delete-time-off-btn" class="primary" disabled onclick="$(this.controller).deleteTimeOff();">Delete</button>
           </div>
         </div>
       </div>
