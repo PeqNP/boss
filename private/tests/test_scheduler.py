@@ -2945,6 +2945,12 @@ def test_operator_job_view():
     assert job.paymentStatus == "unpaid", \
         "it: says how much of it has been paid for"
     assert job.isRecurring is False
+    assert job.stripeConfigured is False, \
+        "it: QR is off until Stripe is connected"
+    set_vendor("payment", "mock", {})
+    complete_connect(business_id, "mock")
+    assert get_job_detail(business_id, held.jobId).stripeConfigured is True, \
+        "it: QR is on once a payment vendor and account are there"
 
     # describe: who is involved
     assert [e.firstName for e in job.employees] == ["Alice"], \

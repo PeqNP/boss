@@ -824,7 +824,7 @@ Listens for `io.bithead.scheduler.job.changed` and reloads the view it is on.
   - **Queue:** Jobs stacked vertically, one block per row, no overlap and no time-offset. Order is scheduled time, then job id — clock order, and the earlier booking above when two share a time. Completed and cancelled jobs are omitted. Under `reserved`, a job with no crew shows `⚠`. A tap opens `Job` in compact form: Details (job type, size, scheduled date and time read-only), Customer (the job type's contact fields), Payments (amount, method, then Write Off / QR Code / Record Payment on its own row, Record Payment the default). Bottom: Close, Cancel, Complete. Recording a payment that leaves the job `fully_paid` marks it complete and closes. Complete without full payment marks it complete and closes. Empty copy: "No jobs in the queue." Same `GET .../schedule/day`; the stack is a layout of that list, not a second route.
 
 Edit form for a single scheduled job: date, time, employee reassignment, notes.
-Admin-only actions: mark completed, mark paid (cash), show QR payment code.
+Admin-only actions: mark completed, mark paid (cash), show QR payment code. QR Code is disabled unless `payment_connected` — a payment vendor and a Stripe account on the business.
 
 **Stub endpoints:** none new. Queue reads `GET /business/{id}/schedule/day`. Completing emits `job.changed` kind `completed` so an open Queue drops the job.
 

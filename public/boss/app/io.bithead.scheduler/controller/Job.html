@@ -349,6 +349,7 @@
         if (response.paymentStatus === "written_off") {
           win.button("write-off-btn").disabled = true;
         }
+        win.button("qr-payment-btn").disabled = response.stripeConfigured !== true;
         win.input("scheduled-date").value = response.scheduledDate;
         win.input("scheduled-time").value = response.scheduledTime;
 
@@ -539,9 +540,9 @@
           </select>
         </div>
       </div>
-      <div class="controls">
+      <div class="hbox gap-10" style="margin-top: 10px;">
         <button name="write-off-btn" class="primary" onclick="$(this.controller).writeOff();">Write Off</button>
-        <button class="primary" onclick="$(this.controller).showQrPayment();">QR Code</button>
+        <button name="qr-payment-btn" class="primary" disabled onclick="$(this.controller).showQrPayment();">QR Code</button>
         <button name="record-payment-btn" class="default" onclick="$(this.controller).addPayment();">Record</button>
       </div>
     </fieldset>

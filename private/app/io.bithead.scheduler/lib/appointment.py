@@ -21,6 +21,7 @@ from .exception import *
 from .job_events import employee_sees_job
 from .business import get_business
 from .money import _business_job, get_payments
+from .vendor import payment_connected
 from .notify import send, sender
 from .time import _end_time, _stamp, display_date, display_time
 
@@ -105,6 +106,7 @@ def get_job_detail(
         durationMinutes=row.duration_minutes,
         status=row.status,
         paymentStatus=row.payment_status,
+        stripeConfigured=payment_connected(business_id),
         locked=row.locked_date is not None,
         failedCodeAttempts=db.count_access_attempts(job_id),
         isRecurring=bool(row.is_recurring),

@@ -477,6 +477,7 @@ class JobDetail(Model):
     durationMinutes: int
     status: str
     paymentStatus: str
+    stripeConfigured: bool = False
     locked: bool
     failedCodeAttempts: int
     isRecurring: bool
