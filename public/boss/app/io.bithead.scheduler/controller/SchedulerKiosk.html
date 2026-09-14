@@ -1,4 +1,4 @@
-<div class="ui-kiosk">
+<div class="ui-kiosk" name="scheduler-kiosk">
   <div class="title">Schedule an Appointment</div>
   <script type="text/javascript">
     function $(this.id)(view) {
@@ -688,9 +688,15 @@
         // The confirmation step just booked it with the customer standing
         // here, so there is nothing left for them to prove.
         if (!isEmpty(confirmedAccessHandle)) {
+          const handle = confirmedAccessHandle;
+          const id = businessId;
+          // Close first. Appointment is its own kiosk; leaving this one
+          // underneath is how Start Over used to stack a second booking
+          // kiosk on the appointment that was just cancelled.
+          await view.ui.close();
           const win = await $(app.controller).loadController("Appointment");
           win.ui.show(function(ctrl) {
-            ctrl.configure(confirmedAccessHandle, businessId);
+            ctrl.configure(handle, id);
           });
           return;
         }

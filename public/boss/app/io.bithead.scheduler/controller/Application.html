@@ -269,6 +269,32 @@
       this.clearKioskTheme = clearKioskTheme;
 
       /**
+       * Closes the booking kiosk if one is on screen.
+       *
+       * Appointment is a second kiosk. Opening it on top of the booking
+       * kiosk, then Start Over, used to leave the first one underneath.
+       */
+      async function closeSchedulerKiosk() {
+        const context = document.getElementById(
+          os.ui.appContainerId("$(app.bundleId)")
+        );
+        if (isEmpty(context)) {
+          return;
+        }
+        for (const container of Array.from(context.children)) {
+          if (isEmpty(container.querySelector(
+            ":scope > .ui-kiosk[name='scheduler-kiosk']"
+          ))) {
+            continue;
+          }
+          if (!isEmpty(container.ui)) {
+            await container.ui.close();
+          }
+        }
+      }
+      this.closeSchedulerKiosk = closeSchedulerKiosk;
+
+      /**
        * The business operator screens should call. `/me` is who you are;
        * this is which business you are working on.
        *

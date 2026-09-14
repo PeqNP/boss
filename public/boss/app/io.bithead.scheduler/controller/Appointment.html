@@ -114,8 +114,12 @@
         const id = businessId || appointment?.businessId;
         if (!isEmpty(id)) {
           const win = await $(app.controller).loadController("SchedulerKiosk");
+          const reused = document.body.contains(win);
           win.ui.show(function(ctrl) {
             ctrl.configure(id);
+            if (reused) {
+              ctrl.startOver();
+            }
           });
         }
         view.ui.close();

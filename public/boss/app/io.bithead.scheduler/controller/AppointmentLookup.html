@@ -156,6 +156,7 @@
           view.ui.input("verify-code").focus();
           return;
         }
+        await $(app.controller).closeSchedulerKiosk();
         const win = await $(app.controller).loadController("Appointment");
         win.ui.show(function(ctrl) {
           ctrl.configure(response.accessHandle);

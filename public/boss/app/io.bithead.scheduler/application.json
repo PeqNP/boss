@@ -73,7 +73,9 @@
         "FinancialReport": {
             "singleton": true
         },
-        "SchedulerKiosk": {},
+        "SchedulerKiosk": {
+            "singleton": true
+        },
         "AppointmentLookup": {
             "singleton": true
         },
