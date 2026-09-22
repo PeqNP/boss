@@ -1,45 +1,33 @@
 # Lean Visualizer Memory
 
 Lean Multi-Track Production Simulator: a release-forecasting board backed by Jira.
-Shipped and in daily use; work is incremental. Read this before touching either half —
-almost every BOSS app rule assumes a structure this app does not have.
+Shipped and in daily use. The spec is [description.md](description.md). The contract
+is [plan.md](../../../../private/app/io.bithead.lean-visualizer/plan.md). Every route
+requires a role. Stage 1 is next.
+
+`index.html` is the old page. Stage 1 deletes it. It is not a client, and no route
+stays open so that it can keep calling. The plan decides the windows and the routes.
 
 ## Architecture
 
-**This is the only app in `public/boss/app/` without an `application.json`, and that is
-deliberate.** It is a standalone single-page app that does not run inside the BOSS
-frontend, but it does own a BOSS private (Python) backend.
+The BOSS app is this bundle: `application.json`, sign-in, and ACL, built in Stage 1.
+Until that lands, `bin/validate-app` reports `application.json` missing.
 
 ### Public half
 
-- The entire frontend is [index.html](index.html) — HTML, CSS, and JS colocated in one
-  file. No framework, no build step, no imports.
-- Nothing BOSS is loaded: no `<script src>` at all, so no `ui.js`, `os.js`, or
-  `network.js`. Server calls use bare `fetch`, not `os.network`.
-- The bundle has only `index.html` and this file. No `application.json`, no
-  `controller/`, no `icon.svg`, no `description.md`, no `scheme`, and no entry in
-  `public/boss/app/installed.json`. It is never launched by the OS, has no window,
-  no menu bar, and no BOSS sign-in.
-- Reached directly at `/boss/app/io.bithead.lean-visualizer/index.html`. nginx serves it
-  off disk (`location /` → `try_files $uri`, [dev-nginx.conf](../../../../private/dev-nginx.conf#L107));
-  Vapor never sees the request and no Swift route or `bosslib` code exists for this bundle.
-- Its visual language (warm paper background, orange accent, rounded cards) is
-  intentional and is *not* the 1-bit System 7 aesthetic. Do not "correct" it toward BOSS UI.
-- Consequences for agents: `bin/validate-app io.bithead.lean-visualizer` reports
-  `application.json is missing` and always will — that error is expected, not a task.
-  The app-bundle and controller rules in `docs/prompt/shared.md` §3–4 and
-  `docs/prompt/js.md` do not apply to this app.
+- The product UI is the controllers named in the plan. A feature keeps its own color.
+  The rest of the chrome is the BOSS desktop.
+- Server calls go through `os.network` with the signed-in session.
 
 ### Private half
 
 - One module: [`private/app/io.bithead.lean-visualizer/__init__.py`](../../../../private/app/io.bithead.lean-visualizer/__init__.py),
   exposing `router = APIRouter(prefix="/api/io.bithead.lean-visualizer")`, auto-discovered
   by `private/api.py`, served on 8082, proxied by nginx `location /api`.
-- Single-file layout is intentional (`docs/prompt/python.md` §15); do not split it into
-  `model.py`/`lib.py`/`db.py` without a reason.
-- Endpoints: `GET|PUT /model`, `GET /metrics`, `GET /metrics-window`,
-  `GET /metrics-tasks`, `GET /metrics-release-work-units`, `GET /release-options`,
-  `POST /sync-task-metrics`, `GET /sync-jira`, `GET /finished-work`.
+- The module is one file today. The plan splits it into `model.py`, `lib.py`, and `db.py`
+  when the rules are written.
+- Every route requires an Admin or an Employee. Paths that already exist keep their paths.
+  Added routes are `GET /me`, `GET /schedule`, `GET /report`, and `POST /checkpoints`.
 - Storage: SQLite at `<db_path>/lean-visualizer.sqlite3`, where `db_path` comes from
   `~/boss/config` — never alongside the source. Tables: `versions`, `visualizer_models`
   (one row, `MODEL_ID = "default"`, carrying `schema_version` and `revision`),
@@ -47,14 +35,14 @@ frontend, but it does own a BOSS private (Python) backend.
 - Secrets live in `config.json` beside the module (gitignored; see `config.json.example`):
   Jira URL, account email, API key, `fr_board_id`, `planned_board_names`,
   `unplanned_board_names`.
-- No authentication or ACL. `require_acl` exists in `private/lib/server.py` but is unused
-  repo-wide, so anything that can reach `/api` can read and rewrite the model. See Open.
+- `require_acl` is the guard, the same mechanism Scheduler uses. A caller with no role
+  is refused.
 
 ### Contract between the halves
 
 - Model persistence: `GET /model` returns state plus `revision`; `PUT /model` sends
-  `schemaVersion` and the last `revision` for write coordination. Only `operators`,
-  `tracks`, `backlog`, and `releases` are canonical persisted state.
+  `schemaVersion` and the last `revision` for write coordination. Canonical keys are
+  `operators`, `tracks`, `backlog`, `releases`, and `weeklyNotes`. Pillars are not one of them.
 - Autosave fires on committed mutations only — never while typing in an inline editor —
   and after Jira sync mutates the model. A load must not look like a save; status settles
   to `Ready`.
@@ -81,15 +69,13 @@ frontend, but it does own a BOSS private (Python) backend.
   Infinite durations must render dates as `—`, never as an invalid date.
 - The backlog carries a system divider row (`system-sync-divider`); tasks below it are
   excluded from work-unit queries. Preserve it when touching backlog order.
-- `normalizeFeature()` in [index.html](index.html) rebuilds every feature from a fixed
-  field list on load, so any field it does not name is erased on the next autosave. A
-  field the backend writes must be added there too, or it survives exactly until the user
-  saves. This is how completed FRs stopped being retired: the sync wrote `jiraIssueType`,
-  the client dropped it, and the removal branch that keys off it never ran again.
+- A board save must round-trip `jiraIssueType`. The old page rebuilt each feature from a
+  fixed field list and dropped that field, so completed FRs stopped being retired. The
+  new board has to keep every feature field the sync writes.
 - FR retirement is therefore decided by Jira project membership — a feature whose issue
   key belongs to a project this sync just read, and that Jira did not return as open, is
   removed. An empty Jira result removes nothing, on purpose.
-- Results and failures use the in-app OK-only status dialog, never `alert()`.
+- Results and failures use the OS message with an OK button.
 - Planned vs unplanned classification is by parent task presence, not board routing:
   parent present → planned, parent null → unplanned.
 - Task metrics are attributed by Jira's `Developers` field only — never `assignee`. One
@@ -102,9 +88,7 @@ frontend, but it does own a BOSS private (Python) backend.
 
 ## Open
 
-1. The private API is unauthenticated — undecided whether to adopt `require_acl` or leave
-   it to network placement.
-2. Schema changes need their own migration patch plus a DB version bump. Do not delete or
+1. Schema changes need their own migration patch plus a DB version bump. Do not delete or
    recreate the database to apply one.
 
 ## Running it
@@ -113,4 +97,4 @@ frontend, but it does own a BOSS private (Python) backend.
   up a substitute. See `shared.md` § Running and Validating Locally.
 - Syntax-check the private module before asking for a restart:
   `source ~/.venv/bin/activate && python3 private/app/io.bithead.lean-visualizer/__init__.py`.
-- If backend/frontend ownership of a change is ambiguous, stop and ask.
+- `index.html` is retired. Do not add a path, a flag, or an open route so that it keeps working.

@@ -30,7 +30,7 @@ The look back covers the stored weekly throughput and the feature requests finis
 
 When a release date is today or earlier, an admin can save a checkpoint for it. The window is the day after the previous release through this release's date. The first release uses the fourteen days ending on its date. The save records the issues completed in that window, by the same rules as the weekly sync, and it records each open feature's forecasted finish and the eight-week rate as they stood then.
 
-The current page at `/boss/app/io.bithead.lean-visualizer/index.html` stays where it is and keeps working while this app is built. The checkpoint, the pillar, and the rate live beside the board that page saves.
+The checkpoint, the pillars, and the rates are stored with the board. Every route requires a signed-in Admin or Employee. The old single page is not a client of this app.
 
 Feature-request review asks how a feature will be validated in the full customer workflow.
 
@@ -42,6 +42,6 @@ Feature-request review asks how a feature will be validated in the full customer
 - A forecast for a release that was never checkpointed
 - A checkpoint for a release date that has not arrived
 - A checkpoint that saves itself while nobody is here
-- Any change to `index.html`
+- Keeping the old single page working. `index.html` is not a client
 - Sprint commitments, and calling a release a sprint
 - Removing the weekly sync
