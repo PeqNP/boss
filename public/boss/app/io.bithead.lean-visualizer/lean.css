@@ -17,6 +17,10 @@ th.narrow .column-name {
   max-width: 4em;
 }
 
+tr.totals td {
+  border-top: 1px solid #000;
+}
+
 /* A table value that can be edited. A tap replaces it with a text field. */
 .edit-label {
   display: inline-block;

@@ -55,7 +55,6 @@
         }
       ];
       const dragLines = [];
-      let directTrackId = null;
       let releases = [
         { id: "rel_14", version: "1.4.0", date: "2026-09-11" },
         { id: "rel_15", version: "1.5.0", date: "2026-09-25" }
@@ -86,37 +85,6 @@
         saved();
       }
       this.addDivider = addDivider;
-
-      function addToBacklog() {
-        const name = view.ui.input("work-name").value.trim();
-        if (isEmpty(name)) {
-          view.ui.showMessage("Provide a feature name.", { error: true });
-          return;
-        }
-        backlog.push(makeFeature(name, numberValue(view.ui.input("work-units").value)));
-        view.ui.input("work-name").value = "";
-        view.ui.input("work-units").value = "0";
-        saved();
-      }
-      this.addToBacklog = addToBacklog;
-
-      function addToTrack() {
-        const name = view.ui.input("work-name").value.trim();
-        const trackId = directTrackId;
-        if (isEmpty(name)) {
-          view.ui.showMessage("Provide a feature name.", { error: true });
-          return;
-        }
-        if (isEmpty(trackId)) {
-          view.ui.showMessage("Select a track.", { error: true });
-          return;
-        }
-        placeOnTrack(makeFeature(name, numberValue(view.ui.input("work-units").value)), trackId);
-        view.ui.input("work-name").value = "";
-        view.ui.input("work-units").value = "0";
-        saved();
-      }
-      this.addToTrack = addToTrack;
 
       function addRelease() {
         const date = view.ui.input("release-date").value;
@@ -291,7 +259,6 @@
         renderTracks();
         renderBacklog();
         renderReleases();
-        renderDirectTrack();
         const enabled = tracks.filter(function(track) { return track.enabled; }).length;
         const capacity = tracks.reduce(function(sum, track) {
           return sum + (track.enabled ? trackRate(track.id) : 0);
@@ -322,8 +289,11 @@
           body.appendChild(tr);
           tr.querySelector("[data-cell='track']").appendChild(operatorTrackMenu(operator));
         });
-        view.ui.span("operator-total").textContent = "Total  " + totals[0] + " units, "
-          + totals[1] + " planned, " + totals[2] + " unplanned, " + waste(totals[1], totals[2]);
+        const totalRow = document.createElement("tr");
+        totalRow.className = "totals";
+        totalRow.innerHTML = "<td></td><td>Total</td><td>" + totals[0] + "</td><td>" + totals[1]
+          + "</td><td>" + totals[2] + "</td><td>" + waste(totals[1], totals[2]) + "</td><td></td><td></td>";
+        body.appendChild(totalRow);
       }
 
       function renderTracks() {
@@ -401,26 +371,6 @@
           tr.innerHTML = "<td>" + escapeHtml(release.version) + "</td><td>" + escapeHtml(release.date) + "</td>";
           body.appendChild(tr);
         });
-      }
-
-      function renderDirectTrack() {
-        const holder = view.ui.div("direct-track");
-        holder.innerHTML = "";
-        const chosen = tracks.some(function(track) {
-          return track.enabled && track.id === directTrackId;
-        }) ? directTrackId : undefined;
-        holder.appendChild(popupMenu(
-          "direct-track-menu",
-          "Track",
-          tracks.filter(function(track) { return track.enabled; }).map(function(track) {
-            return { id: track.id, name: track.name };
-          }),
-          chosen,
-          function(value) {
-            directTrackId = isEmpty(value) ? null : value;
-          },
-          "180px"
-        ));
       }
 
       function onClick(event) {
@@ -615,14 +565,6 @@
           }
         }
         saved();
-      }
-
-      function makeFeature(name, units) {
-        return {
-          kind: "feature", id: uid("f"), name: name, issueKey: "", color: nextColor(),
-          units: units, completedUnits: 0, manualEstWeeks: 0, remainingWeeks: "", finishOn: "",
-          pinnedTrackId: null, jql: ""
-        };
       }
 
       function findTrack(id) {
@@ -902,12 +844,6 @@
       <legend>Operators</legend>
       <div class="vbox gap-10">
         <div class="hbox gap-10">
-          <button class="primary" onclick="$(this.controller).addOperator();">Add Operator</button>
-          <button class="primary" onclick="$(this.controller).openTaskMetrics();">View Task Metrics</button>
-          <button class="primary" onclick="$(this.controller).openTasks();">View Tasks</button>
-          <button class="primary" onclick="$(this.controller).openNotes();">Add Notes</button>
-        </div>
-        <div class="hbox gap-10">
           <button name="previous-week" class="primary" onclick="$(this.controller).previousWeek();">Previous Week</button>
           <div class="read-only">
             <label>Week</label>
@@ -917,6 +853,12 @@
           <button class="primary" onclick="$(this.controller).syncMetrics();">Sync Task Metrics</button>
           <button class="primary" onclick="$(this.controller).copyQuery(this);">Copy Jira Query</button>
         </div>
+        <div class="hbox gap-10">
+          <button class="primary" onclick="$(this.controller).addOperator();">Add Operator</button>
+          <button class="primary" onclick="$(this.controller).openTaskMetrics();">View Task Metrics</button>
+          <button class="primary" onclick="$(this.controller).openTasks();">View Tasks</button>
+          <button class="primary" onclick="$(this.controller).openNotes();">Add Notes</button>
+        </div>
         <table name="operators">
           <thead>
             <tr>
@@ -925,7 +867,6 @@
           </thead>
           <tbody></tbody>
         </table>
-        <div class="read-only"><span name="operator-total"></span></div>
       </div>
     </fieldset>
 
@@ -943,27 +884,6 @@
           </thead>
           <tbody></tbody>
         </table>
-      </div>
-    </fieldset>
-
-    <fieldset>
-      <legend>Add Work Unit</legend>
-      <div class="vbox gap-10">
-        <div class="hbox gap-10">
-          <div class="text-field">
-            <label for="work-name">Feature name</label>
-            <input type="text" name="work-name" autocomplete="off">
-          </div>
-          <div class="text-field">
-            <label for="work-units">Units</label>
-            <input type="number" name="work-units" min="0" step="0.1" value="0">
-          </div>
-        </div>
-        <div class="hbox gap-10">
-          <button class="primary" onclick="$(this.controller).addToBacklog();">Add To Backlog</button>
-          <div name="direct-track"></div>
-          <button class="primary" onclick="$(this.controller).addToTrack();">Add To Track</button>
-        </div>
       </div>
     </fieldset>
 
