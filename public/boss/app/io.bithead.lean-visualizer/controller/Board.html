@@ -9,6 +9,8 @@
       ];
       const CURRENT_WEEK = 2;
       const COLORS = ["#d95f02", "#216e39", "#6a4f31", "#1f4e79", "#6f42c1"];
+      // Stand-in for GET /model `config.jiraRootUrl`.
+      const boardConfig = { jiraRootUrl: "https://jira.example" };
 
       let weekIndex = 1;
       let revision = 4;
@@ -54,6 +56,8 @@
         }
       ];
       const dragLines = [];
+      let directTrackId = null;
+      let draftWorkName = "";
       let releases = [
         { id: "rel_14", version: "1.4.0", date: "2026-09-11" },
         { id: "rel_15", version: "1.5.0", date: "2026-09-25" }
@@ -86,21 +90,21 @@
       this.addDivider = addDivider;
 
       function addToBacklog() {
-        const name = view.ui.input("work-name").value.trim();
+        const name = currentWorkName();
         if (isEmpty(name)) {
           view.ui.showMessage("Provide a feature name.", { error: true });
           return;
         }
         backlog.push(makeFeature(name, numberValue(view.ui.input("work-units").value)));
-        view.ui.input("work-name").value = "";
+        clearWorkName();
         view.ui.input("work-units").value = "0";
         saved();
       }
       this.addToBacklog = addToBacklog;
 
       function addToTrack() {
-        const name = view.ui.input("work-name").value.trim();
-        const trackId = view.ui.select("direct-track").value;
+        const name = currentWorkName();
+        const trackId = directTrackId;
         if (isEmpty(name)) {
           view.ui.showMessage("Provide a feature name.", { error: true });
           return;
@@ -110,7 +114,7 @@
           return;
         }
         placeOnTrack(makeFeature(name, numberValue(view.ui.input("work-units").value)), trackId);
-        view.ui.input("work-name").value = "";
+        clearWorkName();
         view.ui.input("work-units").value = "0";
         saved();
       }
@@ -312,7 +316,7 @@
           const tr = document.createElement("tr");
           tr.dataset.index = String(index);
           tr.innerHTML = "<td draggable=\"true\" data-drag=\"" + index + "\" style=\"cursor:grab\">⠿</td>"
-            + "<td><input type=\"text\" data-role=\"operator-name\" data-id=\"" + operator.id + "\" value=\"" + escapeHtml(operator.name) + "\"></td>"
+            + "<td>" + editLabel("operator-name", operator.id, operator.name) + "</td>"
             + "<td>" + figures[0] + "</td>"
             + "<td>" + figures[1] + "</td>"
             + "<td>" + figures[2] + "</td>"
@@ -335,7 +339,7 @@
           tr.dataset.index = String(index);
           const featureCells = isEmpty(feature)
             ? "<td class=\"muted\">No active feature</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td>"
-            : "<td>" + dot(feature.color) + " <input type=\"text\" data-role=\"feature-name\" data-id=\"" + feature.id + "\" data-owner=\"track\" value=\"" + escapeHtml(feature.name) + "\"></td>"
+            : "<td>" + featureTitle(feature) + "</td>"
               + "<td>" + keyCell(feature) + "</td>"
               + "<td><input type=\"number\" min=\"0\" data-role=\"feature-units\" data-id=\"" + feature.id + "\" data-owner=\"track\" value=\"" + feature.units + "\"></td>"
               + "<td><input type=\"number\" min=\"0\" data-role=\"feature-completed\" data-id=\"" + feature.id + "\" data-owner=\"track\" value=\"" + feature.completedUnits + "\"></td>"
@@ -344,11 +348,11 @@
               + "<td>" + estWeeksInput(feature, "track") + "</td>"
               + "<td>" + (isEmpty(feature.finishOn) ? "—" : escapeHtml(feature.finishOn)) + "</td>";
           tr.innerHTML = "<td draggable=\"true\" data-drag=\"" + index + "\" style=\"cursor:grab\">⠿</td>"
-            + "<td><input type=\"text\" data-role=\"track-name\" data-id=\"" + track.id + "\" value=\"" + escapeHtml(track.name) + "\"></td>"
+            + "<td>" + editLabel("track-name", track.id, track.name) + "</td>"
             + "<td><label class=\"checkbox\"><input type=\"checkbox\" data-role=\"track-enabled\" data-id=\"" + track.id + "\"" + (track.enabled ? " checked" : "") + "> " + (track.enabled ? "Enabled" : "Disabled") + "</label></td>"
             + featureCells
             + "<td><button type=\"button\" class=\"primary\" data-action=\"move-to-backlog\" data-id=\"" + track.id + "\"" + (isEmpty(feature) ? " disabled" : "") + ">Move To Backlog</button> "
-            + "<button type=\"button\" class=\"primary\" data-action=\"delete-feature\" data-id=\"" + track.id + "\"" + (isEmpty(feature) ? " disabled" : "") + ">Delete</button></td>";
+            + "<button type=\"button\" class=\"primary delete\" aria-label=\"Delete\" data-action=\"delete-feature\" data-id=\"" + track.id + "\"" + (isEmpty(feature) ? " disabled" : "") + "></button></td>";
           body.appendChild(tr);
         });
       }
@@ -363,10 +367,10 @@
           if (item.kind === "divider" || item.kind === "system-divider") {
             const name = item.kind === "system-divider"
               ? escapeHtml(item.name)
-              : "<input type=\"text\" data-role=\"divider-name\" data-id=\"" + item.id + "\" value=\"" + escapeHtml(item.name) + "\">";
+              : editLabel("divider-name", item.id, item.name);
             const remove = item.kind === "system-divider"
               ? ""
-              : "<button type=\"button\" class=\"primary\" data-action=\"delete-backlog\" data-id=\"" + item.id + "\">Delete</button>";
+              : "<button type=\"button\" class=\"primary delete\" aria-label=\"Delete\" data-action=\"delete-backlog\" data-id=\"" + item.id + "\"></button>";
             tr.innerHTML = "<td draggable=\"true\" data-drag=\"" + index + "\" style=\"cursor:grab\">⠿</td>"
               + "<td colspan=\"11\">" + dot(item.color) + " " + name + " " + remove + "</td>";
             body.appendChild(tr);
@@ -374,28 +378,20 @@
           }
           tr.innerHTML = "<td draggable=\"true\" data-drag=\"" + index + "\" style=\"cursor:grab\">⠿</td>"
             + "<td>" + (index + 1) + "</td>"
-            + "<td>" + dot(item.color) + " <input type=\"text\" data-role=\"feature-name\" data-owner=\"backlog\" data-id=\"" + item.id + "\" value=\"" + escapeHtml(item.name) + "\"></td>"
+            + "<td>" + featureTitle(item) + "</td>"
             + "<td>" + keyCell(item) + "</td>"
             + "<td><input type=\"number\" min=\"0\" data-role=\"feature-units\" data-owner=\"backlog\" data-id=\"" + item.id + "\" value=\"" + item.units + "\"></td>"
             + "<td><input type=\"number\" min=\"0\" data-role=\"feature-completed\" data-owner=\"backlog\" data-id=\"" + item.id + "\" value=\"" + item.completedUnits + "\"></td>"
             + "<td>" + (item.remainingWeeks === "" ? "—" : item.remainingWeeks) + "</td>"
             + "<td>" + estWeeksInput(item, "backlog") + "</td>"
             + "<td>" + (isEmpty(item.finishOn) ? "—" : escapeHtml(item.finishOn)) + "</td>"
-            + "<td><select data-role=\"pin-track\" data-id=\"" + item.id + "\"><option value=\"\">Unpinned</option>"
-            + tracks.map(function(track) {
-              const selected = item.pinnedTrackId === track.id ? " selected" : "";
-              return "<option value=\"" + track.id + "\"" + selected + ">" + escapeHtml(track.name) + "</option>";
-            }).join("")
-            + "</select></td>"
+            + "<td data-cell=\"pin\"></td>"
             + "<td>—</td>"
-            + "<td><select data-role=\"move-to-track\" data-id=\"" + item.id + "\"" + (enabled.length === 0 ? " disabled" : "") + ">"
-            + "<option value=\"\">Select Track</option>"
-            + enabled.map(function(track) {
-              return "<option value=\"" + track.id + "\">" + escapeHtml(track.name) + "</option>";
-            }).join("")
-            + "</select></td>"
-            + "<td><button type=\"button\" class=\"primary\" data-action=\"delete-backlog\" data-id=\"" + item.id + "\">Delete</button></td>";
+            + "<td data-cell=\"move\"></td>"
+            + "<td><button type=\"button\" class=\"primary delete\" aria-label=\"Delete\" data-action=\"delete-backlog\" data-id=\"" + item.id + "\"></button></td>";
           body.appendChild(tr);
+          tr.querySelector("[data-cell='pin']").appendChild(pinMenu(item));
+          tr.querySelector("[data-cell='move']").appendChild(moveMenu(item, enabled));
         });
       }
 
@@ -410,16 +406,31 @@
       }
 
       function renderDirectTrack() {
-        const select = view.ui.select("direct-track");
-        const current = select.value;
-        select.innerHTML = "<option value=\"\">Select Track For Direct Add</option>"
-          + tracks.filter(function(track) { return track.enabled; }).map(function(track) {
-            return "<option value=\"" + track.id + "\">" + escapeHtml(track.name) + "</option>";
-          }).join("");
-        select.value = current;
+        const holder = view.ui.div("direct-track");
+        holder.innerHTML = "";
+        const chosen = tracks.some(function(track) {
+          return track.enabled && track.id === directTrackId;
+        }) ? directTrackId : undefined;
+        holder.appendChild(popupMenu(
+          "direct-track-menu",
+          "Track",
+          tracks.filter(function(track) { return track.enabled; }).map(function(track) {
+            return { id: track.id, name: track.name };
+          }),
+          chosen,
+          function(value) {
+            directTrackId = isEmpty(value) ? null : value;
+          },
+          "180px"
+        ));
       }
 
       function onClick(event) {
+        const label = event.target.closest(".edit-label");
+        if (!isEmpty(label)) {
+          beginEdit(label);
+          return;
+        }
         const button = event.target.closest("[data-action]");
         if (isEmpty(button)) {
           return;
@@ -458,20 +469,6 @@
         const input = event.target;
         const role = input.dataset.role;
         const id = input.dataset.id;
-        if (role === "operator-name") {
-          const operator = operators.find(function(item) { return item.id === id; });
-          if (!isEmpty(operator)) {
-            operator.name = input.value;
-            saved();
-          }
-        }
-        if (role === "track-name") {
-          const track = findTrack(id);
-          if (!isEmpty(track)) {
-            track.name = input.value;
-            saved();
-          }
-        }
         if (role === "track-enabled") {
           const track = findTrack(id);
           if (!isEmpty(track)) {
@@ -479,13 +476,10 @@
             saved();
           }
         }
-        if (role === "feature-name" || role === "feature-units" || role === "feature-completed" || role === "feature-weeks") {
+        if (role === "feature-units" || role === "feature-completed" || role === "feature-weeks") {
           const feature = findFeature(id, input.dataset.owner);
           if (isEmpty(feature)) {
             return;
-          }
-          if (role === "feature-name") {
-            feature.name = input.value;
           }
           if (role === "feature-units") {
             feature.units = numberValue(input.value);
@@ -496,32 +490,6 @@
           if (role === "feature-weeks") {
             feature.manualEstWeeks = numberValue(input.value);
           }
-          saved();
-        }
-        if (role === "divider-name") {
-          const item = backlog.find(function(entry) { return entry.id === id; });
-          if (!isEmpty(item)) {
-            item.name = input.value;
-            saved();
-          }
-        }
-        if (role === "pin-track") {
-          const item = backlog.find(function(entry) { return entry.id === id; });
-          if (!isEmpty(item)) {
-            item.pinnedTrackId = isEmpty(input.value) ? null : input.value;
-            saved();
-          }
-        }
-        if (role === "move-to-track") {
-          if (isEmpty(input.value)) {
-            return;
-          }
-          const index = backlog.findIndex(function(entry) { return entry.id === id; });
-          if (index < 0) {
-            return;
-          }
-          const incoming = backlog.splice(index, 1)[0];
-          placeOnTrack(incoming, input.value);
           saved();
         }
       }
@@ -690,35 +658,85 @@
       }
 
       function operatorTrackMenu(operator) {
-        const menu = os.ui.makePopupMenu(
-          "operator-track-" + operator.id,
-          "",
+        const operatorId = operator.id;
+        return popupMenu(
+          "operator-track-" + operatorId,
           "Track",
           [{ id: "", name: "None" }].concat(tracks.map(function(track) {
             return { id: track.id, name: track.name };
           })),
-          { width: "140px" }
+          isEmpty(operator.trackId) ? "" : operator.trackId,
+          function(value) {
+            const found = operators.find(function(item) { return item.id === operatorId; });
+            if (isEmpty(found)) {
+              return;
+            }
+            found.trackId = isEmpty(value) ? null : value;
+            saved();
+          }
         );
+      }
+
+      function pinMenu(item) {
+        return popupMenu(
+          "pin-" + item.id,
+          "Pinned",
+          [{ id: "", name: "Unpinned" }].concat(tracks.map(function(track) {
+            return { id: track.id, name: track.name };
+          })),
+          isEmpty(item.pinnedTrackId) ? "" : item.pinnedTrackId,
+          function(value) {
+            const found = backlog.find(function(entry) { return entry.id === item.id; });
+            if (isEmpty(found)) {
+              return;
+            }
+            found.pinnedTrackId = isEmpty(value) ? null : value;
+            saved();
+          }
+        );
+      }
+
+      function moveMenu(item, enabled) {
+        const menu = popupMenu(
+          "move-" + item.id,
+          "Track",
+          enabled.map(function(track) {
+            return { id: track.id, name: track.name };
+          }),
+          undefined,
+          function(value) {
+            if (isEmpty(value)) {
+              return;
+            }
+            const index = backlog.findIndex(function(entry) { return entry.id === item.id; });
+            if (index < 0) {
+              return;
+            }
+            const incoming = backlog.splice(index, 1)[0];
+            placeOnTrack(incoming, value);
+            saved();
+          }
+        );
+        if (enabled.length === 0) {
+          menu.querySelector("select").ui.disable();
+        }
+        return menu;
+      }
+
+      function popupMenu(name, prompt, choices, selectedId, onSelect, width) {
+        const menu = os.ui.makePopupMenu(name, "", prompt, choices, {
+          width: isEmpty(width) ? "140px" : width
+        });
         const label = menu.querySelector("label");
         if (!isEmpty(label)) {
           label.remove();
         }
         const select = menu.querySelector("select");
-        const operatorId = operator.id;
         select.onchange = function() {
-          const found = operators.find(function(item) { return item.id === operatorId; });
-          if (isEmpty(found)) {
-            return;
-          }
-          const value = select.ui.selectedValue();
-          found.trackId = isEmpty(value) ? null : value;
-          saved();
+          onSelect(select.ui.selectedValue());
         };
-        if (isEmpty(operator.trackId)) {
-          select.ui.selectValue("");
-        }
-        else {
-          select.ui.selectValue(operator.trackId);
+        if (selectedId !== undefined) {
+          select.ui.selectValue(selectedId);
         }
         return menu;
       }
@@ -756,7 +774,107 @@
         if (feature.kind === "virtual") {
           return "<button type=\"button\" class=\"primary\" data-action=\"edit-virtual\" data-id=\"" + feature.id + "\">JQL</button>";
         }
-        return isEmpty(feature.issueKey) ? "—" : escapeHtml(feature.issueKey);
+        if (isEmpty(feature.issueKey)) {
+          return "—";
+        }
+        const root = boardConfig.jiraRootUrl.replace(/\/$/, "");
+        if (isEmpty(root)) {
+          return escapeHtml(feature.issueKey);
+        }
+        return "<a class=\"jira-key\" href=\"" + root + "/browse/" + encodeURIComponent(feature.issueKey)
+          + "\" target=\"_blank\" rel=\"noopener noreferrer\">" + escapeHtml(feature.issueKey) + "</a>";
+      }
+
+      function featureTitle(feature) {
+        return "<span class=\"feature-name\">" + dot(feature.color) + " " + escapeHtml(feature.name) + "</span>";
+      }
+
+      function editLabel(role, id, value) {
+        return "<span class=\"edit-label\" data-role=\"" + role + "\" data-id=\"" + id + "\">" + escapeHtml(value) + "</span>";
+      }
+
+      function beginEdit(label) {
+        if (!isEmpty(label.querySelector("input"))) {
+          return;
+        }
+        const original = label.dataset.role === "work-name" ? draftWorkName : label.textContent;
+        const input = document.createElement("input");
+        input.type = "text";
+        input.value = original;
+        label.textContent = "";
+        label.classList.remove("edit-label");
+        label.appendChild(input);
+        input.focus();
+        input.addEventListener("keydown", function(event) {
+          if (event.key === "Enter") {
+            input.blur();
+          }
+          if (event.key === "Escape") {
+            input.value = original;
+            input.blur();
+          }
+        });
+        input.addEventListener("blur", function() {
+          finishEdit(label, input.value.trim(), original);
+        });
+      }
+
+      function finishEdit(label, value, original) {
+        const role = label.dataset.role;
+        const id = label.dataset.id;
+        if (role === "work-name") {
+          draftWorkName = value;
+          restoreLabel(label, value);
+          return;
+        }
+        if (isEmpty(value) || value === original) {
+          restoreLabel(label, original);
+          return;
+        }
+        if (role === "operator-name") {
+          const operator = operators.find(function(item) { return item.id === id; });
+          if (!isEmpty(operator)) {
+            operator.name = value;
+          }
+        }
+        if (role === "track-name") {
+          const track = findTrack(id);
+          if (!isEmpty(track)) {
+            track.name = value;
+          }
+        }
+        if (role === "divider-name") {
+          const item = backlog.find(function(entry) { return entry.id === id; });
+          if (!isEmpty(item)) {
+            item.name = value;
+          }
+        }
+        saved();
+      }
+
+      function restoreLabel(label, text) {
+        label.classList.add("edit-label");
+        label.textContent = text;
+      }
+
+      function currentWorkName() {
+        const label = view.querySelector("[data-role='work-name']");
+        if (isEmpty(label)) {
+          return "";
+        }
+        const input = label.querySelector("input");
+        if (!isEmpty(input)) {
+          return input.value.trim();
+        }
+        return draftWorkName.trim();
+      }
+
+      function clearWorkName() {
+        draftWorkName = "";
+        const label = view.querySelector("[data-role='work-name']");
+        if (!isEmpty(label)) {
+          restoreLabel(label, "");
+        }
       }
 
       function dot(color) {
@@ -835,7 +953,7 @@
         <table name="operators">
           <thead>
             <tr>
-              <th></th><th>Name</th><th>Units / Week</th><th>Planned Work</th><th>Unplanned Work</th><th>Waste %</th><th>Track</th><th>Actions</th>
+              <th></th><th title="Name"><span class="column-name">Name</span></th><th title="Units / Week"><span class="column-name">Units / Week</span></th><th title="Planned Work"><span class="column-name">Planned Work</span></th><th title="Unplanned Work"><span class="column-name">Unplanned Work</span></th><th title="Waste %"><span class="column-name">Waste %</span></th><th title="Track"><span class="column-name">Track</span></th><th title="Actions"><span class="column-name">Actions</span></th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -853,7 +971,7 @@
         <table name="tracks">
           <thead>
             <tr>
-              <th></th><th>Track</th><th>State</th><th>Feature</th><th>Jira Key</th><th>Total Units</th><th>Completed Units</th><th>Units Applied / Week</th><th>Remaining Weeks</th><th>Est. Weeks</th><th>Est. Date</th><th>Actions</th>
+              <th></th><th title="Track"><span class="column-name">Track</span></th><th title="State"><span class="column-name">State</span></th><th title="Feature"><span class="column-name">Feature</span></th><th title="Jira Key"><span class="column-name">Jira Key</span></th><th title="Total Units"><span class="column-name">Total Units</span></th><th title="Completed Units"><span class="column-name">Completed Units</span></th><th title="Units Applied / Week"><span class="column-name">Units Applied / Week</span></th><th title="Remaining Weeks"><span class="column-name">Remaining Weeks</span></th><th title="Est. Weeks"><span class="column-name">Est. Weeks</span></th><th title="Est. Date"><span class="column-name">Est. Date</span></th><th title="Actions"><span class="column-name">Actions</span></th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -865,9 +983,9 @@
       <legend>Add Work Unit</legend>
       <div class="vbox gap-10">
         <div class="hbox gap-10">
-          <div class="text-field">
-            <label for="work-name">Feature name</label>
-            <input type="text" name="work-name" autocomplete="off">
+          <div>
+            <label>Feature name</label>
+            <span class="edit-label" data-role="work-name"></span>
           </div>
           <div class="text-field">
             <label for="work-units">Units</label>
@@ -876,9 +994,7 @@
         </div>
         <div class="controls">
           <button class="primary" onclick="$(this.controller).addToBacklog();">Add To Backlog</button>
-          <select name="direct-track">
-            <option value="">Select Track For Direct Add</option>
-          </select>
+          <div name="direct-track"></div>
           <button class="primary" onclick="$(this.controller).addToTrack();">Add To Track</button>
         </div>
       </div>
@@ -904,7 +1020,7 @@
         <table name="backlog">
           <thead>
             <tr>
-              <th></th><th>#</th><th>Feature</th><th>Jira Key</th><th>Total Units</th><th>Completed Units</th><th>Remaining Weeks</th><th>Est. Weeks</th><th>Est. Date</th><th>Pinned Track</th><th>Predicted Track</th><th>Move To Track</th><th>Delete</th>
+              <th></th><th title="#"><span class="column-name">#</span></th><th title="Feature"><span class="column-name">Feature</span></th><th title="Jira Key"><span class="column-name">Jira Key</span></th><th title="Total Units"><span class="column-name">Total Units</span></th><th title="Completed Units"><span class="column-name">Completed Units</span></th><th title="Remaining Weeks"><span class="column-name">Remaining Weeks</span></th><th title="Est. Weeks"><span class="column-name">Est. Weeks</span></th><th title="Est. Date"><span class="column-name">Est. Date</span></th><th title="Pinned Track"><span class="column-name">Pinned Track</span></th><th title="Predicted Track"><span class="column-name">Predicted Track</span></th><th title="Move To Track"><span class="column-name">Move To Track</span></th><th></th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -915,7 +1031,7 @@
     <fieldset>
       <legend>Releases</legend>
       <div class="vbox gap-10">
-        <div class="hbox gap-10">
+        <div class="hbox gap-10" style="align-items: flex-end;">
           <div class="text-field">
             <label for="release-date">Date</label>
             <input type="date" name="release-date">
@@ -924,14 +1040,14 @@
             <label for="release-version">Version</label>
             <input type="text" name="release-version" autocomplete="off">
           </div>
+          <button class="primary" onclick="$(this.controller).addRelease();">Add Release</button>
         </div>
         <div class="controls">
-          <button class="primary" onclick="$(this.controller).addRelease();">Add Release</button>
           <button class="primary" onclick="$(this.controller).openReleases();">Manage Releases</button>
         </div>
         <table name="releases">
           <thead>
-            <tr><th>Version</th><th>Date</th></tr>
+            <tr><th title="Version"><span class="column-name">Version</span></th><th title="Date"><span class="column-name">Date</span></th></tr>
           </thead>
           <tbody></tbody>
         </table>

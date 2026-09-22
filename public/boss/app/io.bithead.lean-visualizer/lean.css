@@ -1,0 +1,27 @@
+/* Column names stay on one line. The full name is the header's title. */
+th .column-name {
+  display: block;
+  max-width: 8em;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* An editable name. A tap replaces it with a text field. */
+.edit-label {
+  display: inline-block;
+  min-width: 4em;
+  border-bottom: 1px dotted #000;
+  cursor: text;
+}
+
+/* A feature's color sits on the same line as its name. */
+.feature-name {
+  white-space: nowrap;
+}
+
+a.jira-key {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-style: solid;
+}

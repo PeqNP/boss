@@ -38,6 +38,7 @@
       this.showSchedule = showSchedule;
 
       async function applicationDidStart() {
+        await os.network.stylesheet("$(app.resourcePath)/lean.css");
         if (os.isGuestUser(os.user)) {
           os.ui.showSignIn();
           return;

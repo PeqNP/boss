@@ -34,7 +34,7 @@
           const tr = document.createElement("tr");
           tr.innerHTML = "<td><input type=\"text\" data-role=\"version\" data-id=\"" + release.id + "\" value=\"" + escapeHtml(release.version) + "\"></td>"
             + "<td><input type=\"date\" data-role=\"date\" data-id=\"" + release.id + "\" value=\"" + release.date + "\"></td>"
-            + "<td><button type=\"button\" class=\"primary\" data-action=\"delete\" data-id=\"" + release.id + "\">Delete</button></td>";
+            + "<td><button type=\"button\" class=\"primary delete\" aria-label=\"Delete\" data-action=\"delete\" data-id=\"" + release.id + "\"></button></td>";
           body.appendChild(tr);
         }
       }
@@ -80,7 +80,7 @@
   <div class="container vbox gap-10" style="width: 480px;">
     <table name="release-rows">
       <thead>
-        <tr><th>Version</th><th>Date</th><th></th></tr>
+        <tr><th title="Version"><span class="column-name">Version</span></th><th title="Date"><span class="column-name">Date</span></th><th></th></tr>
       </thead>
       <tbody></tbody>
     </table>
