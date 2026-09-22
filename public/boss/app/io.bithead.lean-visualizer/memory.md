@@ -29,7 +29,7 @@ load stub data. The routes they name are not wired yet.
 - The module is one file today. The plan splits it into `model.py`, `lib.py`, and `db.py`
   when the rules are written.
 - Every route requires an Admin or an Employee. Paths that already exist keep their paths.
-  Added routes are `GET /me`, `GET /schedule`, `GET /report`, and `POST /checkpoints`.
+  Added routes are `GET /me`, `GET /schedule`, `GET /report`, and `PUT /checkpoints/{releaseId}`.
 - Storage: SQLite at `<db_path>/lean-visualizer.sqlite3`, where `db_path` comes from
   `~/boss/config` — never alongside the source. Tables: `versions`, `visualizer_models`
   (one row, `MODEL_ID = "default"`, carrying `schema_version` and `revision`),

@@ -306,10 +306,6 @@ class ReportResponse(BaseModel):
     changes: List[MaterialChange]
 
 
-class CheckpointRequest(BaseModel):
-    releaseId: str
-
-
 class CheckpointResponse(BaseModel):
     releaseId: str
     releaseVersion: str
@@ -3075,11 +3071,11 @@ async def get_report(boss_user: User, request: Request) -> ReportResponse:
         conn.close()
 
 
-@router.post("/checkpoints", response_model=CheckpointResponse)
+@router.put("/checkpoints/{release_id}", response_model=CheckpointResponse)
 @require_acl("checkpoint.w", roles=[Role.ADMIN])
-async def post_checkpoint(body: CheckpointRequest, boss_user: User, request: Request) -> CheckpointResponse:
+async def put_checkpoint(release_id: str, boss_user: User, request: Request) -> CheckpointResponse:
     conn = get_model_db_connection()
     try:
-        return save_checkpoint(conn, body.releaseId)
+        return save_checkpoint(conn, release_id)
     finally:
         conn.close()

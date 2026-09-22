@@ -117,7 +117,7 @@ Prefix: `/api/io.bithead.lean-visualizer`.
 | `GET` | `/me` | the role list | Admin, Employee |
 | `GET` | `/schedule` | `schedule.r` | Admin, Employee |
 | `GET` | `/report` | `report.r` | Admin, Employee |
-| `POST` | `/checkpoints` | `checkpoint.w` | Admin |
+| `PUT` | `/checkpoints/{releaseId}` | `checkpoint.w` | Admin |
 
 ## Stage 1 — UI/UX
 
@@ -244,10 +244,10 @@ Audience: Admin. Modal. Parent passes the releases from `Board`.
 Lists releases whose date is today or earlier. A later release is not listed. Save sends that release id. The server refuses a future date with `409` even if the client listed it. Success closes the modal. The report reloads through `didSaveCheckpoint`.
 
 ```
-POST /checkpoints -> Checkpoint
+PUT /checkpoints/{releaseId} -> Checkpoint
     acl:   checkpoint.w
     who:   Admin
-    scope: the one board. Body: releaseId.
+    scope: the one board. The release id is the path.
            409 when the date has not arrived, or the release is not on the board.
            Saving the same release again replaces that checkpoint.
 ```
@@ -489,7 +489,7 @@ A rate operator: `operatorName`, `plannedPerWeek`, `unplannedPerWeek`, `weeksCou
 | savedAt | string |
 | issueCount | int |
 
-`PUT /model` body: `schemaVersion`, `revision`, `state`. `POST /checkpoints` body: `releaseId`. `POST /sync-task-metrics` body: `weekStart`.
+`PUT /model` body: `schemaVersion`, `revision`, `state`. `PUT /checkpoints/{releaseId}` has no body. `POST /sync-task-metrics` body: `weekStart`.
 
 ## Stage 3 — TDD
 
@@ -498,7 +498,7 @@ File: `private/tests/test_lean_visualizer.py`. Each group builds through `lib` a
 `test_access`
 
 - describe: caller has no role. it: `GET /me` is refused. it: `GET /model` is refused.
-- describe: caller is an Employee. it: `PUT /model` is refused. it: `GET /model` is refused. it: `POST /checkpoints` is refused. it: `GET /schedule` returns the forecast. it: `GET /report` returns the report.
+- describe: caller is an Employee. it: `PUT /model` is refused. it: `GET /model` is refused. it: `PUT /checkpoints/{releaseId}` is refused. it: `GET /schedule` returns the forecast. it: `GET /report` returns the report.
 - describe: caller is an Admin. it: `PUT /model` is allowed.
 
 `test_board`
@@ -585,7 +585,7 @@ Replace each stub. Done when the Stage 3 groups pass against `test-lean-visualiz
 | `GET /finished-work` | `FinishedWork` | finished features |
 | `GET /release-options`, `GET /metrics-release-work-units` | `PrepareRelease` | a release and its issues |
 | `GET /report` | `Report` | `lib.report` |
-| `POST /checkpoints` | `Checkpoint` | `lib.save_checkpoint` |
+| `PUT /checkpoints/{releaseId}` | `Checkpoint` | `lib.save_checkpoint` |
 
 `GET /metrics-window`, `GET /metrics-release-work-units`, `GET /release-options`, and `GET /finished-work` gain the guard in the route table. No window stubs them. A caller with no role is refused on each.
 
