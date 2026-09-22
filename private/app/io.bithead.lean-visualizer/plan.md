@@ -204,11 +204,11 @@ GET /schedule -> Schedule
 
 ### `Schedule`
 
-Audience: Admin and Employee. Read only.
+Audience: Admin and Employee.
 
-The 180-day schedule from `GET /schedule`: one row per track, bars in `feature.color`, release dates as markers. Enabled tracks with a rate above zero carry work. A track with no rate shows no finish date.
+The 180-day chart from `GET /schedule` is drawn above the track table. One row per track, bars in `feature.color`. Release dates are markers on the chart. The track table under the chart shows the rate and the work on each track. Manage Releases opens `Releases`. `didChangeReleases` redraws the chart.
 
-State: load, show. No save.
+State: load, show. A release added in the modal updates the chart.
 
 ```
 GET /schedule -> Schedule

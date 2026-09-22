@@ -11,6 +11,24 @@
       this.close = close;
 
       /**
+       * Adds a release and tells the opener to redraw.
+       */
+      function addRelease() {
+        const date = view.ui.input("new-date").value;
+        const version = view.ui.input("new-version").value.trim();
+        if (isEmpty(date) || isEmpty(version)) {
+          view.ui.showMessage("Provide a release date and version.", { error: true });
+          return;
+        }
+        releases.push({ id: "rel_" + Date.now(), version: version, date: date });
+        view.ui.input("new-date").value = "";
+        view.ui.input("new-version").value = "";
+        render();
+        notify();
+      }
+      this.addRelease = addRelease;
+
+      /**
        * @param {{releases: Array<{id: string, version: string, date: string}>}} options
        */
       function configure(options) {
@@ -78,6 +96,17 @@
 
   <div class="title">Manage Releases</div>
   <div class="container vbox gap-10" style="width: 480px;">
+    <div class="hbox gap-10" style="align-items: flex-end;">
+      <div class="text-field">
+        <label for="new-date">Date</label>
+        <input type="date" name="new-date">
+      </div>
+      <div class="text-field">
+        <label for="new-version">Version</label>
+        <input type="text" name="new-version" autocomplete="off">
+      </div>
+      <button class="primary" onclick="$(this.controller).addRelease();">Add Release</button>
+    </div>
     <table name="release-rows">
       <thead>
         <tr><th title="Version"><span class="column-name">Version</span></th><th title="Date"><span class="column-name">Date</span></th><th></th></tr>

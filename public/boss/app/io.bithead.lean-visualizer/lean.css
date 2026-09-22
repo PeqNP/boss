@@ -56,3 +56,109 @@ a.jira-key {
   text-decoration: underline;
   text-decoration-style: solid;
 }
+
+.gantt-wrap {
+  overflow: auto;
+  border: 1px solid #000;
+  background: #fff;
+  max-height: 280px;
+}
+
+.gantt {
+  position: relative;
+  min-width: 1080px;
+  padding: 8px;
+}
+
+.gantt-header,
+.gantt-row {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  align-items: center;
+  min-height: 34px;
+}
+
+.gantt-header {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 3;
+  border-bottom: 1px solid #000;
+}
+
+.gantt-track-label {
+  padding: 0 8px;
+  border-right: 1px solid #000;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.gantt-grid {
+  position: relative;
+  height: 34px;
+  border-bottom: 1px solid #000;
+  background-image: repeating-linear-gradient(
+    to right,
+    #000 0,
+    #000 1px,
+    transparent 1px,
+    transparent 56px
+  );
+}
+
+.gantt-header .gantt-grid {
+  height: 28px;
+  border-bottom: none;
+}
+
+.gantt-tick {
+  position: absolute;
+  top: 4px;
+}
+
+.gantt-bar {
+  position: absolute;
+  top: 7px;
+  height: 20px;
+  border: 1px solid #000;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 1px 6px;
+  color: #000;
+}
+
+.gantt-release-layer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.release-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  transform: translateX(-50%);
+}
+
+.release-pole {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  background: #000;
+}
+
+.release-flag {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  background: #fff;
+  border: 1px solid #000;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
