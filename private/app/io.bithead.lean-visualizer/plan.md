@@ -30,7 +30,7 @@ None of these windows is a document. `bin/validate-app` would expect `this.docum
 
 | Window | Kind | Controls beyond a plain close |
 |---|---|---|
-| `Board` | Control panel. Every committed edit saves, so a document Save would have nothing left to confirm. | The controls of the old board, apart from the up and down row buttons. Order is a grab handle on the row. |
+| `Board` | Control panel. Every committed edit saves, so a document Save would have nothing left to confirm. The File menu is written by hand: Sync Feature Requests, Finished work, Prepare Release, Save Checkpoint, Schedule. The board has no `controls` row, so the OS does not generate that menu. | The controls of the old board, apart from the up and down row buttons. Order is a grab handle on the row. |
 | `Schedule` | View of the forecast | — |
 | `Report` | Report | Save Checkpoint, and only for an Admin |
 | `Checkpoint` | Modal. Pick a release and store it. | Cancel, Save Checkpoint. Save Checkpoint is this action, not a document Save. |

@@ -13,7 +13,6 @@
       const boardConfig = { jiraRootUrl: "https://jira.example" };
 
       let weekIndex = 1;
-      let revision = 4;
       let colorIndex = 3;
       let serial = 10;
       let weeklyNotes = { "2026-09-13": "Portal review moved to the 25 Sep release." };
@@ -280,7 +279,6 @@
       };
 
       function saved() {
-        revision += 1;
         view.ui.showMessage("Saved");
         render();
       }
@@ -288,7 +286,6 @@
       function render() {
         const week = WEEKS[weekIndex];
         view.ui.span("week-label").textContent = week.label;
-        view.ui.span("revision").textContent = String(revision);
         view.ui.button("previous-week").disabled = weekIndex === 0;
         view.ui.button("next-week").disabled = weekIndex >= CURRENT_WEEK;
         renderOperators();
@@ -908,6 +905,19 @@
     }
   </script>
 
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 220px;">
+      <select name="file-menu">
+        <option>File</option>
+        <option onclick="$(this.controller).syncFeatures();">Sync Feature Requests</option>
+        <option onclick="$(this.controller).openFinishedWork();">Finished work</option>
+        <option onclick="$(this.controller).openPrepareRelease();">Prepare Release</option>
+        <option onclick="$(this.controller).openCheckpoint();">Save Checkpoint</option>
+        <option onclick="$(this.controller).openSchedule();">Schedule</option>
+      </select>
+    </div>
+  </div>
+
   <div class="top">
     <div class="close-button"></div>
     <div class="title"><span>Board</span></div>
@@ -915,32 +925,15 @@
 
   <div class="container vbox gap-20 resizable" style="width: 1100px; height: 720px;">
     <fieldset>
-      <legend>Application</legend>
-      <div class="vbox gap-10">
-        <div class="read-only">
-          <label>Revision</label>
-          <span name="revision"></span>
-        </div>
-        <div class="controls">
-          <button class="primary" onclick="$(this.controller).syncFeatures();">Sync Feature Requests</button>
-          <button class="primary" onclick="$(this.controller).openFinishedWork();">Finished work</button>
-          <button class="primary" onclick="$(this.controller).openPrepareRelease();">Prepare Release</button>
-          <button class="primary" onclick="$(this.controller).openCheckpoint();">Save Checkpoint</button>
-          <button class="primary" onclick="$(this.controller).openSchedule();">Schedule</button>
-        </div>
-      </div>
-    </fieldset>
-
-    <fieldset>
       <legend>Operators</legend>
       <div class="vbox gap-10">
-        <div class="controls">
+        <div class="hbox gap-10">
           <button class="primary" onclick="$(this.controller).addOperator();">Add Operator</button>
           <button class="primary" onclick="$(this.controller).openTaskMetrics();">View Task Metrics</button>
           <button class="primary" onclick="$(this.controller).openTasks();">View Tasks</button>
           <button class="primary" onclick="$(this.controller).openNotes();">Add Notes</button>
         </div>
-        <div class="controls">
+        <div class="hbox gap-10">
           <button name="previous-week" class="primary" onclick="$(this.controller).previousWeek();">Previous Week</button>
           <div class="read-only">
             <label>Week</label>
@@ -965,7 +958,7 @@
     <fieldset>
       <legend>Tracks</legend>
       <div class="vbox gap-10">
-        <div class="controls">
+        <div class="hbox gap-10">
           <button class="primary" onclick="$(this.controller).addTrack();">Add Track</button>
         </div>
         <table name="tracks">
@@ -992,7 +985,7 @@
             <input type="number" name="work-units" min="0" step="0.1" value="0">
           </div>
         </div>
-        <div class="controls">
+        <div class="hbox gap-10">
           <button class="primary" onclick="$(this.controller).addToBacklog();">Add To Backlog</button>
           <div name="direct-track"></div>
           <button class="primary" onclick="$(this.controller).addToTrack();">Add To Track</button>
@@ -1004,7 +997,7 @@
       <legend>Add Virtual Work Unit</legend>
       <div class="vbox gap-10">
         <p>A virtual work unit is a JQL query tracked like a feature.</p>
-        <div class="controls">
+        <div class="hbox gap-10">
           <button class="primary" onclick="$(this.controller).openVirtual();">Add virtual work unit</button>
         </div>
       </div>
@@ -1014,7 +1007,7 @@
       <legend>Backlog</legend>
       <div class="vbox gap-10">
         <p>Grab a row by the handle to reprioritize.</p>
-        <div class="controls">
+        <div class="hbox gap-10">
           <button class="primary" onclick="$(this.controller).addDivider();">Add divider</button>
         </div>
         <table name="backlog">
@@ -1042,7 +1035,7 @@
           </div>
           <button class="primary" onclick="$(this.controller).addRelease();">Add Release</button>
         </div>
-        <div class="controls">
+        <div class="hbox gap-10">
           <button class="primary" onclick="$(this.controller).openReleases();">Manage Releases</button>
         </div>
         <table name="releases">
