@@ -285,7 +285,7 @@
             + "<td>" + figures[2] + "</td>"
             + "<td>" + waste(figures[1], figures[2]) + "</td>"
             + "<td data-cell=\"track\"></td>"
-            + "<td><button type=\"button\" class=\"primary\" data-action=\"remove-operator\" data-id=\"" + operator.id + "\">Remove</button></td>";
+            + "<td><button type=\"button\" class=\"primary delete\" aria-label=\"Remove\" data-action=\"remove-operator\" data-id=\"" + operator.id + "\"></button></td>";
           body.appendChild(tr);
           tr.querySelector("[data-cell='track']").appendChild(operatorTrackMenu(operator));
         });
@@ -378,6 +378,14 @@
         if (!isEmpty(label)) {
           beginEdit(label);
           return;
+        }
+        const cell = event.target.closest("td");
+        if (!isEmpty(cell)) {
+          const inCell = cell.querySelector(".edit-label");
+          if (!isEmpty(inCell)) {
+            beginEdit(inCell);
+            return;
+          }
         }
         const button = event.target.closest("[data-action]");
         if (isEmpty(button)) {
@@ -690,8 +698,10 @@
       function estWeeksLabel(feature, owner) {
         const value = feature.manualEstWeeks > 0 ? String(feature.manualEstWeeks) : "";
         const danger = feature.manualEstWeeks > 0 && feature.units > 0 ? " danger" : "";
+        const shown = isEmpty(value) ? "—" : escapeHtml(value);
         return "<span class=\"edit-label" + danger + "\" data-role=\"feature-weeks\" data-owner=\""
-          + owner + "\" data-id=\"" + feature.id + "\">" + escapeHtml(value) + "</span>";
+          + owner + "\" data-id=\"" + feature.id + "\" data-value=\"" + escapeHtml(value) + "\">"
+          + shown + "</span>";
       }
 
       function narrow(text) {
@@ -725,7 +735,7 @@
         if (!isEmpty(label.querySelector("input"))) {
           return;
         }
-        const original = label.textContent;
+        const original = label.dataset.role === "feature-weeks" ? label.dataset.value : label.textContent;
         const input = document.createElement("input");
         input.type = "text";
         input.value = original;
@@ -787,6 +797,11 @@
 
       function restoreLabel(label, text) {
         label.classList.add("edit-label");
+        if (label.dataset.role === "feature-weeks") {
+          label.dataset.value = text;
+          label.textContent = isEmpty(text) ? "—" : text;
+          return;
+        }
         label.textContent = text;
       }
 

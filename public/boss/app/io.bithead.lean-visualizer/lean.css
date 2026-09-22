@@ -25,7 +25,14 @@ tr.totals td {
 .edit-label {
   display: inline-block;
   min-width: 4em;
+  min-height: 1.4em;
+  padding: 4px 6px;
+  box-sizing: border-box;
   border-bottom: 1px dotted #000;
+  cursor: text;
+}
+
+td:has(> .edit-label) {
   cursor: text;
 }
 
