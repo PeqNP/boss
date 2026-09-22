@@ -59,6 +59,9 @@ SYSTEM_DIVIDER_KIND = "system-divider"
 SYSTEM_DIVIDER_ID = "system-sync-divider"
 SYSTEM_DIVIDER_NAME = "Any task below this line will not have its work unit counts queried."
 SYSTEM_DIVIDER_COLOR = "#ffe7c2"
+# Stored weekly history on the report starts this Sunday. Earlier weeks are
+# not part of the retrospective the report shows.
+HISTORY_START = date(2025, 12, 28)
 
 
 def get_db_version(conn: sqlite3.Connection) -> tuple | None:
@@ -466,11 +469,27 @@ def normalize_visualizer_state(raw_state: Dict[str, Any] | None) -> Dict[str, An
 
     return {
         "operators": operators if isinstance(operators, list) else [],
-        "tracks": tracks if isinstance(tracks, list) else [],
-        "backlog": backlog if isinstance(backlog, list) else [],
+        "tracks": without_pillar_fields(tracks),
+        "backlog": without_pillar_fields(backlog),
         "releases": releases if isinstance(releases, list) else [],
         "weeklyNotes": weekly_notes if isinstance(weekly_notes, dict) else {},
     }
+
+
+def without_pillar_fields(items: Any) -> List[Any]:
+    if not isinstance(items, list):
+        return []
+    cleaned = []
+    for item in items:
+        if not isinstance(item, dict):
+            cleaned.append(item)
+            continue
+        item = {key: value for key, value in item.items() if key != "pillars"}
+        feature = item.get("feature")
+        if isinstance(feature, dict):
+            item["feature"] = {key: value for key, value in feature.items() if key != "pillars"}
+        cleaned.append(item)
+    return cleaned
 
 
 def normalize_issue_key(value: Any) -> str | None:
@@ -2363,6 +2382,94 @@ def operator_rate_window(conn: sqlite3.Connection, today: date) -> tuple[str, st
     return window_start, window_end, rates, history
 
 
+def record_operator_week(
+    conn: sqlite3.Connection,
+    operator_name: str,
+    week_start: date,
+    units_week: int,
+    unplanned_work_week: int,
+) -> None:
+    """Store one operator week the way the weekly sync does, without calling Jira."""
+    ensure_operator_metrics_table(conn)
+    year, week_number = week_identifier_for_date(week_start)
+    start, end = week_bounds_for_date(week_start)
+    conn.execute(
+        """
+        DELETE FROM visualizer_operator_metrics
+        WHERE operator_name = ? AND metric_year = ? AND metric_week_number = ?
+        """,
+        (operator_name, year, week_number),
+    )
+    conn.execute(
+        """
+        INSERT INTO visualizer_operator_metrics (
+            operator_name, metric_year, metric_week_number, metric_date,
+            week_start, week_end, synced_at, units_week, unplanned_work_week
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            operator_name, year, week_number, start, start, end,
+            local_now().isoformat(timespec="seconds"), units_week, unplanned_work_week,
+        ),
+    )
+    conn.commit()
+
+
+def ensure_feature_pillars(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS feature_pillars (
+            issue_key TEXT PRIMARY KEY,
+            pillars_json TEXT NOT NULL,
+            synced_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.commit()
+
+
+def store_pillars(conn: sqlite3.Connection, issues: List[Dict[str, Any]]) -> None:
+    """Replace the pillars of the issue keys named here. Keys left out stay."""
+    ensure_feature_pillars(conn)
+    synced_at = local_now().isoformat(timespec="seconds")
+    for issue in issues:
+        key = str(issue.get("issueKey") or "").strip()
+        if key == "":
+            continue
+        pillars = [str(item) for item in (issue.get("pillars") or []) if str(item).strip() != ""]
+        conn.execute(
+            """
+            INSERT INTO feature_pillars (issue_key, pillars_json, synced_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(issue_key) DO UPDATE SET
+                pillars_json = excluded.pillars_json,
+                synced_at = excluded.synced_at
+            """,
+            (key, json.dumps(pillars), synced_at),
+        )
+    conn.commit()
+
+
+def pillars_by_issue(conn: sqlite3.Connection) -> Dict[str, List[str]]:
+    ensure_feature_pillars(conn)
+    rows = conn.execute("SELECT issue_key, pillars_json FROM feature_pillars")
+    found: Dict[str, List[str]] = {}
+    for row in rows:
+        parsed = json.loads(row["pillars_json"])
+        found[str(row["issue_key"])] = parsed if isinstance(parsed, list) else []
+    return found
+
+
+def group_finished(epics: List[Dict[str, Any]]) -> List[PillarFinished]:
+    grouped: Dict[str, int] = {}
+    for epic in epics:
+        pillars = epic.get("pillars") if isinstance(epic.get("pillars"), list) else []
+        names = [str(item) for item in pillars if str(item).strip() != ""] or ["Unassigned"]
+        for name in names:
+            grouped[name] = grouped.get(name, 0) + 1
+    return [PillarFinished(pillar=name, featureCount=count) for name, count in sorted(grouped.items())]
+
+
 def feature_duration_days(feature: Dict[str, Any], capacity: float) -> float | None:
     manual = float(feature.get("manualEstWeeks") or 0)
     if manual > 0:
@@ -2375,33 +2482,76 @@ def feature_duration_days(feature: Dict[str, Any], capacity: float) -> float | N
     return (remaining / capacity) * 7
 
 
+def feature_is_open(feature: Any) -> bool:
+    """A divider is not work, and a finished feature has no bar."""
+    if not isinstance(feature, dict):
+        return False
+    kind = str(feature.get("kind") or "feature").strip()
+    if kind in ("divider", SYSTEM_DIVIDER_KIND):
+        return False
+    if feature.get("done"):
+        return False
+    return str(feature.get("name") or "").strip() != ""
+
+
+def schedule_bar(feature: Dict[str, Any], start: date, capacity: float) -> ScheduleBar:
+    span = feature_duration_days(feature, capacity)
+    finish = ""
+    if span is not None:
+        finish = (start + timedelta(days=round(span))).isoformat()
+    return ScheduleBar(
+        featureId=str(feature.get("id") or ""),
+        name=str(feature.get("name") or ""),
+        color=str(feature.get("color") or ""),
+        startOn=start.isoformat(),
+        finishOn=finish,
+    )
+
+
+def advance_cursor(start: date, feature: Dict[str, Any], capacity: float) -> date:
+    span = feature_duration_days(feature, capacity)
+    if span is None:
+        return start
+    return start + timedelta(days=round(span))
+
+
+def track_capacity(
+    operators: Any,
+    rates: Dict[str, RateOperator],
+    track_id: str
+) -> float:
+    total = 0.0
+    for item in operators or []:
+        if not isinstance(item, dict) or item.get("trackId") != track_id:
+            continue
+        rate = rates.get(str(item.get("name") or ""))
+        if rate is not None:
+            total += rate.plannedPerWeek
+    return round(total, 2)
+
+
 def build_schedule(conn: sqlite3.Connection) -> ScheduleResponse:
     today = local_now().date()
     state = read_board_state(conn)
     _, _, rates, _ = operator_rate_window(conn, today)
+    operators = state.get("operators") or []
     tracks: List[ScheduleTrack] = []
+    cursors: Dict[str, date] = {}
+    first_enabled = ""
     for raw in state.get("tracks") or []:
         if not isinstance(raw, dict):
             continue
         track_id = str(raw.get("id") or "")
-        operators = [
-            item for item in (state.get("operators") or [])
-            if isinstance(item, dict) and item.get("trackId") == track_id
-        ]
-        capacity = round(sum(rates[item["name"]].plannedPerWeek for item in operators if item.get("name") in rates), 2)
-        feature = raw.get("feature") if isinstance(raw.get("feature"), dict) else None
+        capacity = track_capacity(operators, rates, track_id)
         bars: List[ScheduleBar] = []
-        if feature and not feature.get("done"):
-            days = feature_duration_days(feature, capacity)
-            start = today.isoformat()
-            finish = "" if days is None else (today + timedelta(days=round(days))).isoformat()
-            bars.append(ScheduleBar(
-                featureId=str(feature.get("id") or ""),
-                name=str(feature.get("name") or ""),
-                color=str(feature.get("color") or "#888888"),
-                startOn=start,
-                finishOn=finish,
-            ))
+        cursor = today
+        feature = raw.get("feature") if isinstance(raw.get("feature"), dict) else None
+        if feature_is_open(feature) and isinstance(feature, dict):
+            bars.append(schedule_bar(feature, cursor, capacity))
+            cursor = advance_cursor(cursor, feature, capacity)
+        if bool(raw.get("enabled")) and first_enabled == "":
+            first_enabled = track_id
+        cursors[track_id] = cursor
         tracks.append(ScheduleTrack(
             id=track_id,
             name=str(raw.get("name") or ""),
@@ -2409,6 +2559,18 @@ def build_schedule(conn: sqlite3.Connection) -> ScheduleResponse:
             capacity=capacity,
             bars=bars,
         ))
+    by_id = {track.id: track for track in tracks}
+    for raw in state.get("backlog") or []:
+        if not feature_is_open(raw) or not isinstance(raw, dict):
+            continue
+        pin = str(raw.get("pinnedTrackId") or "")
+        target_id = pin if pin in by_id else first_enabled
+        target = by_id.get(target_id)
+        if target is None:
+            continue
+        start = cursors.get(target.id, today)
+        target.bars.append(schedule_bar(raw, start, target.capacity))
+        cursors[target.id] = advance_cursor(start, raw, target.capacity)
     releases = []
     for raw in state.get("releases") or []:
         if not isinstance(raw, dict):
@@ -2484,25 +2646,97 @@ def material_changes(conn: sqlite3.Connection, schedule: ScheduleResponse) -> Li
     return changes
 
 
+def read_stored_weeks(conn: sqlite3.Connection, earliest: date) -> List[HistoryWeek]:
+    """Weeks actually stored on or after `earliest`, oldest first."""
+    ensure_operator_metrics_table(conn)
+    rows = conn.execute(
+        """
+        SELECT operator_name, week_start, week_end, units_week, unplanned_work_week
+        FROM visualizer_operator_metrics
+        WHERE week_start >= ?
+        ORDER BY week_start, operator_name
+        """,
+        (earliest.isoformat(),),
+    ).fetchall()
+    grouped: Dict[str, HistoryWeek] = {}
+    order: List[str] = []
+    for row in rows:
+        start = str(row["week_start"])
+        if start not in grouped:
+            grouped[start] = HistoryWeek(
+                weekStart=start,
+                weekEnd=str(row["week_end"]),
+                operators=[],
+            )
+            order.append(start)
+        units = int(row["units_week"] or 0)
+        unplanned = int(row["unplanned_work_week"] or 0)
+        grouped[start].operators.append(HistoryOperator(
+            operatorName=str(row["operator_name"]),
+            planned=max(0, units - unplanned),
+            unplanned=unplanned,
+        ))
+    return [grouped[start] for start in order]
+
+
+def merge_history(window: List[HistoryWeek], stored: List[HistoryWeek]) -> List[HistoryWeek]:
+    """The eight-week window, plus any older stored week the report still shows."""
+    by_start = {week.weekStart: week for week in stored}
+    for week in window:
+        by_start.setdefault(week.weekStart, week)
+    return [by_start[key] for key in sorted(by_start)]
+
+
+def open_features_for_pillars(
+    state: Dict[str, Any],
+    pillars: Dict[str, List[str]]
+) -> List[Dict[str, Any]]:
+    """Backlog and track features that have an issue key. Virtual work is left out."""
+    candidates: List[Any] = list(state.get("backlog") or [])
+    for track in state.get("tracks") or []:
+        if isinstance(track, dict):
+            candidates.append(track.get("feature"))
+    found: List[Dict[str, Any]] = []
+    for raw in candidates:
+        if not isinstance(raw, dict):
+            continue
+        kind = str(raw.get("kind") or "feature").strip()
+        if kind in ("divider", SYSTEM_DIVIDER_KIND, VIRTUAL_FEATURE_KIND):
+            continue
+        key = str(raw.get("issueKey") or "").strip()
+        if key == "":
+            continue
+        feature = dict(raw)
+        feature["pillars"] = pillars.get(key, [])
+        found.append(feature)
+    return found
+
+
 def build_report(conn: sqlite3.Connection) -> ReportResponse:
     today = local_now().date()
     state = read_board_state(conn)
-    window_start, window_end, rates, history = operator_rate_window(conn, today)
+    window_start, window_end, rates, window_history = operator_rate_window(conn, today)
+    for name in get_model_operator_names(conn):
+        if name not in rates:
+            rates[name] = RateOperator(
+                operatorName=name,
+                plannedPerWeek=0,
+                unplannedPerWeek=0,
+                weeksCounted=0,
+            )
     schedule = build_schedule(conn)
-    open_features = []
-    for raw in list(state.get("backlog") or []) + [track.get("feature") for track in state.get("tracks") or []]:
-        if isinstance(raw, dict) and raw.get("kind") not in ("divider", "system-divider") and raw.get("name"):
-            open_features.append(raw)
+    history = merge_history(window_history, read_stored_weeks(conn, HISTORY_START))
     report_tracks = []
     for track in schedule.tracks:
         feature_name = track.bars[0].name if track.bars else "—"
         frees = track.bars[0].finishOn if track.bars else ""
+        waiting = [bar.name for bar in track.bars[1:]]
         report_tracks.append(ReportTrack(
             name=track.name,
             capacity=track.capacity,
             feature=feature_name,
             freesOn=frees,
-            waiting="—",
+            waiting=", ".join(waiting) if waiting else "—",
         ))
     return ReportResponse(
         asOf=today.isoformat(),
@@ -2512,7 +2746,10 @@ def build_report(conn: sqlite3.Connection) -> ReportResponse:
             operators=sorted(rates.values(), key=lambda item: item.operatorName),
             history=history,
         ),
-        pillars=ReportPillars(open=pillar_groups(open_features), finished=[]),
+        pillars=ReportPillars(
+            open=pillar_groups(open_features_for_pillars(state, pillars_by_issue(conn))),
+            finished=[],
+        ),
         tracks=report_tracks,
         changes=material_changes(conn, schedule),
     )

@@ -4,15 +4,19 @@ Lean Multi-Track Production Simulator: a release-forecasting board backed by Jir
 Shipped and in daily use. The spec is [description.md](description.md). The contract
 is [plan.md](../../../../private/app/io.bithead.lean-visualizer/plan.md). Every route
 requires a role. The routes are live and the board, schedule, report, and
-checkpoint call them. Next is Stage 4, the tests. This slice has no OS work.
+checkpoint call them. The rate, the schedule, pillars, the board save, and the
+fourteen-day change are tested. Next is who may call which route, and which
+issues a checkpoint credits. This slice has no OS work. The private module
+stays one file until those tests pass.
 
 `index.html` is the old page. Stage 1 deletes it. It is not a client, and no route
 stays open so that it can keep calling. The plan decides the windows and the routes.
 
 ## Architecture
 
-The BOSS app is this bundle: `application.json`, sign-in, and ACL. The windows
-load stub data. The routes they name are not wired yet.
+The BOSS app is this bundle: `application.json`, sign-in, and ACL. Board,
+Schedule, Report, and Checkpoint call the live routes. Task Metrics, Tasks,
+Finished Work, and Prepare Release still use sample rows.
 
 ### Public half
 
@@ -92,6 +96,9 @@ load stub data. The routes they name are not wired yet.
 
 1. Schema changes need their own migration patch plus a DB version bump. Do not delete or
    recreate the database to apply one.
+2. `test_access` is not written. Admin and Employee reach are the route decorators only.
+3. A checkpoint's `issueCount` stays 0. Issues completed in the release window are not
+   stored yet. Hand the test the issues; do not call Jira.
 
 ## Running it
 
