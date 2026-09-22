@@ -28,41 +28,10 @@
       this.openReleases = openReleases;
 
       async function viewDidLoad() {
-        schedule = loadSchedule();
+        schedule = await os.network.get("/api/io.bithead.lean-visualizer/schedule");
         render();
       }
       this.viewDidLoad = viewDidLoad;
-
-      function loadSchedule() {
-        // Stand-in for GET /schedule. Bars and releases are the payload that call returns.
-        return {
-          horizonDays: DAY_SPAN,
-          tracks: [
-            {
-              id: "tr_platform",
-              name: "Platform",
-              enabled: true,
-              capacity: 6.5,
-              bars: [
-                { featureId: "f_portal", name: "Client portal", color: "#d95f02", startOn: "2026-09-22", finishOn: "2026-10-09" }
-              ]
-            },
-            {
-              id: "tr_client",
-              name: "Client",
-              enabled: true,
-              capacity: 3,
-              bars: [
-                { featureId: "f_billing", name: "Billing export", color: "#216e39", startOn: "2026-09-22", finishOn: "2026-10-23" }
-              ]
-            }
-          ],
-          releases: [
-            { id: "rel_14", version: "1.4.0", date: "2026-09-11" },
-            { id: "rel_15", version: "1.5.0", date: "2026-09-25" }
-          ]
-        };
-      }
 
       function render() {
         view.ui.span("horizon").textContent = schedule.horizonDays + " days";

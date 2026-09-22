@@ -2,8 +2,7 @@
   <script type="text/javascript">
     function $(this.id)() {
 
-      // Stand-in for GET /me. An Employee opens Report and has no Board item.
-      const STUB_ROLE = "Admin";
+      let signedInRole = "Employee";
 
       function quit() {
         os.closeApplication("$(app.bundleId)");
@@ -43,6 +42,8 @@
           os.ui.showSignIn();
           return;
         }
+        const me = await os.network.get("/api/io.bithead.lean-visualizer/me");
+        signedInRole = me.role;
         applyRoleMenu();
         await open(home());
       }
@@ -67,7 +68,7 @@
       };
 
       function role() {
-        return STUB_ROLE;
+        return signedInRole;
       }
 
       function home() {

@@ -17,7 +17,7 @@
           view.ui.showMessage("Choose a release.", { error: true });
           return;
         }
-        // Stand-in for POST /checkpoints.
+        await os.network.post("/api/io.bithead.lean-visualizer/checkpoints", { releaseId: id });
         await os.ui.showInfo("Checkpoint saved.");
         if (!isEmpty(controller.delegate) && controller.delegate.didSaveCheckpoint) {
           controller.delegate.didSaveCheckpoint(id);

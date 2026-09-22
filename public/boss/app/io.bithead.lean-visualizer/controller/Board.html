@@ -2,74 +2,28 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
-      const WEEKS = [
-        { weekStart: "2026-09-06", label: "6 Sep 2026" },
-        { weekStart: "2026-09-13", label: "13 Sep 2026" },
-        { weekStart: "2026-09-20", label: "20 Sep 2026" }
-      ];
-      const CURRENT_WEEK = 2;
+      const API = "/api/io.bithead.lean-visualizer";
       const COLORS = ["#d95f02", "#216e39", "#6a4f31", "#1f4e79", "#6f42c1"];
-      // Stand-in for GET /model `config.jiraRootUrl`.
-      const boardConfig = { jiraRootUrl: "https://jira.example" };
+      const boardConfig = { jiraRootUrl: "" };
 
-      let weekIndex = 1;
       let colorIndex = 3;
       let serial = 10;
-      let weeklyNotes = { "2026-09-13": "Portal review moved to the 25 Sep release." };
-      let operators = [
-        { id: "op_simon", name: "Simon Lemay", trackId: "tr_platform" },
-        { id: "op_frankie", name: "Frankie English", trackId: "tr_platform" },
-        { id: "op_nadeem", name: "Nadeem Maida", trackId: "tr_client" }
-      ];
-      let tracks = [
-        {
-          id: "tr_platform",
-          name: "Platform",
-          enabled: true,
-          feature: {
-            id: "f_portal", name: "Client portal", issueKey: "FR-410", color: "#d95f02",
-            units: 12, completedUnits: 4, manualEstWeeks: 0, remainingWeeks: 2.5, finishOn: "2026-10-09"
-          }
-        },
-        { id: "tr_client", name: "Client", enabled: true, feature: null }
-      ];
-      let backlog = [
-        {
-          kind: "feature", id: "f_billing", name: "Billing export", issueKey: "FR-388", color: "#216e39",
-          units: 8, completedUnits: 1, manualEstWeeks: 0, remainingWeeks: 4, finishOn: "2026-10-23",
-          pinnedTrackId: null, jql: ""
-        },
-        {
-          kind: "virtual", id: "vf_support", name: "Support queue", issueKey: "", color: "#1f4e79",
-          units: 6, completedUnits: 2, manualEstWeeks: 0, remainingWeeks: 2, finishOn: "2026-10-06",
-          pinnedTrackId: null, jql: "project = SUP AND statusCategory != Done"
-        },
-        {
-          kind: "system-divider", id: "system-sync-divider",
-          name: "Any task below this line will not have its work unit counts queried.", color: "#d9d2c5"
-        },
-        {
-          kind: "feature", id: "f_spike", name: "Import spike", issueKey: "FR-220", color: "#6a4f31",
-          units: 4, completedUnits: 0, manualEstWeeks: 1, remainingWeeks: 1, finishOn: "",
-          pinnedTrackId: null, jql: ""
-        }
-      ];
+      let revision = 0;
+      let weekLabel = "";
+      let viewedWeek = previousCompleteSunday();
+      let weekMetrics = {};
+      let rateByName = {};
+      let jiraQuery = "";
+      let weeklyNotes = {};
+      let operators = [];
+      let tracks = [];
+      let backlog = [];
       const dragLines = [];
-      let releases = [
-        { id: "rel_14", version: "1.4.0", date: "2026-09-11" },
-        { id: "rel_15", version: "1.5.0", date: "2026-09-25" }
-      ];
-      const weekFigures = {
-        0: { op_simon: [5, 3, 2], op_frankie: [2, 1, 1], op_nadeem: [3, 2, 1] },
-        1: { op_simon: [6, 4, 2], op_frankie: [2, 1, 1], op_nadeem: [4, 3, 1] },
-        2: { op_simon: [1, 1, 0], op_frankie: [0, 0, 0], op_nadeem: [0, 0, 0] }
-      };
-      const rates = { op_simon: 4.4, op_frankie: 1.1, op_nadeem: 2.2 };
+      let releases = [];
 
       function addOperator() {
         const id = uid("op");
         operators.push({ id: id, name: "Operator " + operators.length, trackId: null });
-        rates[id] = 0;
         saved();
       }
       this.addOperator = addOperator;
@@ -100,13 +54,18 @@
       }
       this.addRelease = addRelease;
 
-      function syncFeatures() {
+      async function syncFeatures() {
+        await os.network.get(API + "/sync-jira");
+        await loadBoard();
         view.ui.showMessage("Synced feature requests.");
       }
       this.syncFeatures = syncFeatures;
 
-      function syncMetrics() {
-        view.ui.showMessage("Synced " + WEEKS[weekIndex].label + ".");
+      async function syncMetrics() {
+        await os.network.post(API + "/sync-task-metrics?week_start=" + isoDate(viewedWeek));
+        await loadWeek();
+        render();
+        view.ui.showMessage("Synced " + weekLabel + ".");
       }
       this.syncMetrics = syncMetrics;
 
@@ -114,24 +73,23 @@
        * @param {HTMLElement} button
        */
       function copyQuery(button) {
-        os.copyToClipboard(button, "project in (\"Software Development\") AND Developers is not EMPTY");
+        os.copyToClipboard(button, jiraQuery);
       }
       this.copyQuery = copyQuery;
 
-      function previousWeek() {
-        if (weekIndex === 0) {
-          return;
-        }
-        weekIndex -= 1;
+      async function previousWeek() {
+        viewedWeek.setDate(viewedWeek.getDate() - 7);
+        await loadWeek();
         render();
       }
       this.previousWeek = previousWeek;
 
-      function nextWeek() {
-        if (weekIndex >= CURRENT_WEEK) {
+      async function nextWeek() {
+        if (!canMoveForward()) {
           return;
         }
-        weekIndex += 1;
+        viewedWeek.setDate(viewedWeek.getDate() + 7);
+        await loadWeek();
         render();
       }
       this.nextWeek = nextWeek;
@@ -165,14 +123,14 @@
       async function openTasks() {
         const win = await $(app.controller).loadController("Tasks");
         win.ui.show(function(ctrl) {
-          ctrl.configure({ weekLabel: WEEKS[weekIndex].label });
+          ctrl.configure({ weekLabel: weekLabel });
         });
       }
       this.openTasks = openTasks;
 
       async function openNotes() {
         const win = await $(app.controller).loadController("Notes");
-        const weekStart = WEEKS[weekIndex].weekStart;
+        const weekStart = isoDate(viewedWeek);
         win.ui.show(function(ctrl) {
           ctrl.configure({ weekStart: weekStart });
           ctrl.delegate = {
@@ -221,14 +179,14 @@
       }
       this.openSchedule = openSchedule;
 
-      function viewDidLoad() {
+      async function viewDidLoad() {
         const root = view.querySelector(".container");
         root.addEventListener("click", onClick);
         root.addEventListener("change", onChange);
         bindDrag(view.ui.table("operators"), "operators");
         bindDrag(view.ui.table("tracks"), "tracks");
         bindDrag(view.ui.table("backlog"), "backlog");
-        render();
+        await loadBoard();
       }
       this.viewDidLoad = viewDidLoad;
 
@@ -245,16 +203,56 @@
         }
       };
 
-      function saved() {
+      async function saved() {
+        const response = await os.network.put(API + "/model", {
+          revision: revision,
+          state: {
+            operators: operators,
+            tracks: tracks,
+            backlog: backlog,
+            releases: releases,
+            weeklyNotes: weeklyNotes
+          }
+        });
+        revision = response.revision;
         view.ui.showMessage("Saved");
         render();
       }
 
+      async function loadBoard() {
+        const response = await os.network.get(API + "/model");
+        revision = response.revision;
+        const state = response.state || {};
+        operators = state.operators || [];
+        tracks = state.tracks || [];
+        backlog = state.backlog || [];
+        releases = state.releases || [];
+        weeklyNotes = state.weeklyNotes || {};
+        boardConfig.jiraRootUrl = response.config && response.config.jiraRootUrl ? response.config.jiraRootUrl : "";
+        const report = await os.network.get(API + "/report");
+        rateByName = {};
+        for (const row of report.rates.operators) {
+          rateByName[row.operatorName] = row.plannedPerWeek;
+        }
+        await loadWeek();
+        render();
+      }
+
+      async function loadWeek() {
+        const summary = await os.network.get(API + "/metrics?week_start=" + isoDate(viewedWeek));
+        const tasks = await os.network.get(API + "/metrics-tasks?week_start=" + isoDate(viewedWeek));
+        weekLabel = summary.weekStart;
+        jiraQuery = tasks.jiraQuery || "";
+        weekMetrics = {};
+        for (const row of summary.operators) {
+          weekMetrics[row.operatorName] = [row.unitsWeek, row.plannedWorkWeek, row.unplannedWorkWeek];
+        }
+      }
+
       function render() {
-        const week = WEEKS[weekIndex];
-        view.ui.span("week-label").textContent = week.label;
-        view.ui.button("previous-week").disabled = weekIndex === 0;
-        view.ui.button("next-week").disabled = weekIndex >= CURRENT_WEEK;
+        view.ui.span("week-label").textContent = weekLabel;
+        view.ui.button("previous-week").disabled = false;
+        view.ui.button("next-week").disabled = !canMoveForward();
         renderOperators();
         renderTracks();
         renderBacklog();
@@ -672,8 +670,11 @@
       }
 
       function figuresFor(id) {
-        const row = weekFigures[weekIndex][id];
-        return isEmpty(row) ? [0, 0, 0] : row;
+        const operator = operators.find(function(item) { return item.id === id; });
+        if (isEmpty(operator)) {
+          return [0, 0, 0];
+        }
+        return weekMetrics[operator.name] || [0, 0, 0];
       }
 
       function trackRate(trackId) {
@@ -681,8 +682,30 @@
           if (operator.trackId !== trackId) {
             return sum;
           }
-          return sum + (rates[operator.id] || 0);
+          return sum + (rateByName[operator.name] || 0);
         }, 0);
+      }
+
+      function isoDate(value) {
+        const month = String(value.getMonth() + 1).padStart(2, "0");
+        const day = String(value.getDate()).padStart(2, "0");
+        return value.getFullYear() + "-" + month + "-" + day;
+      }
+
+      function previousCompleteSunday() {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const sunday = new Date(today);
+        sunday.setDate(today.getDate() - today.getDay() - 7);
+        return sunday;
+      }
+
+      function canMoveForward() {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const thisSunday = new Date(today);
+        thisSunday.setDate(today.getDate() - today.getDay());
+        return isoDate(viewedWeek) < isoDate(thisSunday);
       }
 
       function waste(planned, unplanned) {

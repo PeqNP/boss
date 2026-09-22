@@ -11,19 +11,31 @@ import re
 import sqlite3
 import time
 from datetime import date, datetime, timedelta
+from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
 from urllib.request import Request as UrlRequest, urlopen
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from lib import get_config
+from lib.model import User
+from lib.server import require_acl, verify_user
 
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/io.bithead.lean-visualizer")
+
+
+class Role(str, Enum):
+    ADMIN = "Admin"
+    EMPLOYEE = "Employee"
+
+
+class Me(BaseModel):
+    role: str
 
 PRIVATE_CONFIG_PATH = Path(__file__).resolve().with_name("config.json")
 COMPLETED_STATUSES = {
@@ -197,6 +209,115 @@ class ReleaseOption(BaseModel):
 
 class ReleaseOptionsResponse(BaseModel):
     releases: List[ReleaseOption]
+
+
+class ScheduleBar(BaseModel):
+    featureId: str
+    name: str
+    color: str
+    startOn: str
+    finishOn: str
+
+
+class ScheduleTrack(BaseModel):
+    id: str
+    name: str
+    enabled: bool
+    capacity: float
+    bars: List[ScheduleBar]
+
+
+class ScheduleRelease(BaseModel):
+    id: str
+    version: str
+    date: str
+
+
+class ScheduleResponse(BaseModel):
+    horizonDays: int
+    tracks: List[ScheduleTrack]
+    releases: List[ScheduleRelease]
+
+
+class RateOperator(BaseModel):
+    operatorName: str
+    plannedPerWeek: float
+    unplannedPerWeek: float
+    weeksCounted: int
+
+
+class HistoryOperator(BaseModel):
+    operatorName: str
+    planned: int
+    unplanned: int
+
+
+class HistoryWeek(BaseModel):
+    weekStart: str
+    weekEnd: str
+    operators: List[HistoryOperator]
+
+
+class ReportRates(BaseModel):
+    windowStart: str
+    windowEnd: str
+    operators: List[RateOperator]
+    history: List[HistoryWeek]
+
+
+class PillarOpen(BaseModel):
+    pillar: str
+    remainingUnits: int
+    featureCount: int
+
+
+class PillarFinished(BaseModel):
+    pillar: str
+    featureCount: int
+
+
+class ReportTrack(BaseModel):
+    name: str
+    capacity: float
+    feature: str
+    freesOn: str
+    waiting: str
+
+
+class MaterialChange(BaseModel):
+    featureId: str
+    name: str
+    color: str
+    previousFinishOn: str
+    finishOn: str
+    movedDays: int
+
+
+class ReportPillars(BaseModel):
+    open: List[PillarOpen]
+    finished: List[PillarFinished]
+
+
+class ReportResponse(BaseModel):
+    asOf: str
+    rates: ReportRates
+    pillars: ReportPillars
+    tracks: List[ReportTrack]
+    changes: List[MaterialChange]
+
+
+class CheckpointRequest(BaseModel):
+    releaseId: str
+
+
+class CheckpointResponse(BaseModel):
+    releaseId: str
+    releaseVersion: str
+    releaseDate: str
+    windowStart: str
+    windowEnd: str
+    savedAt: str
+    issueCount: int
 
 
 class ConfigResponse(BaseModel):
@@ -2196,8 +2317,334 @@ def sync_virtual_features(
     return updated
 
 
+def read_board_state(conn: sqlite3.Connection) -> Dict[str, Any]:
+    ensure_model_table(conn)
+    row = read_model_row(conn)
+    if row is None:
+        return default_visualizer_state()
+    parsed = parse_model_state(str(row["state_json"]))
+    return upgrade_model_state(int(row["schema_version"]), parsed)
+
+
+def previous_complete_weeks(today: date, count: int) -> List[date]:
+    """Sunday starts of the `count` complete weeks before the week containing today."""
+    days_since_sunday = (today.weekday() + 1) % 7
+    this_sunday = today - timedelta(days=days_since_sunday)
+    return [this_sunday - timedelta(days=7 * (offset + 1)) for offset in range(count)]
+
+
+def operator_rate_window(conn: sqlite3.Connection, today: date) -> tuple[str, str, Dict[str, RateOperator], List[HistoryWeek]]:
+    ensure_operator_metrics_table(conn)
+    weeks = list(reversed(previous_complete_weeks(today, 8)))
+    totals: Dict[str, Dict[str, float]] = {}
+    history: List[HistoryWeek] = []
+    for sunday in weeks:
+        year, week_number = week_identifier_for_date(sunday)
+        week_start, week_end = week_bounds_for_date(sunday)
+        rows = get_operator_metric_rows(conn, year, week_number)
+        operators: List[HistoryOperator] = []
+        for name, row in rows.items():
+            units = int(row["units_week"] or 0)
+            unplanned = int(row["unplanned_work_week"] or 0)
+            planned = max(0, units - unplanned)
+            bucket = totals.setdefault(name, {"planned": 0.0, "unplanned": 0.0, "weeks": 0})
+            bucket["planned"] += planned
+            bucket["unplanned"] += unplanned
+            bucket["weeks"] += 1
+            operators.append(HistoryOperator(operatorName=name, planned=planned, unplanned=unplanned))
+        history.append(HistoryWeek(weekStart=week_start, weekEnd=week_end, operators=operators))
+    rates = {
+        name: RateOperator(
+            operatorName=name,
+            plannedPerWeek=round(bucket["planned"] / bucket["weeks"], 2) if bucket["weeks"] else 0,
+            unplannedPerWeek=round(bucket["unplanned"] / bucket["weeks"], 2) if bucket["weeks"] else 0,
+            weeksCounted=int(bucket["weeks"]),
+        )
+        for name, bucket in totals.items()
+    }
+    window_start = history[0].weekStart if history else today.isoformat()
+    window_end = history[-1].weekEnd if history else today.isoformat()
+    return window_start, window_end, rates, history
+
+
+def feature_duration_days(feature: Dict[str, Any], capacity: float) -> float | None:
+    manual = float(feature.get("manualEstWeeks") or 0)
+    if manual > 0:
+        return manual * 7
+    remaining = max(0, int(feature.get("units") or 0) - int(feature.get("completedUnits") or 0))
+    if remaining == 0:
+        return 0
+    if capacity <= 0:
+        return None
+    return (remaining / capacity) * 7
+
+
+def build_schedule(conn: sqlite3.Connection) -> ScheduleResponse:
+    today = local_now().date()
+    state = read_board_state(conn)
+    _, _, rates, _ = operator_rate_window(conn, today)
+    tracks: List[ScheduleTrack] = []
+    for raw in state.get("tracks") or []:
+        if not isinstance(raw, dict):
+            continue
+        track_id = str(raw.get("id") or "")
+        operators = [
+            item for item in (state.get("operators") or [])
+            if isinstance(item, dict) and item.get("trackId") == track_id
+        ]
+        capacity = round(sum(rates[item["name"]].plannedPerWeek for item in operators if item.get("name") in rates), 2)
+        feature = raw.get("feature") if isinstance(raw.get("feature"), dict) else None
+        bars: List[ScheduleBar] = []
+        if feature and not feature.get("done"):
+            days = feature_duration_days(feature, capacity)
+            start = today.isoformat()
+            finish = "" if days is None else (today + timedelta(days=round(days))).isoformat()
+            bars.append(ScheduleBar(
+                featureId=str(feature.get("id") or ""),
+                name=str(feature.get("name") or ""),
+                color=str(feature.get("color") or "#888888"),
+                startOn=start,
+                finishOn=finish,
+            ))
+        tracks.append(ScheduleTrack(
+            id=track_id,
+            name=str(raw.get("name") or ""),
+            enabled=bool(raw.get("enabled")),
+            capacity=capacity,
+            bars=bars,
+        ))
+    releases = []
+    for raw in state.get("releases") or []:
+        if not isinstance(raw, dict):
+            continue
+        release_date = normalize_release_date(raw.get("date"))
+        version = str(raw.get("version") or "").strip()
+        if release_date is None or version == "":
+            continue
+        releases.append(ScheduleRelease(
+            id=str(raw.get("id") or version),
+            version=version,
+            date=release_date,
+        ))
+    releases.sort(key=lambda item: (item.date, item.version))
+    return ScheduleResponse(horizonDays=180, tracks=tracks, releases=releases)
+
+
+def pillar_groups(features: List[Dict[str, Any]]) -> List[PillarOpen]:
+    grouped: Dict[str, Dict[str, int]] = {}
+    for feature in features:
+        pillars = feature.get("pillars") if isinstance(feature.get("pillars"), list) else []
+        names = [str(item) for item in pillars if str(item).strip() != ""] or ["Unassigned"]
+        remaining = max(0, int(feature.get("units") or 0) - int(feature.get("completedUnits") or 0))
+        for name in names:
+            bucket = grouped.setdefault(name, {"remaining": 0, "count": 0})
+            bucket["remaining"] += remaining
+            bucket["count"] += 1
+    return [
+        PillarOpen(pillar=name, remainingUnits=bucket["remaining"], featureCount=bucket["count"])
+        for name, bucket in sorted(grouped.items())
+    ]
+
+
+def material_changes(conn: sqlite3.Connection, schedule: ScheduleResponse) -> List[MaterialChange]:
+    ensure_checkpoint_tables(conn)
+    row = conn.execute(
+        "SELECT id FROM checkpoints ORDER BY release_date DESC, id DESC LIMIT 1"
+    ).fetchone()
+    if row is None:
+        return []
+    stored = {
+        str(item["feature_id"]): item
+        for item in conn.execute(
+            "SELECT feature_id, name, color, finish_on FROM checkpoint_forecasts WHERE checkpoint_id = ?",
+            (int(row["id"]),),
+        )
+    }
+    live: Dict[str, ScheduleBar] = {}
+    for track in schedule.tracks:
+        for bar in track.bars:
+            live[bar.featureId] = bar
+    changes: List[MaterialChange] = []
+    for feature_id in sorted(set(stored) | set(live)):
+        before = stored.get(feature_id)
+        after = live.get(feature_id)
+        previous = str(before["finish_on"]) if before and before["finish_on"] else ""
+        current = after.finishOn if after else ""
+        if previous == current:
+            continue
+        moved = 0
+        if previous and current:
+            moved = abs((date.fromisoformat(current) - date.fromisoformat(previous)).days)
+            if moved < 14:
+                continue
+        changes.append(MaterialChange(
+            featureId=feature_id,
+            name=(after.name if after else str(before["name"])),
+            color=(after.color if after else str(before["color"] or "")),
+            previousFinishOn=previous,
+            finishOn=current,
+            movedDays=moved,
+        ))
+    return changes
+
+
+def build_report(conn: sqlite3.Connection) -> ReportResponse:
+    today = local_now().date()
+    state = read_board_state(conn)
+    window_start, window_end, rates, history = operator_rate_window(conn, today)
+    schedule = build_schedule(conn)
+    open_features = []
+    for raw in list(state.get("backlog") or []) + [track.get("feature") for track in state.get("tracks") or []]:
+        if isinstance(raw, dict) and raw.get("kind") not in ("divider", "system-divider") and raw.get("name"):
+            open_features.append(raw)
+    report_tracks = []
+    for track in schedule.tracks:
+        feature_name = track.bars[0].name if track.bars else "—"
+        frees = track.bars[0].finishOn if track.bars else ""
+        report_tracks.append(ReportTrack(
+            name=track.name,
+            capacity=track.capacity,
+            feature=feature_name,
+            freesOn=frees,
+            waiting="—",
+        ))
+    return ReportResponse(
+        asOf=today.isoformat(),
+        rates=ReportRates(
+            windowStart=window_start,
+            windowEnd=window_end,
+            operators=sorted(rates.values(), key=lambda item: item.operatorName),
+            history=history,
+        ),
+        pillars=ReportPillars(open=pillar_groups(open_features), finished=[]),
+        tracks=report_tracks,
+        changes=material_changes(conn, schedule),
+    )
+
+
+def ensure_checkpoint_tables(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS checkpoints (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            release_id TEXT NOT NULL,
+            release_version TEXT NOT NULL,
+            release_date TEXT NOT NULL,
+            window_start TEXT NOT NULL,
+            window_end TEXT NOT NULL,
+            saved_at TEXT NOT NULL,
+            rate_json TEXT NOT NULL,
+            UNIQUE(release_id)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS checkpoint_issues (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            checkpoint_id INTEGER NOT NULL,
+            operator_name TEXT NOT NULL,
+            issue_key TEXT NOT NULL,
+            issue_description TEXT,
+            parent_task TEXT,
+            planned INTEGER NOT NULL,
+            UNIQUE(checkpoint_id, operator_name, issue_key)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS checkpoint_forecasts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            checkpoint_id INTEGER NOT NULL,
+            feature_id TEXT NOT NULL,
+            issue_key TEXT,
+            name TEXT NOT NULL,
+            color TEXT NOT NULL,
+            track_id TEXT,
+            track_name TEXT,
+            finish_on TEXT,
+            finish_weeks REAL,
+            remaining_units INTEGER NOT NULL,
+            manual_est_weeks REAL NOT NULL DEFAULT 0,
+            UNIQUE(checkpoint_id, feature_id)
+        )
+        """
+    )
+    conn.commit()
+
+
+def save_checkpoint(conn: sqlite3.Connection, release_id: str) -> CheckpointResponse:
+    state = read_board_state(conn)
+    release = next((item for item in state.get("releases") or [] if isinstance(item, dict) and str(item.get("id")) == release_id), None)
+    if release is None:
+        raise HTTPException(status_code=409, detail="That release is not on the board.")
+    release_date = normalize_release_date(release.get("date"))
+    if release_date is None:
+        raise HTTPException(status_code=409, detail="That release has no date.")
+    today = local_today_iso()
+    if release_date > today:
+        raise HTTPException(status_code=409, detail="This release date has not arrived.")
+    earlier = [
+        normalize_release_date(item.get("date"))
+        for item in state.get("releases") or []
+        if isinstance(item, dict)
+    ]
+    previous = [item for item in earlier if item is not None and item < release_date]
+    if previous:
+        window_start = (date.fromisoformat(max(previous)) + timedelta(days=1)).isoformat()
+    else:
+        window_start = (date.fromisoformat(release_date) - timedelta(days=13)).isoformat()
+    schedule = build_schedule(conn)
+    _, _, rates, _ = operator_rate_window(conn, local_now().date())
+    saved_at = local_now().isoformat(timespec="seconds")
+    ensure_checkpoint_tables(conn)
+    conn.execute("DELETE FROM checkpoint_issues WHERE checkpoint_id IN (SELECT id FROM checkpoints WHERE release_id = ?)", (release_id,))
+    conn.execute("DELETE FROM checkpoint_forecasts WHERE checkpoint_id IN (SELECT id FROM checkpoints WHERE release_id = ?)", (release_id,))
+    conn.execute("DELETE FROM checkpoints WHERE release_id = ?", (release_id,))
+    cursor = conn.execute(
+        """
+        INSERT INTO checkpoints (
+            release_id, release_version, release_date, window_start, window_end, saved_at, rate_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            release_id,
+            str(release.get("version") or ""),
+            release_date,
+            window_start,
+            release_date,
+            saved_at,
+            json.dumps([item.model_dump() for item in rates.values()]),
+        ),
+    )
+    checkpoint_id = int(cursor.lastrowid)
+    for track in schedule.tracks:
+        for bar in track.bars:
+            conn.execute(
+                """
+                INSERT INTO checkpoint_forecasts (
+                    checkpoint_id, feature_id, name, color, track_id, track_name, finish_on,
+                    remaining_units, manual_est_weeks
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0)
+                """,
+                (checkpoint_id, bar.featureId, bar.name, bar.color, track.id, track.name, bar.finishOn),
+            )
+    conn.commit()
+    return CheckpointResponse(
+        releaseId=release_id,
+        releaseVersion=str(release.get("version") or ""),
+        releaseDate=release_date,
+        windowStart=window_start,
+        windowEnd=release_date,
+        savedAt=saved_at,
+        issueCount=0,
+    )
+
+
 @router.get("/sync-jira", response_model=JiraSyncResponse)
-def sync_jira() -> JiraSyncResponse:
+@require_acl("board.w", roles=[Role.ADMIN])
+async def sync_jira(boss_user: User, request: Request) -> JiraSyncResponse:
     started = time.monotonic()
     log.info("jira.sync.start")
 
@@ -2292,10 +2739,13 @@ def sync_jira() -> JiraSyncResponse:
 
 
 @router.get("/metrics", response_model=MetricsSummaryResponse)
-def get_metrics(
+@require_acl("board.r", roles=[Role.ADMIN])
+async def get_metrics(
     metric_year: int | None = None,
     metric_week_number: int | None = None,
     week_start: str | None = None,
+    boss_user: User = None,
+    request: Request = None,
 ) -> MetricsSummaryResponse:
     conn = get_model_db_connection()
     try:
@@ -2311,9 +2761,12 @@ def get_metrics(
 
 
 @router.get("/metrics-window", response_model=MetricsWindowResponse)
-def get_metrics_window(
+@require_acl("report.r", roles=[Role.ADMIN, Role.EMPLOYEE])
+async def get_metrics_window(
     week_start: str | None = None,
-    window_size: int = 5
+    window_size: int = 5,
+    boss_user: User = None,
+    request: Request = None,
 ) -> MetricsWindowResponse:
     conn = get_model_db_connection()
     try:
@@ -2328,10 +2781,13 @@ def get_metrics_window(
 
 
 @router.get("/metrics-tasks", response_model=MetricsTasksResponse)
-def get_metrics_tasks(
+@require_acl("board.r", roles=[Role.ADMIN])
+async def get_metrics_tasks(
     metric_year: int | None = None,
     metric_week_number: int | None = None,
     week_start: str | None = None,
+    boss_user: User = None,
+    request: Request = None,
 ) -> MetricsTasksResponse:
     conn = get_model_db_connection()
     try:
@@ -2351,8 +2807,11 @@ def get_metrics_tasks(
     "/metrics-release-work-units",
     response_model=ReleaseWorkUnitsResponse
 )
-def get_metrics_release_work_units(
+@require_acl("report.r", roles=[Role.ADMIN, Role.EMPLOYEE])
+async def get_metrics_release_work_units(
     release_version: str,
+    boss_user: User = None,
+    request: Request = None,
 ) -> ReleaseWorkUnitsResponse:
     selected_release_version = release_version.strip()
     if selected_release_version == "":
@@ -2374,7 +2833,8 @@ def get_metrics_release_work_units(
 
 
 @router.get("/release-options", response_model=ReleaseOptionsResponse)
-def get_release_options() -> ReleaseOptionsResponse:
+@require_acl("board.r", roles=[Role.ADMIN])
+async def get_release_options(boss_user: User, request: Request) -> ReleaseOptionsResponse:
     conn = get_model_db_connection()
     try:
         ensure_model_table(conn)
@@ -2391,10 +2851,13 @@ def get_release_options() -> ReleaseOptionsResponse:
 
 
 @router.post("/sync-task-metrics", response_model=MetricsSyncResponse)
-def sync_task_metrics(
+@require_acl("board.w", roles=[Role.ADMIN])
+async def sync_task_metrics(
     metric_year: int | None = None,
     metric_week_number: int | None = None,
     week_start: str | None = None,
+    boss_user: User = None,
+    request: Request = None,
 ) -> MetricsSyncResponse:
     started = time.monotonic()
     log.info("metrics.sync.start")
@@ -2458,9 +2921,12 @@ def issue_completed_week_label(issue: Dict[str, Any]) -> str:
 
 
 @router.get("/finished-work", response_model=FinishedWorkResponse)
-def get_finished_work(
+@require_acl("report.r", roles=[Role.ADMIN, Role.EMPLOYEE])
+async def get_finished_work(
     year: int,
-    operator_name: str = ""
+    operator_name: str = "",
+    boss_user: User = None,
+    request: Request = None,
 ) -> FinishedWorkResponse:
     if year < 2026:
         raise HTTPException(
@@ -2532,7 +2998,8 @@ def get_finished_work(
 
 
 @router.get("/model", response_model=ModelResponse)
-def get_model() -> ModelResponse:
+@require_acl("board.r", roles=[Role.ADMIN])
+async def get_model(boss_user: User, request: Request) -> ModelResponse:
     jira_root = ""
     try:
         config = load_config()
@@ -2567,9 +3034,52 @@ def get_model() -> ModelResponse:
 
 
 @router.put("/model", response_model=ModelResponse)
-def put_model(body: SaveModelRequest) -> ModelResponse:
+@require_acl("board.w", roles=[Role.ADMIN])
+async def put_model(body: SaveModelRequest, boss_user: User, request: Request) -> ModelResponse:
     conn = get_model_db_connection()
     try:
         return upsert_model_row(conn, body.state, body.revision)
+    finally:
+        conn.close()
+
+
+@router.get("/me", response_model=Me)
+@require_acl("report.r", roles=[Role.ADMIN, Role.EMPLOYEE])
+async def get_me(boss_user: User, request: Request) -> Me:
+    role = Role.EMPLOYEE.value
+    try:
+        await verify_user(request, __name__, "board.w")
+        role = Role.ADMIN.value
+    except HTTPException:
+        role = Role.EMPLOYEE.value
+    return Me(role=role)
+
+
+@router.get("/schedule", response_model=ScheduleResponse)
+@require_acl("schedule.r", roles=[Role.ADMIN, Role.EMPLOYEE])
+async def get_schedule(boss_user: User, request: Request) -> ScheduleResponse:
+    conn = get_model_db_connection()
+    try:
+        return build_schedule(conn)
+    finally:
+        conn.close()
+
+
+@router.get("/report", response_model=ReportResponse)
+@require_acl("report.r", roles=[Role.ADMIN, Role.EMPLOYEE])
+async def get_report(boss_user: User, request: Request) -> ReportResponse:
+    conn = get_model_db_connection()
+    try:
+        return build_report(conn)
+    finally:
+        conn.close()
+
+
+@router.post("/checkpoints", response_model=CheckpointResponse)
+@require_acl("checkpoint.w", roles=[Role.ADMIN])
+async def post_checkpoint(body: CheckpointRequest, boss_user: User, request: Request) -> CheckpointResponse:
+    conn = get_model_db_connection()
+    try:
+        return save_checkpoint(conn, body.releaseId)
     finally:
         conn.close()

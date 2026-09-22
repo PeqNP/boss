@@ -38,50 +38,9 @@
       }
       this.viewDidLoad = viewDidLoad;
 
-      function reload() {
-        render(loadReport());
+      async function reload() {
+        render(await os.network.get("/api/io.bithead.lean-visualizer/report"));
         view.ui.button("checkpoint").hidden = callerRole !== "Admin";
-      }
-
-      function loadReport() {
-        // Stand-in for GET /report.
-        return {
-          asOf: "2026-09-22",
-          rates: {
-            windowStart: "2026-07-26",
-            windowEnd: "2026-09-19",
-            operators: [
-              { operatorName: "Simon Lemay", plannedPerWeek: 4.4, unplannedPerWeek: 1.6, weeksCounted: 8 },
-              { operatorName: "Frankie English", plannedPerWeek: 1.1, unplannedPerWeek: 0.8, weeksCounted: 8 },
-              { operatorName: "Nadeem Maida", plannedPerWeek: 2.2, unplannedPerWeek: 0.7, weeksCounted: 8 }
-            ],
-            history: [
-              { weekStart: "2025-12-28", weekEnd: "2026-01-03", operators: [
-                { operatorName: "Simon Lemay", planned: 3, unplanned: 2 }
-              ]}
-            ]
-          },
-          pillars: {
-            open: [
-              { pillar: "New Features / Retention", remainingUnits: 8, featureCount: 1 },
-              { pillar: "Growth / Acquisition", remainingUnits: 7, featureCount: 1 },
-              { pillar: "Unassigned", remainingUnits: 4, featureCount: 1 }
-            ],
-            finished: [
-              { pillar: "New Features / Retention", featureCount: 15 },
-              { pillar: "Growth / Acquisition", featureCount: 10 },
-              { pillar: "Tech Debt / Stability", featureCount: 6 },
-              { pillar: "Unassigned", featureCount: 5 }
-            ]
-          },
-          tracks: [
-            { name: "Platform", capacity: 6.5, feature: "Client portal", freesOn: "2026-10-09", waiting: "Billing export" },
-            { name: "Client", capacity: 3, feature: "Billing export", freesOn: "2026-10-23", waiting: "—" }
-          ],
-          changes: [
-            { featureId: "f_portal", name: "Client portal", color: "#d95f02", previousFinishOn: "2026-09-25", finishOn: "2026-10-09", movedDays: 14 }
-          ]
-        };
       }
 
       function render(report) {
