@@ -123,7 +123,7 @@ Prefix: `/api/io.bithead.lean-visualizer`.
 
 BOSS chrome. A feature's dot and its bar on the schedule use `feature.color`. A committed edit saves. Typing in a field does not. A load is not a save. Results and failures use the OS message with an OK button.
 
-The forecast comes from `GET /schedule`. The board, the Employee schedule, and a checkpoint all use that answer.
+The forecast comes from `GET /schedule`. Schedule draws it. The board opens that window from the File menu.
 
 Menu, Admin: **Board**, then **Report**. Board is the model the report hangs off. Menu, Employee: **Report**, then **Schedule**.
 
@@ -144,11 +144,11 @@ GET /me -> Me
 
 Audience: Admin.
 
-One window. Operators, the week under inspection, tracks, backlog, releases, and a 180-day schedule. The schedule on this window is the same `Schedule` payload the Employee window shows, with the editor around it.
+One window. Operators, the week under inspection, tracks, backlog, and releases. File opens Schedule for the 180-day chart.
 
 Operators, tracks, and the backlog are tables. A row is reordered by its grab handle. BOSS drag-reorder is the sortable list box, and that control is one label per row, so it is not the board table. The up and down buttons are not on the board.
 
-Operators: name, units, planned, unplanned, waste, track, and Remove. A value edited inside the operators, tracks, or backlog table is an `.edit-label`: dotted underline, a tap turns it into a text field, and a commit turns it back into a label. A field outside those tables stays a text field. Feature names come from Jira and are not edited. The color circle sits on the same line as the name. A Jira key links to `config.jiraRootUrl` plus `/browse/` and the key. Track, the backlog's pinned track, Move To Track, and Add To Track are pop-up menus. A column name stays on one line and shows the full name on hover. The release date and version in the Releases fieldset stay text fields. Sync Task Metrics and Copy Jira Query sit on their own row. The week controls sit under that row. Add Operator, View Task Metrics, View Tasks, and Notes sit under the week controls. The last row of the operator table is the totals, with a black line above it, and it stays last when an operator is added. Total enabled capacity sits under that table. The week under inspection moves to the previous complete week and stops at the current week. Sync Task Metrics and Copy Jira Query sit on that row.
+Operators: name, units, planned, unplanned, waste, track, and Remove. A value edited inside the operators, tracks, or backlog table is an `.edit-label`: dotted underline, a tap turns it into a text field, and a commit turns it back into a label. A field outside those tables stays a text field. Feature names come from Jira and are not edited. The color circle sits on the same line as the name. A Jira key links to `config.jiraRootUrl` plus `/browse/` and the key. Track, the backlog's pinned track, Move To Track, and Add To Track are pop-up menus. A column name stays on one line and shows the full name on hover. The release date and version in the Releases fieldset stay text fields. Sync Task Metrics and Copy Jira Query sit on their own row. The week controls sit under that row. Add Operator, View Task Metrics, View Tasks, and Notes sit under the week controls. The last row of the operator table is the totals, with a black line above it, and it stays last when an operator is added. Total enabled capacity sits under that table. The week under inspection moves to the previous complete week and stops at the current week.
 
 Tracks: the name is edited in the row. Enabled, the feature, its key, units, completed units, the rate, remaining weeks, est. weeks, and the date. Units and completed units come from Jira and are read-only. Est. weeks is an `.edit-label` override. Backlog → and Delete act on the feature. Add Track appends one.
 
@@ -241,7 +241,7 @@ GET /report -> Report
 
 Audience: Admin. Modal. Parent passes the releases from `Board`.
 
-Lists releases whose date is today or earlier. A later release is not listed. Save sends that release id. The server refuses a future date with `409` even if the client listed it. Success closes the modal. The parent reloads.
+Lists releases whose date is today or earlier. A later release is not listed. Save sends that release id. The server refuses a future date with `409` even if the client listed it. Success closes the modal. The report reloads through `didSaveCheckpoint`.
 
 ```
 POST /checkpoints -> Checkpoint

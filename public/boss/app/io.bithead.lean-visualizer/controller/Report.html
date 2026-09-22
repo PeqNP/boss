@@ -16,6 +16,11 @@
               { id: "rel_15", version: "1.5.0", date: "2026-09-25" }
             ]
           });
+          ctrl.delegate = {
+            didSaveCheckpoint: function() {
+              reload();
+            }
+          };
         });
       }
       this.saveCheckpoint = saveCheckpoint;
@@ -29,8 +34,18 @@
       this.configure = configure;
 
       async function viewDidLoad() {
+        reload();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function reload() {
+        render(loadReport());
+        view.ui.button("checkpoint").hidden = callerRole !== "Admin";
+      }
+
+      function loadReport() {
         // Stand-in for GET /report.
-        const report = {
+        return {
           asOf: "2026-09-22",
           rates: {
             windowStart: "2026-07-26",
@@ -67,10 +82,7 @@
             { featureId: "f_portal", name: "Client portal", color: "#d95f02", previousFinishOn: "2026-09-25", finishOn: "2026-10-09", movedDays: 14 }
           ]
         };
-        render(report);
-        view.ui.button("checkpoint").hidden = callerRole !== "Admin";
       }
-      this.viewDidLoad = viewDidLoad;
 
       function render(report) {
         view.ui.span("as-of").textContent = report.asOf;
@@ -150,57 +162,65 @@
 
     <fieldset>
       <legend>Planned and unplanned (<span name="rate-window"></span>)</legend>
-      <table name="rates">
-        <thead>
-          <tr><th title="Operator"><span class="column-name">Operator</span></th><th title="Planned / week"><span class="column-name">Planned / week</span></th><th title="Unplanned / week"><span class="column-name">Unplanned / week</span></th><th title="Weeks"><span class="column-name">Weeks</span></th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-      <p>History from <span name="history-week"></span></p>
-      <table name="history">
-        <thead>
-          <tr><th title="Operator"><span class="column-name">Operator</span></th><th title="Planned"><span class="column-name">Planned</span></th><th title="Unplanned"><span class="column-name">Unplanned</span></th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+      <div class="vbox gap-10">
+        <table name="rates">
+          <thead>
+            <tr><th title="Operator"><span class="column-name">Operator</span></th><th title="Planned / week"><span class="column-name">Planned / week</span></th><th title="Unplanned / week"><span class="column-name">Unplanned / week</span></th><th title="Weeks"><span class="column-name">Weeks</span></th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div>History from <span name="history-week"></span></div>
+        <table name="history">
+          <thead>
+            <tr><th title="Operator"><span class="column-name">Operator</span></th><th title="Planned"><span class="column-name">Planned</span></th><th title="Unplanned"><span class="column-name">Unplanned</span></th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </fieldset>
 
     <fieldset>
       <legend>Strategic pillar</legend>
-      <p>Open</p>
-      <table name="open-pillars">
-        <thead>
-          <tr><th title="Pillar"><span class="column-name">Pillar</span></th><th title="Remaining"><span class="column-name">Remaining</span></th><th title="Features"><span class="column-name">Features</span></th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-      <p>Finished since 28 Dec 2025</p>
-      <table name="finished-pillars">
-        <thead>
-          <tr><th title="Pillar"><span class="column-name">Pillar</span></th><th title="Features"><span class="column-name">Features</span></th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+      <div class="vbox gap-10">
+        <div>Open</div>
+        <table name="open-pillars">
+          <thead>
+            <tr><th title="Pillar"><span class="column-name">Pillar</span></th><th title="Remaining"><span class="column-name">Remaining</span></th><th title="Features"><span class="column-name">Features</span></th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div>Finished since 28 Dec 2025</div>
+        <table name="finished-pillars">
+          <thead>
+            <tr><th title="Pillar"><span class="column-name">Pillar</span></th><th title="Features"><span class="column-name">Features</span></th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </fieldset>
 
     <fieldset>
       <legend>Tracks and available capacity</legend>
-      <table name="track-capacity">
-        <thead>
-          <tr><th title="Track"><span class="column-name">Track</span></th><th title="Rate"><span class="column-name">Rate</span></th><th title="On it"><span class="column-name">On it</span></th><th title="Frees"><span class="column-name">Frees</span></th><th title="Waiting"><span class="column-name">Waiting</span></th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+      <div class="vbox gap-10">
+        <table name="track-capacity">
+          <thead>
+            <tr><th title="Track"><span class="column-name">Track</span></th><th title="Rate"><span class="column-name">Rate</span></th><th title="On it"><span class="column-name">On it</span></th><th title="Frees"><span class="column-name">Frees</span></th><th title="Waiting"><span class="column-name">Waiting</span></th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </fieldset>
 
     <fieldset>
       <legend>Material changes</legend>
-      <table name="changes">
-        <thead>
-          <tr><th title="Feature"><span class="column-name">Feature</span></th><th title="Was"><span class="column-name">Was</span></th><th title="Now"><span class="column-name">Now</span></th><th title="Days"><span class="column-name">Days</span></th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+      <div class="vbox gap-10">
+        <table name="changes">
+          <thead>
+            <tr><th title="Feature"><span class="column-name">Feature</span></th><th title="Was"><span class="column-name">Was</span></th><th title="Now"><span class="column-name">Now</span></th><th title="Days"><span class="column-name">Days</span></th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </fieldset>
   </div>
 </div>

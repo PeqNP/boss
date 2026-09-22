@@ -89,11 +89,12 @@
       }
 
       function applyRoleMenu() {
-        if (role() !== "Employee") {
+        const select = os.application("$(app.bundleId)").menus().ui.select("go-menu");
+        if (role() === "Employee") {
+          select.ui.removeOption("board");
           return;
         }
-        const select = os.application("$(app.bundleId)").menus().ui.select("go-menu");
-        select.ui.removeOption("board");
+        select.ui.removeOption("schedule");
       }
 
       async function open(name) {

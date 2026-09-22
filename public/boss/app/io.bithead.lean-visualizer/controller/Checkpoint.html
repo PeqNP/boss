@@ -3,6 +3,7 @@
     function $(this.id)(view) {
 
       const STUB_TODAY = "2026-09-22";
+      const controller = this;
       let releases = [];
 
       /**
@@ -18,6 +19,9 @@
         }
         // Stand-in for POST /checkpoints.
         await os.ui.showInfo("Checkpoint saved.");
+        if (!isEmpty(controller.delegate) && controller.delegate.didSaveCheckpoint) {
+          controller.delegate.didSaveCheckpoint(id);
+        }
         view.ui.close();
       }
       this.save = save;
