@@ -338,15 +338,17 @@
           const tr = document.createElement("tr");
           tr.dataset.index = String(index);
           const featureCells = isEmpty(feature)
-            ? "<td class=\"muted\">No active feature</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td>"
+            ? "<td class=\"muted\">No active feature</td><td>—</td>"
+              + narrow("—") + narrow("—") + narrow("—") + narrow("—")
+              + "<td>—</td>" + narrow("—")
             : "<td>" + featureTitle(feature) + "</td>"
               + "<td>" + keyCell(feature) + "</td>"
-              + "<td><input type=\"number\" min=\"0\" data-role=\"feature-units\" data-id=\"" + feature.id + "\" data-owner=\"track\" value=\"" + feature.units + "\"></td>"
-              + "<td><input type=\"number\" min=\"0\" data-role=\"feature-completed\" data-id=\"" + feature.id + "\" data-owner=\"track\" value=\"" + feature.completedUnits + "\"></td>"
-              + "<td>" + trackRate(track.id) + "</td>"
-              + "<td>" + (feature.remainingWeeks === "" ? "—" : feature.remainingWeeks) + "</td>"
-              + "<td>" + estWeeksInput(feature, "track") + "</td>"
-              + "<td>" + (isEmpty(feature.finishOn) ? "—" : escapeHtml(feature.finishOn)) + "</td>";
+              + narrow(feature.units)
+              + narrow(feature.completedUnits)
+              + narrow(trackRate(track.id))
+              + narrow(feature.remainingWeeks === "" ? "—" : feature.remainingWeeks)
+              + "<td>" + estWeeksLabel(feature, "track") + "</td>"
+              + narrow(isEmpty(feature.finishOn) ? "—" : escapeHtml(feature.finishOn));
           tr.innerHTML = "<td draggable=\"true\" data-drag=\"" + index + "\" style=\"cursor:grab\">⠿</td>"
             + "<td>" + editLabel("track-name", track.id, track.name) + "</td>"
             + "<td><label class=\"checkbox\"><input type=\"checkbox\" data-role=\"track-enabled\" data-id=\"" + track.id + "\"" + (track.enabled ? " checked" : "") + "> " + (track.enabled ? "Enabled" : "Disabled") + "</label></td>"
@@ -380,11 +382,11 @@
             + "<td>" + (index + 1) + "</td>"
             + "<td>" + featureTitle(item) + "</td>"
             + "<td>" + keyCell(item) + "</td>"
-            + "<td><input type=\"number\" min=\"0\" data-role=\"feature-units\" data-owner=\"backlog\" data-id=\"" + item.id + "\" value=\"" + item.units + "\"></td>"
-            + "<td><input type=\"number\" min=\"0\" data-role=\"feature-completed\" data-owner=\"backlog\" data-id=\"" + item.id + "\" value=\"" + item.completedUnits + "\"></td>"
-            + "<td>" + (item.remainingWeeks === "" ? "—" : item.remainingWeeks) + "</td>"
-            + "<td>" + estWeeksInput(item, "backlog") + "</td>"
-            + "<td>" + (isEmpty(item.finishOn) ? "—" : escapeHtml(item.finishOn)) + "</td>"
+            + narrow(item.units)
+            + narrow(item.completedUnits)
+            + narrow(item.remainingWeeks === "" ? "—" : item.remainingWeeks)
+            + "<td>" + estWeeksLabel(item, "backlog") + "</td>"
+            + narrow(isEmpty(item.finishOn) ? "—" : escapeHtml(item.finishOn))
             + "<td data-cell=\"pin\"></td>"
             + "<td>—</td>"
             + "<td data-cell=\"move\"></td>"
@@ -475,22 +477,6 @@
             track.enabled = input.checked;
             saved();
           }
-        }
-        if (role === "feature-units" || role === "feature-completed" || role === "feature-weeks") {
-          const feature = findFeature(id, input.dataset.owner);
-          if (isEmpty(feature)) {
-            return;
-          }
-          if (role === "feature-units") {
-            feature.units = numberValue(input.value);
-          }
-          if (role === "feature-completed") {
-            feature.completedUnits = numberValue(input.value);
-          }
-          if (role === "feature-weeks") {
-            feature.manualEstWeeks = numberValue(input.value);
-          }
-          saved();
         }
       }
 
@@ -763,11 +749,15 @@
         return ((unplanned / total) * 100).toFixed(1) + "%";
       }
 
-      function estWeeksInput(feature, owner) {
-        const danger = feature.manualEstWeeks > 0 && feature.units > 0 ? " style=\"color:#b42318\"" : "";
-        const value = feature.manualEstWeeks > 0 ? feature.manualEstWeeks : "";
-        return "<input type=\"number\" min=\"0\" step=\"0.1\" data-role=\"feature-weeks\" data-owner=\""
-          + owner + "\" data-id=\"" + feature.id + "\" value=\"" + value + "\"" + danger + ">";
+      function estWeeksLabel(feature, owner) {
+        const value = feature.manualEstWeeks > 0 ? String(feature.manualEstWeeks) : "";
+        const danger = feature.manualEstWeeks > 0 && feature.units > 0 ? " danger" : "";
+        return "<span class=\"edit-label" + danger + "\" data-role=\"feature-weeks\" data-owner=\""
+          + owner + "\" data-id=\"" + feature.id + "\">" + escapeHtml(value) + "</span>";
+      }
+
+      function narrow(text) {
+        return "<td class=\"narrow\">" + text + "</td>";
       }
 
       function keyCell(feature) {
@@ -825,6 +815,16 @@
         if (role === "work-name") {
           draftWorkName = value;
           restoreLabel(label, value);
+          return;
+        }
+        if (role === "feature-weeks") {
+          const feature = findFeature(id, label.dataset.owner);
+          if (isEmpty(feature) || value === original) {
+            restoreLabel(label, original);
+            return;
+          }
+          feature.manualEstWeeks = isEmpty(value) ? 0 : numberValue(value);
+          saved();
           return;
         }
         if (isEmpty(value) || value === original) {
@@ -971,7 +971,7 @@
         <table name="tracks">
           <thead>
             <tr>
-              <th></th><th title="Track"><span class="column-name">Track</span></th><th title="State"><span class="column-name">State</span></th><th title="Feature"><span class="column-name">Feature</span></th><th title="Jira Key"><span class="column-name">Jira Key</span></th><th title="Total Units"><span class="column-name">Total Units</span></th><th title="Completed Units"><span class="column-name">Completed Units</span></th><th title="Units Applied / Week"><span class="column-name">Units Applied / Week</span></th><th title="Remaining Weeks"><span class="column-name">Remaining Weeks</span></th><th title="Est. Weeks"><span class="column-name">Est. Weeks</span></th><th title="Est. Date"><span class="column-name">Est. Date</span></th><th title="Actions"><span class="column-name">Actions</span></th>
+              <th></th><th title="Track"><span class="column-name">Track</span></th><th title="State"><span class="column-name">State</span></th><th title="Feature"><span class="column-name">Feature</span></th><th title="Jira Key"><span class="column-name">Jira Key</span></th><th class="narrow" title="Total Units"><span class="column-name">Total Units</span></th><th class="narrow" title="Completed Units"><span class="column-name">Completed Units</span></th><th class="narrow" title="Units Applied / Week"><span class="column-name">Units Applied / Week</span></th><th class="narrow" title="Remaining Weeks"><span class="column-name">Remaining Weeks</span></th><th title="Est. Weeks"><span class="column-name">Est. Weeks</span></th><th class="narrow" title="Est. Date"><span class="column-name">Est. Date</span></th><th title="Actions"><span class="column-name">Actions</span></th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -1020,7 +1020,7 @@
         <table name="backlog">
           <thead>
             <tr>
-              <th></th><th title="#"><span class="column-name">#</span></th><th title="Feature"><span class="column-name">Feature</span></th><th title="Jira Key"><span class="column-name">Jira Key</span></th><th title="Total Units"><span class="column-name">Total Units</span></th><th title="Completed Units"><span class="column-name">Completed Units</span></th><th title="Remaining Weeks"><span class="column-name">Remaining Weeks</span></th><th title="Est. Weeks"><span class="column-name">Est. Weeks</span></th><th title="Est. Date"><span class="column-name">Est. Date</span></th><th title="Pinned Track"><span class="column-name">Pinned Track</span></th><th title="Predicted Track"><span class="column-name">Predicted Track</span></th><th title="Move To Track"><span class="column-name">Move To Track</span></th><th></th>
+              <th></th><th title="#"><span class="column-name">#</span></th><th title="Feature"><span class="column-name">Feature</span></th><th title="Jira Key"><span class="column-name">Jira Key</span></th><th class="narrow" title="Total Units"><span class="column-name">Total Units</span></th><th class="narrow" title="Completed Units"><span class="column-name">Completed Units</span></th><th class="narrow" title="Remaining Weeks"><span class="column-name">Remaining Weeks</span></th><th title="Est. Weeks"><span class="column-name">Est. Weeks</span></th><th class="narrow" title="Est. Date"><span class="column-name">Est. Date</span></th><th title="Pinned Track"><span class="column-name">Pinned Track</span></th><th title="Predicted Track"><span class="column-name">Predicted Track</span></th><th title="Move To Track"><span class="column-name">Move To Track</span></th><th></th>
             </tr>
           </thead>
           <tbody></tbody>

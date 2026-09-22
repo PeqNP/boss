@@ -20,7 +20,7 @@ load stub data. The routes they name are not wired yet.
 - The product UI is the controllers named in the plan. A feature keeps its own color.
   The rest of the chrome is the BOSS desktop.
 - Server calls go through `os.network` with the signed-in session.
-- An editable name is an `.edit-label` in `lean.css`: a dotted underline, and a tap turns it into a text field. Feature names are not editable. A Jira key is an `a.jira-key`.
+- An editable name or week estimate is an `.edit-label` in `lean.css`: a dotted underline, and a tap turns it into a text field. Feature names, total units, and completed units come from Jira and are not edited. A Jira key is an `a.jira-key`.
 
 ### Private half
 

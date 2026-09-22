@@ -150,9 +150,9 @@ Operators, tracks, and the backlog are tables. A row is reordered by its grab ha
 
 Operators: name, units, planned, unplanned, waste, track, and Remove. A name that can be edited is an `.edit-label`: dotted underline, and a tap turns it into a text field. Feature names come from Jira and are not edited. The color circle sits on the same line as the name. A Jira key links to `config.jiraRootUrl` plus `/browse/` and the key. Track, the backlog's pinned track, Move To Track, and Add To Track are pop-up menus. A column name stays on one line and shows the full name on hover. The release date and version in the Releases fieldset stay text fields. Add Operator, View Task Metrics, View Tasks, and Notes sit above the week controls. The week under inspection moves to the previous complete week and stops at the current week. Sync Task Metrics and Copy Jira Query sit on that row.
 
-Tracks: the name is edited in the row. Enabled, the feature, its key, units, completed units, the rate, remaining weeks, est. weeks, and the date. Est. weeks is an editable override. Move To Backlog and Delete act on the feature. Add Track appends one.
+Tracks: the name is edited in the row. Enabled, the feature, its key, units, completed units, the rate, remaining weeks, est. weeks, and the date. Units and completed units come from Jira and are read-only. Est. weeks is an `.edit-label` override. Move To Backlog and Delete act on the feature. Add Track appends one.
 
-Backlog: features, virtual features, dividers, and the system divider `system-sync-divider`. A feature's color is a circle. Est. weeks is editable and shows in the danger color when it overrides a feature that has units. Pin a track, or choose Move To Track. Add divider, Add To Backlog, and Add To Track are here. A virtual feature opens `VirtualFeature`.
+Backlog: features, virtual features, dividers, and the system divider `system-sync-divider`. A feature's color is a circle. Units and completed units are read-only. Est. weeks is an `.edit-label` and shows in the danger color when it overrides a feature that has units. Pin a track, or choose Move To Track. Add divider, Add To Backlog, and Add To Track are here. A virtual feature opens `VirtualFeature`.
 
 Releases: version and date. Add Release and Manage Releases. Manage Releases opens `Releases`. Nothing here creates a checkpoint.
 

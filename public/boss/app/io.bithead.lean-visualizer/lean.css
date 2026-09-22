@@ -7,12 +7,26 @@ th .column-name {
   text-overflow: ellipsis;
 }
 
+th.narrow,
+td.narrow {
+  width: 4em;
+  max-width: 4em;
+}
+
+th.narrow .column-name {
+  max-width: 4em;
+}
+
 /* An editable name. A tap replaces it with a text field. */
 .edit-label {
   display: inline-block;
   min-width: 4em;
   border-bottom: 1px dotted #000;
   cursor: text;
+}
+
+.edit-label.danger {
+  color: #b42318;
 }
 
 /* A feature's color sits on the same line as its name. */
