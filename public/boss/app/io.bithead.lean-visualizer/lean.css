@@ -21,6 +21,12 @@ tr.totals td {
   border-top: 1px solid #000;
 }
 
+.row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* A table value that can be edited. A tap replaces it with a text field. */
 .edit-label {
   display: inline-block;

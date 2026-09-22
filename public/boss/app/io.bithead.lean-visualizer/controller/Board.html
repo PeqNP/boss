@@ -259,12 +259,10 @@
         renderTracks();
         renderBacklog();
         renderReleases();
-        const enabled = tracks.filter(function(track) { return track.enabled; }).length;
         const capacity = tracks.reduce(function(sum, track) {
           return sum + (track.enabled ? trackRate(track.id) : 0);
         }, 0);
-        view.ui.span("capacity-note").textContent = "Enabled tracks: " + enabled
-          + " | Total enabled capacity: " + capacity + " units/week";
+        view.ui.span("capacity-note").textContent = "Total enabled capacity: " + capacity + " units/week";
       }
 
       function renderOperators() {
@@ -319,8 +317,8 @@
             + "<td>" + editLabel("track-name", track.id, track.name) + "</td>"
             + "<td><label class=\"checkbox\"><input type=\"checkbox\" data-role=\"track-enabled\" data-id=\"" + track.id + "\"" + (track.enabled ? " checked" : "") + "> " + (track.enabled ? "Enabled" : "Disabled") + "</label></td>"
             + featureCells
-            + "<td><button type=\"button\" class=\"primary\" data-action=\"move-to-backlog\" data-id=\"" + track.id + "\"" + (isEmpty(feature) ? " disabled" : "") + ">Move To Backlog</button> "
-            + "<button type=\"button\" class=\"primary delete\" aria-label=\"Delete\" data-action=\"delete-feature\" data-id=\"" + track.id + "\"" + (isEmpty(feature) ? " disabled" : "") + "></button></td>";
+            + "<td><span class=\"row-actions\"><button type=\"button\" class=\"primary\" data-action=\"move-to-backlog\" data-id=\"" + track.id + "\"" + (isEmpty(feature) ? " disabled" : "") + ">Backlog →</button>"
+            + "<button type=\"button\" class=\"primary delete\" aria-label=\"Delete\" data-action=\"delete-feature\" data-id=\"" + track.id + "\"" + (isEmpty(feature) ? " disabled" : "") + "></button></span></td>";
           body.appendChild(tr);
         });
       }
@@ -859,14 +857,16 @@
       <legend>Operators</legend>
       <div class="vbox gap-10">
         <div class="hbox gap-10">
+          <button class="primary" onclick="$(this.controller).syncMetrics();">Sync Task Metrics</button>
+          <button class="primary" onclick="$(this.controller).copyQuery(this);">Copy Jira Query</button>
+        </div>
+        <div class="hbox gap-10" style="padding-top: 10px;">
           <button name="previous-week" class="primary" onclick="$(this.controller).previousWeek();">Previous Week</button>
           <div class="read-only">
             <label>Week</label>
             <span name="week-label"></span>
           </div>
           <button name="next-week" class="primary" onclick="$(this.controller).nextWeek();">Next Week</button>
-          <button class="primary" onclick="$(this.controller).syncMetrics();">Sync Task Metrics</button>
-          <button class="primary" onclick="$(this.controller).copyQuery(this);">Copy Jira Query</button>
         </div>
         <div class="hbox gap-10">
           <button class="primary" onclick="$(this.controller).addOperator();">Add Operator</button>
@@ -882,6 +882,7 @@
           </thead>
           <tbody></tbody>
         </table>
+        <div class="read-only"><span name="capacity-note"></span></div>
       </div>
     </fieldset>
 
@@ -944,7 +945,7 @@
           </div>
           <button class="primary" onclick="$(this.controller).addRelease();">Add Release</button>
         </div>
-        <div class="hbox gap-10">
+        <div class="hbox gap-10" style="margin-top: 10px;">
           <button class="primary" onclick="$(this.controller).openReleases();">Manage Releases</button>
         </div>
         <table name="releases">
@@ -953,7 +954,6 @@
           </thead>
           <tbody></tbody>
         </table>
-        <div class="read-only"><span name="capacity-note"></span></div>
       </div>
     </fieldset>
   </div>

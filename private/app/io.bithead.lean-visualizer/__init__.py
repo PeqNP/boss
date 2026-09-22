@@ -383,13 +383,6 @@ def normalize_release_date(value: Any) -> str | None:
     return parsed.isoformat()
 
 
-def parse_semver_tuple(version: str) -> tuple[int, int, int] | None:
-    match = SEMVER_PATTERN.match(version.strip())
-    if match is None:
-        return None
-    return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
-
-
 def build_release_options_from_state(state: Dict[str, Any]) -> List[ReleaseOption]:
     releases = state.get("releases", [])
     if not isinstance(releases, list):
@@ -406,18 +399,15 @@ def build_release_options_from_state(state: Dict[str, Any]) -> List[ReleaseOptio
         if version not in deduped:
             deduped[version] = release_date
 
-    def release_sort_key(item: tuple[str, str]) -> tuple[int, Any, str]:
-        version = item[0]
-        parsed = parse_semver_tuple(version)
-        if parsed is not None:
-            return (0, parsed, version)
-        return (1, version.lower(), version)
-
-    ordered = sorted(deduped.items(), key=release_sort_key)
+    today = local_today_iso()
+    upcoming = sorted(
+        ((version, release_date) for version, release_date in deduped.items() if release_date >= today),
+        key=lambda item: (item[1], item[0]),
+    )[:3]
     return [ReleaseOption(
         version=version,
         date=release_date
-    ) for version, release_date in ordered]
+    ) for version, release_date in upcoming]
 
 
 def next_jira_feature_color() -> str:
