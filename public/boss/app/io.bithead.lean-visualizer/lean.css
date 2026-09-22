@@ -17,7 +17,7 @@ th.narrow .column-name {
   max-width: 4em;
 }
 
-/* An editable name. A tap replaces it with a text field. */
+/* A table value that can be edited. A tap replaces it with a text field. */
 .edit-label {
   display: inline-block;
   min-width: 4em;

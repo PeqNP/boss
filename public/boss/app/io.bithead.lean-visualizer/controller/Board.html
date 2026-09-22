@@ -56,7 +56,6 @@
       ];
       const dragLines = [];
       let directTrackId = null;
-      let draftWorkName = "";
       let releases = [
         { id: "rel_14", version: "1.4.0", date: "2026-09-11" },
         { id: "rel_15", version: "1.5.0", date: "2026-09-25" }
@@ -89,20 +88,20 @@
       this.addDivider = addDivider;
 
       function addToBacklog() {
-        const name = currentWorkName();
+        const name = view.ui.input("work-name").value.trim();
         if (isEmpty(name)) {
           view.ui.showMessage("Provide a feature name.", { error: true });
           return;
         }
         backlog.push(makeFeature(name, numberValue(view.ui.input("work-units").value)));
-        clearWorkName();
+        view.ui.input("work-name").value = "";
         view.ui.input("work-units").value = "0";
         saved();
       }
       this.addToBacklog = addToBacklog;
 
       function addToTrack() {
-        const name = currentWorkName();
+        const name = view.ui.input("work-name").value.trim();
         const trackId = directTrackId;
         if (isEmpty(name)) {
           view.ui.showMessage("Provide a feature name.", { error: true });
@@ -113,7 +112,7 @@
           return;
         }
         placeOnTrack(makeFeature(name, numberValue(view.ui.input("work-units").value)), trackId);
-        clearWorkName();
+        view.ui.input("work-name").value = "";
         view.ui.input("work-units").value = "0";
         saved();
       }
@@ -784,7 +783,7 @@
         if (!isEmpty(label.querySelector("input"))) {
           return;
         }
-        const original = label.dataset.role === "work-name" ? draftWorkName : label.textContent;
+        const original = label.textContent;
         const input = document.createElement("input");
         input.type = "text";
         input.value = original;
@@ -809,11 +808,6 @@
       function finishEdit(label, value, original) {
         const role = label.dataset.role;
         const id = label.dataset.id;
-        if (role === "work-name") {
-          draftWorkName = value;
-          restoreLabel(label, value);
-          return;
-        }
         if (role === "feature-weeks") {
           const feature = findFeature(id, label.dataset.owner);
           if (isEmpty(feature) || value === original) {
@@ -852,26 +846,6 @@
       function restoreLabel(label, text) {
         label.classList.add("edit-label");
         label.textContent = text;
-      }
-
-      function currentWorkName() {
-        const label = view.querySelector("[data-role='work-name']");
-        if (isEmpty(label)) {
-          return "";
-        }
-        const input = label.querySelector("input");
-        if (!isEmpty(input)) {
-          return input.value.trim();
-        }
-        return draftWorkName.trim();
-      }
-
-      function clearWorkName() {
-        draftWorkName = "";
-        const label = view.querySelector("[data-role='work-name']");
-        if (!isEmpty(label)) {
-          restoreLabel(label, "");
-        }
       }
 
       function dot(color) {
@@ -976,9 +950,9 @@
       <legend>Add Work Unit</legend>
       <div class="vbox gap-10">
         <div class="hbox gap-10">
-          <div>
-            <label>Feature name</label>
-            <span class="edit-label" data-role="work-name"></span>
+          <div class="text-field">
+            <label for="work-name">Feature name</label>
+            <input type="text" name="work-name" autocomplete="off">
           </div>
           <div class="text-field">
             <label for="work-units">Units</label>
