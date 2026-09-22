@@ -1,0 +1,81 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      const TASKS = {
+        "Simon Lemay": [
+          { issueKey: "SD-410", description: "Portal login", planned: true },
+          { issueKey: "SD-411", description: "Session timeout", planned: true }
+        ],
+        "Frankie English": [
+          { issueKey: "SUP-88", description: "Password reset", planned: false }
+        ]
+      };
+      let weekLabel = "";
+      let operatorName = "Simon Lemay";
+
+      function showOperator(name) {
+        operatorName = name;
+        render();
+      }
+      this.showOperator = showOperator;
+
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+
+      /**
+       * @param {{weekLabel: string}} options
+       */
+      function configure(options) {
+        weekLabel = options && options.weekLabel ? options.weekLabel : "";
+      }
+      this.configure = configure;
+
+      function viewDidLoad() {
+        view.ui.span("week").textContent = weekLabel;
+        render();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function render() {
+        const body = view.ui.table("tasks").querySelector("tbody");
+        body.innerHTML = "";
+        const rows = TASKS[operatorName] || [];
+        for (const task of rows) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = "<td>" + task.issueKey + "</td><td>" + task.description + "</td><td>"
+            + (task.planned ? "Planned" : "Unplanned") + "</td>";
+          body.appendChild(tr);
+        }
+        view.ui.span("operator").textContent = operatorName;
+      }
+    }
+  </script>
+
+  <div class="title">Tasks Included In Units / Week</div>
+  <div class="container vbox gap-10" style="width: 560px;">
+    <div class="read-only">
+      <label>Week</label>
+      <span name="week"></span>
+    </div>
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).showOperator('Simon Lemay');">Simon Lemay</button>
+      <button class="primary" onclick="$(this.controller).showOperator('Frankie English');">Frankie English</button>
+    </div>
+    <div class="read-only">
+      <label>Operator</label>
+      <span name="operator"></span>
+    </div>
+    <table name="tasks">
+      <thead>
+        <tr><th>Key</th><th>Description</th><th>Kind</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).close();">Close</button>
+    </div>
+  </div>
+</div>

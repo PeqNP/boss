@@ -1,0 +1,66 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      let featureId = null;
+
+      /**
+       * Writes the virtual feature onto the backlog and closes.
+       */
+      async function save() {
+        const name = view.ui.input("name").value.trim();
+        if (isEmpty(name)) {
+          view.ui.showMessage("Provide a name.", { error: true });
+          return;
+        }
+        const jql = view.ui.textarea("jql").value;
+        // Stand-in for PUT /model of the backlog item.
+        if (!isEmpty(this.delegate)) {
+          this.delegate.didSaveVirtual({ id: featureId, name: name, jql: jql });
+        }
+        view.ui.close();
+      }
+      this.save = save;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      /**
+       * @param {{id: string}|undefined} options - Absent when creating
+       */
+      function configure(options) {
+        featureId = options && options.id ? options.id : null;
+      }
+      this.configure = configure;
+
+      function viewDidLoad() {
+        if (featureId !== "vf_support") {
+          return;
+        }
+        view.ui.input("name").value = "Support queue";
+        view.ui.textarea("jql").value = "project = SUP AND statusCategory != Done";
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      this.didHitEnter = save;
+    }
+  </script>
+
+  <div class="title">Virtual work unit</div>
+  <div class="container vbox gap-10" style="width: 420px;">
+    <div class="text-field">
+      <label for="name">Name</label>
+      <input type="text" name="name" autocomplete="new-password">
+    </div>
+    <div class="textarea-field">
+      <label for="jql">JQL</label>
+      <textarea name="jql"></textarea>
+    </div>
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+  </div>
+</div>

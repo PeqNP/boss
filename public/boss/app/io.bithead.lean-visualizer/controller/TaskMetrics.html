@@ -1,0 +1,80 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      const WINDOWS = [
+        ["2026-08-16", 18, 13],
+        ["2026-08-23", 38, 22],
+        ["2026-08-30", 32, 18],
+        ["2026-09-06", 18, 10],
+        ["2026-09-13", 21, 13]
+      ];
+      let start = 0;
+
+      function previousWindow() {
+        if (start === 0) {
+          return;
+        }
+        start -= 1;
+        render();
+      }
+      this.previousWindow = previousWindow;
+
+      function nextWindow() {
+        if (start >= WINDOWS.length - 1) {
+          return;
+        }
+        start += 1;
+        render();
+      }
+      this.nextWindow = nextWindow;
+
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+
+      function viewDidLoad() {
+        render();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function render() {
+        const row = WINDOWS[start];
+        view.ui.span("window-label").textContent = row[0];
+        view.ui.span("units").textContent = String(row[1]);
+        view.ui.span("unplanned").textContent = String(row[2]);
+        view.ui.button("previous-window").disabled = start === 0;
+        view.ui.button("next-window").disabled = start >= WINDOWS.length - 1;
+        const bar = view.ui.div("bar");
+        bar.style.width = Math.min(row[1], 40) * 8 + "px";
+        bar.style.height = "14px";
+        bar.style.background = "#000";
+      }
+    }
+  </script>
+
+  <div class="title">Task Metrics</div>
+  <div class="container vbox gap-10" style="width: 520px;">
+    <div class="controls">
+      <button name="previous-window" class="primary" onclick="$(this.controller).previousWindow();">Previous 5 Weeks</button>
+      <button name="next-window" class="primary" onclick="$(this.controller).nextWindow();">Next 5 Weeks</button>
+    </div>
+    <div class="read-only">
+      <label>Week</label>
+      <span name="window-label"></span>
+    </div>
+    <div class="read-only">
+      <label>Units</label>
+      <span name="units"></span>
+    </div>
+    <div class="read-only">
+      <label>Unplanned</label>
+      <span name="unplanned"></span>
+    </div>
+    <div name="bar"></div>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).close();">Close</button>
+    </div>
+  </div>
+</div>

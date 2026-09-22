@@ -1,0 +1,68 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      const STUB_TODAY = "2026-09-22";
+      let releases = [];
+
+      /**
+       * Stores the selected release and closes.
+       *
+       * A release dated after today is not in the list.
+       */
+      async function save() {
+        const id = view.ui.select("releases").ui.selectedValue();
+        if (isEmpty(id)) {
+          view.ui.showMessage("Choose a release.", { error: true });
+          return;
+        }
+        // Stand-in for POST /checkpoints.
+        await os.ui.showInfo("Checkpoint saved.");
+        view.ui.close();
+      }
+      this.save = save;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      /**
+       * @param {{releases: Array<{id: string, version: string, date: string}>}} options
+       */
+      function configure(options) {
+        releases = options && options.releases ? options.releases : [];
+      }
+      this.configure = configure;
+
+      function viewDidLoad() {
+        const eligible = releases.filter(function(release) {
+          return release.date <= STUB_TODAY;
+        });
+        const choices = eligible.map(function(release) {
+          return { id: release.id, name: release.version + "  " + release.date };
+        });
+        view.ui.select("releases").ui.addNewOptions(choices);
+        view.ui.span("today").textContent = STUB_TODAY;
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      this.didHitEnter = save;
+    }
+  </script>
+
+  <div class="title">Save Checkpoint</div>
+  <div class="container vbox gap-10" style="width: 420px;">
+    <div class="read-only">
+      <label>Through</label>
+      <span name="today"></span>
+    </div>
+    <div class="ui-list-box" style="width: 380px; height: 140px;">
+      <select name="releases"></select>
+    </div>
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="default" onclick="$(this.controller).save();">Save Checkpoint</button>
+    </div>
+  </div>
+</div>

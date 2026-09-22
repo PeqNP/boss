@@ -1,0 +1,92 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      const RELEASES = [
+        {
+          version: "1.4.0",
+          date: "2026-09-11",
+          tasks: [
+            { issueKey: "SD-400", description: "Portal login", operatorName: "Simon Lemay" }
+          ]
+        },
+        {
+          version: "1.3.0",
+          date: "2026-08-28",
+          tasks: [
+            { issueKey: "SD-360", description: "Billing export", operatorName: "Nadeem Maida" }
+          ]
+        }
+      ];
+
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+
+      function viewDidLoad() {
+        const list = view.ui.select("release-choices").ui;
+        list.delegate = {
+          didSelectListBoxOption: function(option) {
+            showRelease(option.value);
+          },
+          didRemoveAllOptions: function() {}
+        };
+        showMatches("");
+        view.ui.input("release-search").addEventListener("input", function(event) {
+          showMatches(event.target.value);
+        });
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function showMatches(term) {
+        const needle = term.trim().toLowerCase();
+        const matches = RELEASES.filter(function(release) {
+          return isEmpty(needle) || release.version.toLowerCase().indexOf(needle) >= 0;
+        });
+        view.ui.select("release-choices").ui.addNewOptions(matches.map(function(release) {
+          return { id: release.version, name: release.version + "  " + release.date };
+        }));
+      }
+
+      function showRelease(version) {
+        const release = RELEASES.find(function(item) { return item.version === version; });
+        view.ui.span("chosen").textContent = isEmpty(release) ? "" : release.version;
+        const body = view.ui.table("units").querySelector("tbody");
+        body.innerHTML = "";
+        if (isEmpty(release)) {
+          return;
+        }
+        for (const task of release.tasks) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = "<td>" + task.issueKey + "</td><td>" + task.description + "</td><td>" + task.operatorName + "</td>";
+          body.appendChild(tr);
+        }
+      }
+    }
+  </script>
+
+  <div class="title">Prepare Release</div>
+  <div class="container vbox gap-10" style="width: 560px;">
+    <div class="text-field">
+      <label for="release-search">Release</label>
+      <input type="text" name="release-search" autocomplete="off">
+    </div>
+    <div class="ui-list-box" style="width: auto; height: 90px;">
+      <select name="release-choices"></select>
+    </div>
+    <div class="read-only">
+      <label>Chosen</label>
+      <span name="chosen"></span>
+    </div>
+    <table name="units">
+      <thead>
+        <tr><th>Key</th><th>Description</th><th>Operator</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).close();">Close</button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,942 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      const WEEKS = [
+        { weekStart: "2026-09-06", label: "6 Sep 2026" },
+        { weekStart: "2026-09-13", label: "13 Sep 2026" },
+        { weekStart: "2026-09-20", label: "20 Sep 2026" }
+      ];
+      const CURRENT_WEEK = 2;
+      const COLORS = ["#d95f02", "#216e39", "#6a4f31", "#1f4e79", "#6f42c1"];
+
+      let weekIndex = 1;
+      let revision = 4;
+      let colorIndex = 3;
+      let serial = 10;
+      let weeklyNotes = { "2026-09-13": "Portal review moved to the 25 Sep release." };
+      let operators = [
+        { id: "op_simon", name: "Simon Lemay", trackId: "tr_platform" },
+        { id: "op_frankie", name: "Frankie English", trackId: "tr_platform" },
+        { id: "op_nadeem", name: "Nadeem Maida", trackId: "tr_client" }
+      ];
+      let tracks = [
+        {
+          id: "tr_platform",
+          name: "Platform",
+          enabled: true,
+          feature: {
+            id: "f_portal", name: "Client portal", issueKey: "FR-410", color: "#d95f02",
+            units: 12, completedUnits: 4, manualEstWeeks: 0, remainingWeeks: 2.5, finishOn: "2026-10-09"
+          }
+        },
+        { id: "tr_client", name: "Client", enabled: true, feature: null }
+      ];
+      let backlog = [
+        {
+          kind: "feature", id: "f_billing", name: "Billing export", issueKey: "FR-388", color: "#216e39",
+          units: 8, completedUnits: 1, manualEstWeeks: 0, remainingWeeks: 4, finishOn: "2026-10-23",
+          pinnedTrackId: null, jql: ""
+        },
+        {
+          kind: "virtual", id: "vf_support", name: "Support queue", issueKey: "", color: "#1f4e79",
+          units: 6, completedUnits: 2, manualEstWeeks: 0, remainingWeeks: 2, finishOn: "2026-10-06",
+          pinnedTrackId: null, jql: "project = SUP AND statusCategory != Done"
+        },
+        {
+          kind: "system-divider", id: "system-sync-divider",
+          name: "Any task below this line will not have its work unit counts queried.", color: "#d9d2c5"
+        },
+        {
+          kind: "feature", id: "f_spike", name: "Import spike", issueKey: "FR-220", color: "#6a4f31",
+          units: 4, completedUnits: 0, manualEstWeeks: 1, remainingWeeks: 1, finishOn: "",
+          pinnedTrackId: null, jql: ""
+        }
+      ];
+      const dragLines = [];
+      let releases = [
+        { id: "rel_14", version: "1.4.0", date: "2026-09-11" },
+        { id: "rel_15", version: "1.5.0", date: "2026-09-25" }
+      ];
+      const weekFigures = {
+        0: { op_simon: [5, 3, 2], op_frankie: [2, 1, 1], op_nadeem: [3, 2, 1] },
+        1: { op_simon: [6, 4, 2], op_frankie: [2, 1, 1], op_nadeem: [4, 3, 1] },
+        2: { op_simon: [1, 1, 0], op_frankie: [0, 0, 0], op_nadeem: [0, 0, 0] }
+      };
+      const rates = { op_simon: 4.4, op_frankie: 1.1, op_nadeem: 2.2 };
+
+      function addOperator() {
+        const id = uid("op");
+        operators.push({ id: id, name: "Operator " + operators.length, trackId: null });
+        rates[id] = 0;
+        saved();
+      }
+      this.addOperator = addOperator;
+
+      function addTrack() {
+        tracks.push({ id: uid("tr"), name: "Track " + (tracks.length + 1), enabled: true, feature: null });
+        saved();
+      }
+      this.addTrack = addTrack;
+
+      function addDivider() {
+        backlog.push({ kind: "divider", id: uid("d"), name: "Divider", color: nextColor() });
+        saved();
+      }
+      this.addDivider = addDivider;
+
+      function addToBacklog() {
+        const name = view.ui.input("work-name").value.trim();
+        if (isEmpty(name)) {
+          view.ui.showMessage("Provide a feature name.", { error: true });
+          return;
+        }
+        backlog.push(makeFeature(name, numberValue(view.ui.input("work-units").value)));
+        view.ui.input("work-name").value = "";
+        view.ui.input("work-units").value = "0";
+        saved();
+      }
+      this.addToBacklog = addToBacklog;
+
+      function addToTrack() {
+        const name = view.ui.input("work-name").value.trim();
+        const trackId = view.ui.select("direct-track").value;
+        if (isEmpty(name)) {
+          view.ui.showMessage("Provide a feature name.", { error: true });
+          return;
+        }
+        if (isEmpty(trackId)) {
+          view.ui.showMessage("Select a track.", { error: true });
+          return;
+        }
+        placeOnTrack(makeFeature(name, numberValue(view.ui.input("work-units").value)), trackId);
+        view.ui.input("work-name").value = "";
+        view.ui.input("work-units").value = "0";
+        saved();
+      }
+      this.addToTrack = addToTrack;
+
+      function addRelease() {
+        const date = view.ui.input("release-date").value;
+        const version = view.ui.input("release-version").value.trim();
+        if (isEmpty(date) || isEmpty(version)) {
+          view.ui.showMessage("Provide a release date and version.", { error: true });
+          return;
+        }
+        releases.push({ id: uid("rel"), version: version, date: date });
+        view.ui.input("release-date").value = "";
+        view.ui.input("release-version").value = "";
+        saved();
+      }
+      this.addRelease = addRelease;
+
+      function syncFeatures() {
+        view.ui.showMessage("Synced feature requests.");
+      }
+      this.syncFeatures = syncFeatures;
+
+      function syncMetrics() {
+        view.ui.showMessage("Synced " + WEEKS[weekIndex].label + ".");
+      }
+      this.syncMetrics = syncMetrics;
+
+      /**
+       * @param {HTMLElement} button
+       */
+      function copyQuery(button) {
+        os.copyToClipboard(button, "project in (\"Software Development\") AND Developers is not EMPTY");
+      }
+      this.copyQuery = copyQuery;
+
+      function previousWeek() {
+        if (weekIndex === 0) {
+          return;
+        }
+        weekIndex -= 1;
+        render();
+      }
+      this.previousWeek = previousWeek;
+
+      function nextWeek() {
+        if (weekIndex >= CURRENT_WEEK) {
+          return;
+        }
+        weekIndex += 1;
+        render();
+      }
+      this.nextWeek = nextWeek;
+
+      async function openCheckpoint() {
+        const win = await $(app.controller).loadController("Checkpoint");
+        win.ui.show(function(ctrl) {
+          ctrl.configure({ releases: releases });
+        });
+      }
+      this.openCheckpoint = openCheckpoint;
+
+      async function openFinishedWork() {
+        const win = await $(app.controller).loadController("FinishedWork");
+        win.ui.show();
+      }
+      this.openFinishedWork = openFinishedWork;
+
+      async function openPrepareRelease() {
+        const win = await $(app.controller).loadController("PrepareRelease");
+        win.ui.show();
+      }
+      this.openPrepareRelease = openPrepareRelease;
+
+      async function openTaskMetrics() {
+        const win = await $(app.controller).loadController("TaskMetrics");
+        win.ui.show();
+      }
+      this.openTaskMetrics = openTaskMetrics;
+
+      async function openTasks() {
+        const win = await $(app.controller).loadController("Tasks");
+        win.ui.show(function(ctrl) {
+          ctrl.configure({ weekLabel: WEEKS[weekIndex].label });
+        });
+      }
+      this.openTasks = openTasks;
+
+      async function openNotes() {
+        const win = await $(app.controller).loadController("Notes");
+        const weekStart = WEEKS[weekIndex].weekStart;
+        win.ui.show(function(ctrl) {
+          ctrl.configure({ weekStart: weekStart });
+          ctrl.delegate = {
+            didSaveNotes: function(week, text) {
+              weeklyNotes[week] = text;
+              view.ui.showMessage("Saved");
+            }
+          };
+        });
+      }
+      this.openNotes = openNotes;
+
+      async function openVirtual(id) {
+        const win = await $(app.controller).loadController("VirtualFeature");
+        win.ui.show(function(ctrl) {
+          if (!isEmpty(id)) {
+            ctrl.configure({ id: id });
+          }
+          ctrl.delegate = {
+            didSaveVirtual: function(feature) {
+              saveVirtual(feature);
+            }
+          };
+        });
+      }
+      this.openVirtual = openVirtual;
+
+      async function openReleases() {
+        const win = await $(app.controller).loadController("Releases");
+        win.ui.show(function(ctrl) {
+          ctrl.configure({ releases: releases });
+          ctrl.delegate = {
+            didChangeReleases: function(next) {
+              releases = next;
+              renderReleases();
+              view.ui.showMessage("Saved");
+            }
+          };
+        });
+      }
+      this.openReleases = openReleases;
+
+      async function openSchedule() {
+        const win = await $(app.controller).loadController("Schedule");
+        win.ui.show();
+      }
+      this.openSchedule = openSchedule;
+
+      function viewDidLoad() {
+        const root = view.querySelector(".container");
+        root.addEventListener("click", onClick);
+        root.addEventListener("change", onChange);
+        bindDrag(view.ui.table("operators"), "operators");
+        bindDrag(view.ui.table("tracks"), "tracks");
+        bindDrag(view.ui.table("backlog"), "backlog");
+        render();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewWillUnload() {
+        for (const line of dragLines) {
+          line.remove();
+        }
+      }
+      this.viewWillUnload = viewWillUnload;
+
+      this.didHitEnter = function() {
+        if (!isEmpty(document.activeElement) && document.activeElement.blur) {
+          document.activeElement.blur();
+        }
+      };
+
+      function saved() {
+        revision += 1;
+        view.ui.showMessage("Saved");
+        render();
+      }
+
+      function render() {
+        const week = WEEKS[weekIndex];
+        view.ui.span("week-label").textContent = week.label;
+        view.ui.span("revision").textContent = String(revision);
+        view.ui.button("previous-week").disabled = weekIndex === 0;
+        view.ui.button("next-week").disabled = weekIndex >= CURRENT_WEEK;
+        renderOperators();
+        renderTracks();
+        renderBacklog();
+        renderReleases();
+        renderDirectTrack();
+        const enabled = tracks.filter(function(track) { return track.enabled; }).length;
+        const capacity = tracks.reduce(function(sum, track) {
+          return sum + (track.enabled ? trackRate(track.id) : 0);
+        }, 0);
+        view.ui.span("capacity-note").textContent = "Enabled tracks: " + enabled
+          + " | Total enabled capacity: " + capacity + " units/week";
+      }
+
+      function renderOperators() {
+        const body = view.ui.table("operators").querySelector("tbody");
+        body.innerHTML = "";
+        const totals = [0, 0, 0];
+        operators.forEach(function(operator, index) {
+          const figures = figuresFor(operator.id);
+          totals[0] += figures[0];
+          totals[1] += figures[1];
+          totals[2] += figures[2];
+          const tr = document.createElement("tr");
+          tr.dataset.index = String(index);
+          tr.innerHTML = "<td draggable=\"true\" data-drag=\"" + index + "\" style=\"cursor:grab\">⠿</td>"
+            + "<td><input type=\"text\" data-role=\"operator-name\" data-id=\"" + operator.id + "\" value=\"" + escapeHtml(operator.name) + "\"></td>"
+            + "<td>" + figures[0] + "</td>"
+            + "<td>" + figures[1] + "</td>"
+            + "<td>" + figures[2] + "</td>"
+            + "<td>" + waste(figures[1], figures[2]) + "</td>"
+            + "<td data-cell=\"track\"></td>"
+            + "<td><button type=\"button\" class=\"primary\" data-action=\"remove-operator\" data-id=\"" + operator.id + "\">Remove</button></td>";
+          body.appendChild(tr);
+          tr.querySelector("[data-cell='track']").appendChild(operatorTrackMenu(operator));
+        });
+        view.ui.span("operator-total").textContent = "Total  " + totals[0] + " units, "
+          + totals[1] + " planned, " + totals[2] + " unplanned, " + waste(totals[1], totals[2]);
+      }
+
+      function renderTracks() {
+        const body = view.ui.table("tracks").querySelector("tbody");
+        body.innerHTML = "";
+        tracks.forEach(function(track, index) {
+          const feature = track.feature;
+          const tr = document.createElement("tr");
+          tr.dataset.index = String(index);
+          const featureCells = isEmpty(feature)
+            ? "<td class=\"muted\">No active feature</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td>"
+            : "<td>" + dot(feature.color) + " <input type=\"text\" data-role=\"feature-name\" data-id=\"" + feature.id + "\" data-owner=\"track\" value=\"" + escapeHtml(feature.name) + "\"></td>"
+              + "<td>" + keyCell(feature) + "</td>"
+              + "<td><input type=\"number\" min=\"0\" data-role=\"feature-units\" data-id=\"" + feature.id + "\" data-owner=\"track\" value=\"" + feature.units + "\"></td>"
+              + "<td><input type=\"number\" min=\"0\" data-role=\"feature-completed\" data-id=\"" + feature.id + "\" data-owner=\"track\" value=\"" + feature.completedUnits + "\"></td>"
+              + "<td>" + trackRate(track.id) + "</td>"
+              + "<td>" + (feature.remainingWeeks === "" ? "—" : feature.remainingWeeks) + "</td>"
+              + "<td>" + estWeeksInput(feature, "track") + "</td>"
+              + "<td>" + (isEmpty(feature.finishOn) ? "—" : escapeHtml(feature.finishOn)) + "</td>";
+          tr.innerHTML = "<td draggable=\"true\" data-drag=\"" + index + "\" style=\"cursor:grab\">⠿</td>"
+            + "<td><input type=\"text\" data-role=\"track-name\" data-id=\"" + track.id + "\" value=\"" + escapeHtml(track.name) + "\"></td>"
+            + "<td><label class=\"checkbox\"><input type=\"checkbox\" data-role=\"track-enabled\" data-id=\"" + track.id + "\"" + (track.enabled ? " checked" : "") + "> " + (track.enabled ? "Enabled" : "Disabled") + "</label></td>"
+            + featureCells
+            + "<td><button type=\"button\" class=\"primary\" data-action=\"move-to-backlog\" data-id=\"" + track.id + "\"" + (isEmpty(feature) ? " disabled" : "") + ">Move To Backlog</button> "
+            + "<button type=\"button\" class=\"primary\" data-action=\"delete-feature\" data-id=\"" + track.id + "\"" + (isEmpty(feature) ? " disabled" : "") + ">Delete</button></td>";
+          body.appendChild(tr);
+        });
+      }
+
+      function renderBacklog() {
+        const body = view.ui.table("backlog").querySelector("tbody");
+        body.innerHTML = "";
+        const enabled = tracks.filter(function(track) { return track.enabled; });
+        backlog.forEach(function(item, index) {
+          const tr = document.createElement("tr");
+          tr.dataset.index = String(index);
+          if (item.kind === "divider" || item.kind === "system-divider") {
+            const name = item.kind === "system-divider"
+              ? escapeHtml(item.name)
+              : "<input type=\"text\" data-role=\"divider-name\" data-id=\"" + item.id + "\" value=\"" + escapeHtml(item.name) + "\">";
+            const remove = item.kind === "system-divider"
+              ? ""
+              : "<button type=\"button\" class=\"primary\" data-action=\"delete-backlog\" data-id=\"" + item.id + "\">Delete</button>";
+            tr.innerHTML = "<td draggable=\"true\" data-drag=\"" + index + "\" style=\"cursor:grab\">⠿</td>"
+              + "<td colspan=\"11\">" + dot(item.color) + " " + name + " " + remove + "</td>";
+            body.appendChild(tr);
+            return;
+          }
+          tr.innerHTML = "<td draggable=\"true\" data-drag=\"" + index + "\" style=\"cursor:grab\">⠿</td>"
+            + "<td>" + (index + 1) + "</td>"
+            + "<td>" + dot(item.color) + " <input type=\"text\" data-role=\"feature-name\" data-owner=\"backlog\" data-id=\"" + item.id + "\" value=\"" + escapeHtml(item.name) + "\"></td>"
+            + "<td>" + keyCell(item) + "</td>"
+            + "<td><input type=\"number\" min=\"0\" data-role=\"feature-units\" data-owner=\"backlog\" data-id=\"" + item.id + "\" value=\"" + item.units + "\"></td>"
+            + "<td><input type=\"number\" min=\"0\" data-role=\"feature-completed\" data-owner=\"backlog\" data-id=\"" + item.id + "\" value=\"" + item.completedUnits + "\"></td>"
+            + "<td>" + (item.remainingWeeks === "" ? "—" : item.remainingWeeks) + "</td>"
+            + "<td>" + estWeeksInput(item, "backlog") + "</td>"
+            + "<td>" + (isEmpty(item.finishOn) ? "—" : escapeHtml(item.finishOn)) + "</td>"
+            + "<td><select data-role=\"pin-track\" data-id=\"" + item.id + "\"><option value=\"\">Unpinned</option>"
+            + tracks.map(function(track) {
+              const selected = item.pinnedTrackId === track.id ? " selected" : "";
+              return "<option value=\"" + track.id + "\"" + selected + ">" + escapeHtml(track.name) + "</option>";
+            }).join("")
+            + "</select></td>"
+            + "<td>—</td>"
+            + "<td><select data-role=\"move-to-track\" data-id=\"" + item.id + "\"" + (enabled.length === 0 ? " disabled" : "") + ">"
+            + "<option value=\"\">Select Track</option>"
+            + enabled.map(function(track) {
+              return "<option value=\"" + track.id + "\">" + escapeHtml(track.name) + "</option>";
+            }).join("")
+            + "</select></td>"
+            + "<td><button type=\"button\" class=\"primary\" data-action=\"delete-backlog\" data-id=\"" + item.id + "\">Delete</button></td>";
+          body.appendChild(tr);
+        });
+      }
+
+      function renderReleases() {
+        const body = view.ui.table("releases").querySelector("tbody");
+        body.innerHTML = "";
+        releases.forEach(function(release) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = "<td>" + escapeHtml(release.version) + "</td><td>" + escapeHtml(release.date) + "</td>";
+          body.appendChild(tr);
+        });
+      }
+
+      function renderDirectTrack() {
+        const select = view.ui.select("direct-track");
+        const current = select.value;
+        select.innerHTML = "<option value=\"\">Select Track For Direct Add</option>"
+          + tracks.filter(function(track) { return track.enabled; }).map(function(track) {
+            return "<option value=\"" + track.id + "\">" + escapeHtml(track.name) + "</option>";
+          }).join("");
+        select.value = current;
+      }
+
+      function onClick(event) {
+        const button = event.target.closest("[data-action]");
+        if (isEmpty(button)) {
+          return;
+        }
+        const id = button.dataset.id;
+        if (button.dataset.action === "remove-operator") {
+          operators = operators.filter(function(operator) { return operator.id !== id; });
+          saved();
+        }
+        if (button.dataset.action === "move-to-backlog") {
+          const track = findTrack(id);
+          if (isEmpty(track) || isEmpty(track.feature)) {
+            return;
+          }
+          backlog.unshift(track.feature);
+          track.feature = null;
+          saved();
+        }
+        if (button.dataset.action === "delete-feature") {
+          const track = findTrack(id);
+          if (!isEmpty(track)) {
+            track.feature = null;
+            saved();
+          }
+        }
+        if (button.dataset.action === "delete-backlog") {
+          backlog = backlog.filter(function(item) { return item.id !== id; });
+          saved();
+        }
+        if (button.dataset.action === "edit-virtual") {
+          openVirtual(id);
+        }
+      }
+
+      function onChange(event) {
+        const input = event.target;
+        const role = input.dataset.role;
+        const id = input.dataset.id;
+        if (role === "operator-name") {
+          const operator = operators.find(function(item) { return item.id === id; });
+          if (!isEmpty(operator)) {
+            operator.name = input.value;
+            saved();
+          }
+        }
+        if (role === "track-name") {
+          const track = findTrack(id);
+          if (!isEmpty(track)) {
+            track.name = input.value;
+            saved();
+          }
+        }
+        if (role === "track-enabled") {
+          const track = findTrack(id);
+          if (!isEmpty(track)) {
+            track.enabled = input.checked;
+            saved();
+          }
+        }
+        if (role === "feature-name" || role === "feature-units" || role === "feature-completed" || role === "feature-weeks") {
+          const feature = findFeature(id, input.dataset.owner);
+          if (isEmpty(feature)) {
+            return;
+          }
+          if (role === "feature-name") {
+            feature.name = input.value;
+          }
+          if (role === "feature-units") {
+            feature.units = numberValue(input.value);
+          }
+          if (role === "feature-completed") {
+            feature.completedUnits = numberValue(input.value);
+          }
+          if (role === "feature-weeks") {
+            feature.manualEstWeeks = numberValue(input.value);
+          }
+          saved();
+        }
+        if (role === "divider-name") {
+          const item = backlog.find(function(entry) { return entry.id === id; });
+          if (!isEmpty(item)) {
+            item.name = input.value;
+            saved();
+          }
+        }
+        if (role === "pin-track") {
+          const item = backlog.find(function(entry) { return entry.id === id; });
+          if (!isEmpty(item)) {
+            item.pinnedTrackId = isEmpty(input.value) ? null : input.value;
+            saved();
+          }
+        }
+        if (role === "move-to-track") {
+          if (isEmpty(input.value)) {
+            return;
+          }
+          const index = backlog.findIndex(function(entry) { return entry.id === id; });
+          if (index < 0) {
+            return;
+          }
+          const incoming = backlog.splice(index, 1)[0];
+          placeOnTrack(incoming, input.value);
+          saved();
+        }
+      }
+
+      function bindDrag(table, kind) {
+        const line = document.createElement("div");
+        line.style.position = "fixed";
+        line.style.height = "2px";
+        line.style.background = "#000";
+        line.style.pointerEvents = "none";
+        line.style.zIndex = "9999";
+        line.style.display = "none";
+        document.body.appendChild(line);
+        dragLines.push(line);
+
+        let fromIndex = null;
+        let insertAt = null;
+
+        function rowList() {
+          return Array.from(table.querySelectorAll("tbody tr[data-index]"));
+        }
+
+        function hideLine() {
+          line.style.display = "none";
+          insertAt = null;
+        }
+
+        function showLine(raw) {
+          const list = rowList();
+          if (list.length === 0) {
+            hideLine();
+            return;
+          }
+          const bounds = table.getBoundingClientRect();
+          const edge = raw <= 0
+            ? list[0].getBoundingClientRect().top
+            : raw >= list.length
+              ? list[list.length - 1].getBoundingClientRect().bottom
+              : list[raw].getBoundingClientRect().top;
+          line.style.left = bounds.left + "px";
+          line.style.width = bounds.width + "px";
+          line.style.top = (edge - 1) + "px";
+          line.style.display = "block";
+          insertAt = raw;
+        }
+
+        table.addEventListener("dragstart", function(event) {
+          const handle = event.target.closest("[data-drag]");
+          if (isEmpty(handle)) {
+            event.preventDefault();
+            return;
+          }
+          fromIndex = parseInt(handle.dataset.drag, 10);
+          event.dataTransfer.setData("text/plain", handle.dataset.drag);
+          event.dataTransfer.effectAllowed = "move";
+        });
+        table.addEventListener("dragover", function(event) {
+          const list = rowList();
+          if (list.length === 0) {
+            return;
+          }
+          event.preventDefault();
+          let raw = list.length;
+          for (let i = 0; i < list.length; i++) {
+            const rect = list[i].getBoundingClientRect();
+            if (event.clientY < rect.top + rect.height / 2) {
+              raw = i;
+              break;
+            }
+          }
+          showLine(raw);
+        });
+        table.addEventListener("dragleave", function(event) {
+          if (table.contains(event.relatedTarget)) {
+            return;
+          }
+          hideLine();
+        });
+        table.addEventListener("drop", function(event) {
+          event.preventDefault();
+          const from = isNumeric(fromIndex)
+            ? fromIndex
+            : parseInt(event.dataTransfer.getData("text/plain"), 10);
+          const raw = insertAt;
+          hideLine();
+          if (!isNumeric(from) || !isNumeric(raw)) {
+            return;
+          }
+          const to = raw - (from < raw ? 1 : 0);
+          if (from === to) {
+            return;
+          }
+          if (kind === "operators") {
+            operators = reorder(operators, from, to);
+          }
+          if (kind === "tracks") {
+            tracks = reorder(tracks, from, to);
+          }
+          if (kind === "backlog") {
+            backlog = reorder(backlog, from, to);
+          }
+          saved();
+        });
+        table.addEventListener("dragend", function() {
+          hideLine();
+          fromIndex = null;
+        });
+      }
+
+      function reorder(list, from, to) {
+        const next = list.slice();
+        const item = next.splice(from, 1)[0];
+        next.splice(to, 0, item);
+        return next;
+      }
+
+      function placeOnTrack(feature, trackId) {
+        const track = findTrack(trackId);
+        if (isEmpty(track)) {
+          return;
+        }
+        if (!isEmpty(track.feature)) {
+          backlog.unshift(track.feature);
+        }
+        track.feature = feature;
+      }
+
+      function saveVirtual(feature) {
+        if (isEmpty(feature.id)) {
+          backlog.push({
+            kind: "virtual", id: uid("vf"), name: feature.name, issueKey: "", color: nextColor(),
+            units: 0, completedUnits: 0, manualEstWeeks: 0, remainingWeeks: "", finishOn: "",
+            pinnedTrackId: null, jql: feature.jql
+          });
+        }
+        else {
+          const item = backlog.find(function(entry) { return entry.id === feature.id; });
+          if (!isEmpty(item)) {
+            item.name = feature.name;
+            item.jql = feature.jql;
+          }
+        }
+        saved();
+      }
+
+      function makeFeature(name, units) {
+        return {
+          kind: "feature", id: uid("f"), name: name, issueKey: "", color: nextColor(),
+          units: units, completedUnits: 0, manualEstWeeks: 0, remainingWeeks: "", finishOn: "",
+          pinnedTrackId: null, jql: ""
+        };
+      }
+
+      function findTrack(id) {
+        return tracks.find(function(track) { return track.id === id; });
+      }
+
+      function findFeature(id, owner) {
+        if (owner === "track") {
+          const track = tracks.find(function(item) {
+            return !isEmpty(item.feature) && item.feature.id === id;
+          });
+          return isEmpty(track) ? null : track.feature;
+        }
+        return backlog.find(function(item) { return item.id === id; });
+      }
+
+      function operatorTrackMenu(operator) {
+        const menu = os.ui.makePopupMenu(
+          "operator-track-" + operator.id,
+          "",
+          "Track",
+          [{ id: "", name: "None" }].concat(tracks.map(function(track) {
+            return { id: track.id, name: track.name };
+          })),
+          { width: "140px" }
+        );
+        const label = menu.querySelector("label");
+        if (!isEmpty(label)) {
+          label.remove();
+        }
+        const select = menu.querySelector("select");
+        const operatorId = operator.id;
+        select.onchange = function() {
+          const found = operators.find(function(item) { return item.id === operatorId; });
+          if (isEmpty(found)) {
+            return;
+          }
+          const value = select.ui.selectedValue();
+          found.trackId = isEmpty(value) ? null : value;
+          saved();
+        };
+        if (isEmpty(operator.trackId)) {
+          select.ui.selectValue("");
+        }
+        else {
+          select.ui.selectValue(operator.trackId);
+        }
+        return menu;
+      }
+
+      function figuresFor(id) {
+        const row = weekFigures[weekIndex][id];
+        return isEmpty(row) ? [0, 0, 0] : row;
+      }
+
+      function trackRate(trackId) {
+        return operators.reduce(function(sum, operator) {
+          if (operator.trackId !== trackId) {
+            return sum;
+          }
+          return sum + (rates[operator.id] || 0);
+        }, 0);
+      }
+
+      function waste(planned, unplanned) {
+        const total = planned + unplanned;
+        if (total <= 0) {
+          return "0.0%";
+        }
+        return ((unplanned / total) * 100).toFixed(1) + "%";
+      }
+
+      function estWeeksInput(feature, owner) {
+        const danger = feature.manualEstWeeks > 0 && feature.units > 0 ? " style=\"color:#b42318\"" : "";
+        const value = feature.manualEstWeeks > 0 ? feature.manualEstWeeks : "";
+        return "<input type=\"number\" min=\"0\" step=\"0.1\" data-role=\"feature-weeks\" data-owner=\""
+          + owner + "\" data-id=\"" + feature.id + "\" value=\"" + value + "\"" + danger + ">";
+      }
+
+      function keyCell(feature) {
+        if (feature.kind === "virtual") {
+          return "<button type=\"button\" class=\"primary\" data-action=\"edit-virtual\" data-id=\"" + feature.id + "\">JQL</button>";
+        }
+        return isEmpty(feature.issueKey) ? "—" : escapeHtml(feature.issueKey);
+      }
+
+      function dot(color) {
+        return "<span style=\"display:inline-block;width:12px;height:12px;border-radius:50%;background:"
+          + color + ";vertical-align:middle\"></span>";
+      }
+
+      function numberValue(value) {
+        const number = Number(value);
+        return isNumeric(number) && number >= 0 ? number : 0;
+      }
+
+      function uid(prefix) {
+        serial += 1;
+        return prefix + "_" + serial;
+      }
+
+      function nextColor() {
+        const color = COLORS[colorIndex % COLORS.length];
+        colorIndex += 1;
+        return color;
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll("\"", "&quot;");
+      }
+    }
+  </script>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Board</span></div>
+  </div>
+
+  <div class="container vbox gap-20 resizable" style="width: 1100px; height: 720px;">
+    <fieldset>
+      <legend>Application</legend>
+      <div class="vbox gap-10">
+        <div class="read-only">
+          <label>Revision</label>
+          <span name="revision"></span>
+        </div>
+        <div class="controls">
+          <button class="primary" onclick="$(this.controller).syncFeatures();">Sync Feature Requests</button>
+          <button class="primary" onclick="$(this.controller).openFinishedWork();">Finished work</button>
+          <button class="primary" onclick="$(this.controller).openPrepareRelease();">Prepare Release</button>
+          <button class="primary" onclick="$(this.controller).openCheckpoint();">Save Checkpoint</button>
+          <button class="primary" onclick="$(this.controller).openSchedule();">Schedule</button>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Operators</legend>
+      <div class="vbox gap-10">
+        <div class="controls">
+          <button class="primary" onclick="$(this.controller).addOperator();">Add Operator</button>
+          <button class="primary" onclick="$(this.controller).openTaskMetrics();">View Task Metrics</button>
+          <button class="primary" onclick="$(this.controller).openTasks();">View Tasks</button>
+          <button class="primary" onclick="$(this.controller).openNotes();">Add Notes</button>
+        </div>
+        <div class="controls">
+          <button name="previous-week" class="primary" onclick="$(this.controller).previousWeek();">Previous Week</button>
+          <div class="read-only">
+            <label>Week</label>
+            <span name="week-label"></span>
+          </div>
+          <button name="next-week" class="primary" onclick="$(this.controller).nextWeek();">Next Week</button>
+          <button class="primary" onclick="$(this.controller).syncMetrics();">Sync Task Metrics</button>
+          <button class="primary" onclick="$(this.controller).copyQuery(this);">Copy Jira Query</button>
+        </div>
+        <table name="operators">
+          <thead>
+            <tr>
+              <th></th><th>Name</th><th>Units / Week</th><th>Planned Work</th><th>Unplanned Work</th><th>Waste %</th><th>Track</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="read-only"><span name="operator-total"></span></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Tracks</legend>
+      <div class="vbox gap-10">
+        <div class="controls">
+          <button class="primary" onclick="$(this.controller).addTrack();">Add Track</button>
+        </div>
+        <table name="tracks">
+          <thead>
+            <tr>
+              <th></th><th>Track</th><th>State</th><th>Feature</th><th>Jira Key</th><th>Total Units</th><th>Completed Units</th><th>Units Applied / Week</th><th>Remaining Weeks</th><th>Est. Weeks</th><th>Est. Date</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Add Work Unit</legend>
+      <div class="vbox gap-10">
+        <div class="hbox gap-10">
+          <div class="text-field">
+            <label for="work-name">Feature name</label>
+            <input type="text" name="work-name" autocomplete="off">
+          </div>
+          <div class="text-field">
+            <label for="work-units">Units</label>
+            <input type="number" name="work-units" min="0" step="0.1" value="0">
+          </div>
+        </div>
+        <div class="controls">
+          <button class="primary" onclick="$(this.controller).addToBacklog();">Add To Backlog</button>
+          <select name="direct-track">
+            <option value="">Select Track For Direct Add</option>
+          </select>
+          <button class="primary" onclick="$(this.controller).addToTrack();">Add To Track</button>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Add Virtual Work Unit</legend>
+      <div class="vbox gap-10">
+        <p>A virtual work unit is a JQL query tracked like a feature.</p>
+        <div class="controls">
+          <button class="primary" onclick="$(this.controller).openVirtual();">Add virtual work unit</button>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Backlog</legend>
+      <div class="vbox gap-10">
+        <p>Grab a row by the handle to reprioritize.</p>
+        <div class="controls">
+          <button class="primary" onclick="$(this.controller).addDivider();">Add divider</button>
+        </div>
+        <table name="backlog">
+          <thead>
+            <tr>
+              <th></th><th>#</th><th>Feature</th><th>Jira Key</th><th>Total Units</th><th>Completed Units</th><th>Remaining Weeks</th><th>Est. Weeks</th><th>Est. Date</th><th>Pinned Track</th><th>Predicted Track</th><th>Move To Track</th><th>Delete</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Releases</legend>
+      <div class="vbox gap-10">
+        <div class="hbox gap-10">
+          <div class="text-field">
+            <label for="release-date">Date</label>
+            <input type="date" name="release-date">
+          </div>
+          <div class="text-field">
+            <label for="release-version">Version</label>
+            <input type="text" name="release-version" autocomplete="off">
+          </div>
+        </div>
+        <div class="controls">
+          <button class="primary" onclick="$(this.controller).addRelease();">Add Release</button>
+          <button class="primary" onclick="$(this.controller).openReleases();">Manage Releases</button>
+        </div>
+        <table name="releases">
+          <thead>
+            <tr><th>Version</th><th>Date</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="read-only"><span name="capacity-note"></span></div>
+      </div>
+    </fieldset>
+  </div>
+</div>

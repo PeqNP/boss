@@ -1,0 +1,91 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      let releases = [];
+      const controller = this;
+
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+
+      /**
+       * @param {{releases: Array<{id: string, version: string, date: string}>}} options
+       */
+      function configure(options) {
+        releases = (options && options.releases ? options.releases : []).map(function(release) {
+          return { id: release.id, version: release.version, date: release.date };
+        });
+      }
+      this.configure = configure;
+
+      function viewDidLoad() {
+        view.querySelector(".container").addEventListener("change", onChange);
+        view.querySelector(".container").addEventListener("click", onClick);
+        render();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function render() {
+        const body = view.ui.table("release-rows").querySelector("tbody");
+        body.innerHTML = "";
+        for (const release of releases) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = "<td><input type=\"text\" data-role=\"version\" data-id=\"" + release.id + "\" value=\"" + escapeHtml(release.version) + "\"></td>"
+            + "<td><input type=\"date\" data-role=\"date\" data-id=\"" + release.id + "\" value=\"" + release.date + "\"></td>"
+            + "<td><button type=\"button\" class=\"primary\" data-action=\"delete\" data-id=\"" + release.id + "\">Delete</button></td>";
+          body.appendChild(tr);
+        }
+      }
+
+      function onChange(event) {
+        const input = event.target;
+        const release = releases.find(function(item) { return item.id === input.dataset.id; });
+        if (isEmpty(release)) {
+          return;
+        }
+        if (input.dataset.role === "version") {
+          release.version = input.value;
+        }
+        if (input.dataset.role === "date") {
+          release.date = input.value;
+        }
+        notify();
+      }
+
+      function onClick(event) {
+        const button = event.target.closest("[data-action='delete']");
+        if (isEmpty(button)) {
+          return;
+        }
+        releases = releases.filter(function(item) { return item.id !== button.dataset.id; });
+        render();
+        notify();
+      }
+
+      function notify() {
+        if (!isEmpty(controller.delegate)) {
+          controller.delegate.didChangeReleases(releases);
+        }
+      }
+
+      function escapeHtml(value) {
+        return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll("\"", "&quot;");
+      }
+    }
+  </script>
+
+  <div class="title">Manage Releases</div>
+  <div class="container vbox gap-10" style="width: 480px;">
+    <table name="release-rows">
+      <thead>
+        <tr><th>Version</th><th>Date</th><th></th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).close();">Close</button>
+    </div>
+  </div>
+</div>

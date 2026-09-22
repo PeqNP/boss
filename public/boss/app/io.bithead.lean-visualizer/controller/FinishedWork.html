@@ -1,0 +1,85 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      const WORK = {
+        "2026": {
+          "Simon Lemay": [{ issueKey: "FR-301", description: "Client portal", week: "2026-08-16" }],
+          "Nadeem Maida": [{ issueKey: "FR-280", description: "Billing export", week: "2026-07-12" }]
+        },
+        "2025": {
+          "Simon Lemay": [],
+          "Nadeem Maida": [{ issueKey: "FR-190", description: "Import spike", week: "2025-12-28" }]
+        }
+      };
+      let year = "2026";
+      let operatorName = "Simon Lemay";
+
+      function showOperator(name) {
+        operatorName = name;
+        render();
+      }
+      this.showOperator = showOperator;
+
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+
+      function viewDidLoad() {
+        view.ui.select("year").addEventListener("change", function() {
+          const value = view.ui.select("year").ui.selectedValue();
+          if (isEmpty(value)) {
+            return;
+          }
+          year = value;
+          render();
+        });
+        view.ui.select("year").ui.selectValue("2026");
+        render();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function render() {
+        const rows = (WORK[year] && WORK[year][operatorName]) || [];
+        view.ui.span("count").textContent = String(rows.length);
+        const body = view.ui.table("finished").querySelector("tbody");
+        body.innerHTML = "";
+        for (const item of rows) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = "<td>" + item.issueKey + "</td><td>" + item.description + "</td><td>" + item.week + "</td>";
+          body.appendChild(tr);
+        }
+      }
+    }
+  </script>
+
+  <div class="title">Finished Work</div>
+  <div class="container vbox gap-10" style="width: 560px;">
+    <div class="ui-popup-menu">
+      <label for="year">Year</label>
+      <select name="year">
+        <option>Year</option>
+        <option value="2026">2026</option>
+        <option value="2025">2025</option>
+      </select>
+    </div>
+    <div class="read-only">
+      <label>Completed FRs</label>
+      <span name="count"></span>
+    </div>
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).showOperator('Simon Lemay');">Simon Lemay</button>
+      <button class="primary" onclick="$(this.controller).showOperator('Nadeem Maida');">Nadeem Maida</button>
+    </div>
+    <table name="finished">
+      <thead>
+        <tr><th>Key</th><th>Description</th><th>Week</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).close();">Close</button>
+    </div>
+  </div>
+</div>

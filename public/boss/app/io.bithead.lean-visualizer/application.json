@@ -1,0 +1,32 @@
+{
+    "boss": {
+        "version": "1.0.0"
+    },
+    "application": {
+        "bundleId": "io.bithead.lean-visualizer",
+        "name": "Lean Visualizer",
+        "version": "1.0.0",
+        "system": false,
+        "icon": "icon.svg",
+        "main": "Application",
+        "scheme": "lean",
+        "author": "Eric Chamberlain",
+        "copyright": "2026 Bithead LLC. All rights reserved.",
+        "secure": true,
+        "quitAutomatically": false
+    },
+    "controllers": {
+        "Application": {},
+        "Board": { "singleton": true },
+        "Schedule": { "singleton": true },
+        "Report": { "singleton": true },
+        "Checkpoint": { "modal": true },
+        "Notes": { "modal": true },
+        "VirtualFeature": { "modal": true },
+        "TaskMetrics": { "modal": true },
+        "Tasks": { "modal": true },
+        "FinishedWork": { "modal": true },
+        "PrepareRelease": { "modal": true },
+        "Releases": { "modal": true }
+    }
+}

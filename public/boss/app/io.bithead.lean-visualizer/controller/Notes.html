@@ -1,0 +1,59 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      let weekStart = "";
+
+      /**
+       * Writes the week's note onto the board and closes.
+       */
+      async function save() {
+        const text = view.ui.textarea("note").value;
+        // Stand-in for PUT /model of weeklyNotes[weekStart].
+        if (!isEmpty(this.delegate)) {
+          this.delegate.didSaveNotes(weekStart, text);
+        }
+        view.ui.close();
+      }
+      this.save = save;
+
+      function cancel() {
+        view.ui.close();
+      }
+      this.cancel = cancel;
+
+      /**
+       * @param {{weekStart: string}} options - The week the note belongs to
+       */
+      function configure(options) {
+        weekStart = options && options.weekStart ? options.weekStart : "";
+      }
+      this.configure = configure;
+
+      function viewDidLoad() {
+        view.ui.span("week").textContent = weekStart;
+        // Stand-in for the weeklyNotes value on GET /model.
+        view.ui.textarea("note").value = weekStart === "2026-09-13"
+          ? "Portal review moved to the 25 Sep release."
+          : "";
+      }
+      this.viewDidLoad = viewDidLoad;
+    }
+  </script>
+
+  <div class="title">Notes</div>
+  <div class="container vbox gap-10" style="width: 420px;">
+    <div class="read-only">
+      <label>Week</label>
+      <span name="week"></span>
+    </div>
+    <div class="textarea-field">
+      <label for="note">Note</label>
+      <textarea name="note"></textarea>
+    </div>
+    <div class="controls">
+      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
+      <button class="default" onclick="$(this.controller).save();">Save</button>
+    </div>
+  </div>
+</div>

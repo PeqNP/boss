@@ -3,15 +3,17 @@
 Lean Multi-Track Production Simulator: a release-forecasting board backed by Jira.
 Shipped and in daily use. The spec is [description.md](description.md). The contract
 is [plan.md](../../../../private/app/io.bithead.lean-visualizer/plan.md). Every route
-requires a role. Stage 1 is next.
+requires a role. Stage 1 is open. The board now carries the old screen's
+controls, and a row is reordered by a grab handle. `index.html` is gone.
+Next, after the board is accepted, is Stage 3, the routes. This slice has no OS work.
 
 `index.html` is the old page. Stage 1 deletes it. It is not a client, and no route
 stays open so that it can keep calling. The plan decides the windows and the routes.
 
 ## Architecture
 
-The BOSS app is this bundle: `application.json`, sign-in, and ACL, built in Stage 1.
-Until that lands, `bin/validate-app` reports `application.json` missing.
+The BOSS app is this bundle: `application.json`, sign-in, and ACL. The windows
+load stub data. The routes they name are not wired yet.
 
 ### Public half
 

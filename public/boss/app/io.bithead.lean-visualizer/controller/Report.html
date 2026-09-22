@@ -1,0 +1,206 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      let callerRole = "Admin";
+
+      /**
+       * Opens the checkpoint modal.
+       */
+      async function saveCheckpoint() {
+        const win = await $(app.controller).loadController("Checkpoint");
+        win.ui.show(function(ctrl) {
+          ctrl.configure({
+            releases: [
+              { id: "rel_14", version: "1.4.0", date: "2026-09-11" },
+              { id: "rel_15", version: "1.5.0", date: "2026-09-25" }
+            ]
+          });
+        });
+      }
+      this.saveCheckpoint = saveCheckpoint;
+
+      /**
+       * @param {{role: string}} options - Admin sees Save Checkpoint
+       */
+      function configure(options) {
+        callerRole = options && options.role ? options.role : "Admin";
+      }
+      this.configure = configure;
+
+      async function viewDidLoad() {
+        // Stand-in for GET /report.
+        const report = {
+          asOf: "2026-09-22",
+          rates: {
+            windowStart: "2026-07-26",
+            windowEnd: "2026-09-19",
+            operators: [
+              { operatorName: "Simon Lemay", plannedPerWeek: 4.4, unplannedPerWeek: 1.6, weeksCounted: 8 },
+              { operatorName: "Frankie English", plannedPerWeek: 1.1, unplannedPerWeek: 0.8, weeksCounted: 8 },
+              { operatorName: "Nadeem Maida", plannedPerWeek: 2.2, unplannedPerWeek: 0.7, weeksCounted: 8 }
+            ],
+            history: [
+              { weekStart: "2025-12-28", weekEnd: "2026-01-03", operators: [
+                { operatorName: "Simon Lemay", planned: 3, unplanned: 2 }
+              ]}
+            ]
+          },
+          pillars: {
+            open: [
+              { pillar: "New Features / Retention", remainingUnits: 8, featureCount: 1 },
+              { pillar: "Growth / Acquisition", remainingUnits: 7, featureCount: 1 },
+              { pillar: "Unassigned", remainingUnits: 4, featureCount: 1 }
+            ],
+            finished: [
+              { pillar: "New Features / Retention", featureCount: 15 },
+              { pillar: "Growth / Acquisition", featureCount: 10 },
+              { pillar: "Tech Debt / Stability", featureCount: 6 },
+              { pillar: "Unassigned", featureCount: 5 }
+            ]
+          },
+          tracks: [
+            { name: "Platform", capacity: 6.5, feature: "Client portal", freesOn: "2026-10-09", waiting: "Billing export" },
+            { name: "Client", capacity: 3, feature: "Billing export", freesOn: "2026-10-23", waiting: "—" }
+          ],
+          changes: [
+            { featureId: "f_portal", name: "Client portal", color: "#d95f02", previousFinishOn: "2026-09-25", finishOn: "2026-10-09", movedDays: 14 }
+          ]
+        };
+        render(report);
+        view.ui.button("checkpoint").hidden = callerRole !== "Admin";
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function render(report) {
+        view.ui.span("as-of").textContent = report.asOf;
+        view.ui.span("rate-window").textContent = report.rates.windowStart + " – " + report.rates.windowEnd;
+        fill(view.ui.table("rates"), report.rates.operators.map(function(row) {
+          return [row.operatorName, row.plannedPerWeek, row.unplannedPerWeek, row.weeksCounted];
+        }));
+        const history = report.rates.history[0];
+        view.ui.span("history-week").textContent = history.weekStart;
+        fill(view.ui.table("history"), history.operators.map(function(row) {
+          return [row.operatorName, row.planned, row.unplanned];
+        }));
+        fill(view.ui.table("open-pillars"), report.pillars.open.map(function(row) {
+          return [row.pillar, row.remainingUnits, row.featureCount];
+        }));
+        fill(view.ui.table("finished-pillars"), report.pillars.finished.map(function(row) {
+          return [row.pillar, row.featureCount];
+        }));
+        fill(view.ui.table("track-capacity"), report.tracks.map(function(row) {
+          return [row.name, row.capacity, row.feature, row.freesOn, row.waiting];
+        }));
+        const changes = view.ui.table("changes").querySelector("tbody");
+        changes.innerHTML = "";
+        if (report.changes.length === 0) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = "<td colspan=\"4\">No checkpoint yet.</td>";
+          changes.appendChild(tr);
+          return;
+        }
+        for (const change of report.changes) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = "<td><span style=\"display:inline-block;width:12px;height:12px;border-radius:50%;background:"
+            + change.color + "\"></span> " + escapeHtml(change.name) + "</td>"
+            + "<td>" + escapeHtml(change.previousFinishOn || "—") + "</td>"
+            + "<td>" + escapeHtml(change.finishOn || "—") + "</td>"
+            + "<td>" + change.movedDays + "</td>";
+          changes.appendChild(tr);
+        }
+      }
+
+      function fill(table, rows) {
+        const body = table.querySelector("tbody");
+        body.innerHTML = "";
+        for (const row of rows) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = row.map(function(cell) {
+            return "<td>" + escapeHtml(cell) + "</td>";
+          }).join("");
+          body.appendChild(tr);
+        }
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+      }
+    }
+  </script>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Capacity report</span></div>
+  </div>
+
+  <div class="container vbox gap-20 resizable" style="width: 760px; height: 560px;">
+    <div class="hbox gap-10">
+      <div class="read-only">
+        <label>As of</label>
+        <span name="as-of"></span>
+      </div>
+      <div class="controls">
+        <button name="checkpoint" class="default" onclick="$(this.controller).saveCheckpoint();">Save Checkpoint</button>
+      </div>
+    </div>
+
+    <fieldset>
+      <legend>Planned and unplanned (<span name="rate-window"></span>)</legend>
+      <table name="rates">
+        <thead>
+          <tr><th>Operator</th><th>Planned / week</th><th>Unplanned / week</th><th>Weeks</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <p>History from <span name="history-week"></span></p>
+      <table name="history">
+        <thead>
+          <tr><th>Operator</th><th>Planned</th><th>Unplanned</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </fieldset>
+
+    <fieldset>
+      <legend>Strategic pillar</legend>
+      <p>Open</p>
+      <table name="open-pillars">
+        <thead>
+          <tr><th>Pillar</th><th>Remaining</th><th>Features</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <p>Finished since 28 Dec 2025</p>
+      <table name="finished-pillars">
+        <thead>
+          <tr><th>Pillar</th><th>Features</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </fieldset>
+
+    <fieldset>
+      <legend>Tracks and available capacity</legend>
+      <table name="track-capacity">
+        <thead>
+          <tr><th>Track</th><th>Rate</th><th>On it</th><th>Frees</th><th>Waiting</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </fieldset>
+
+    <fieldset>
+      <legend>Material changes</legend>
+      <table name="changes">
+        <thead>
+          <tr><th>Feature</th><th>Was</th><th>Now</th><th>Days</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </fieldset>
+  </div>
+</div>

@@ -21,7 +21,7 @@ Every controller is `public/boss/app/io.bithead.lean-visualizer/controller/<Name
 | Group | Windows | Modals |
 |---|---|---|
 | Entry | `Application` | |
-| Board | `Board`, `Schedule` | `Notes`, `VirtualFeature`, `Checkpoint` |
+| Board | `Board`, `Schedule` | `Notes`, `VirtualFeature`, `Checkpoint`, `TaskMetrics`, `Tasks`, `FinishedWork`, `PrepareRelease`, `Releases` |
 | Report | `Report` | |
 
 ### Documents
@@ -30,7 +30,7 @@ None of these windows is a document. `bin/validate-app` would expect `this.docum
 
 | Window | Kind | Controls beyond a plain close |
 |---|---|---|
-| `Board` | Control panel. Every committed edit saves, so a document Save would have nothing left to confirm. | Sync Feature Requests, Sync Task Metrics, Copy Jira Query, Save Checkpoint, Add Operator, Add Track, Add divider, Finished work (opens `Report`) |
+| `Board` | Control panel. Every committed edit saves, so a document Save would have nothing left to confirm. | The controls of the old board, apart from the up and down row buttons. Order is a grab handle on the row. |
 | `Schedule` | View of the forecast | — |
 | `Report` | Report | Save Checkpoint, and only for an Admin |
 | `Checkpoint` | Modal. Pick a release and store it. | Cancel, Save Checkpoint. Save Checkpoint is this action, not a document Save. |
@@ -146,17 +146,19 @@ Audience: Admin.
 
 One window. Operators, the week under inspection, tracks, backlog, releases, and a 180-day schedule. The schedule on this window is the same `Schedule` payload the Employee window shows, with the editor around it.
 
-Operators: name, track, planned rate, unplanned beside it. Add Operator appends a row. The week under inspection moves to the previous complete week and stops at the current week. That week is actuals. The rate used to forecast is the eight-week rate, shown on the row. Sync Task Metrics runs the weekly sync for the week under inspection. Copy Jira Query copies the query the sync built.
+Operators, tracks, and the backlog are tables. A row is reordered by its grab handle. BOSS drag-reorder is the sortable list box, and that control is one label per row, so it is not the board table. The up and down buttons are not on the board.
 
-Tracks: name, enabled, the feature on the track, order. Add Track appends one.
+Operators: name, units, planned, unplanned, waste, track, and Remove. Track is a pop-up menu. Add Operator, View Task Metrics, View Tasks, and Notes sit above the week controls. The week under inspection moves to the previous complete week and stops at the current week. Sync Task Metrics and Copy Jira Query sit on that row.
 
-Backlog: features, virtual features, dividers, and the system divider `system-sync-divider`. Items below that divider stay on the schedule. Jira work-unit refresh skips them, which is the rule the divider already has. Add divider inserts a divider. A feature's dot uses `feature.color`. A manual estimate greater than zero shows in the danger color when the feature also has units. An infinite duration shows an em dash.
+Tracks: the name is edited in the row. Enabled, the feature, its key, units, completed units, the rate, remaining weeks, est. weeks, and the date. Est. weeks is an editable override. Move To Backlog and Delete act on the feature. Add Track appends one.
 
-Releases: version and date, drawn on the schedule. About two weeks apart. The admin types them. Nothing here creates a checkpoint.
+Backlog: features, virtual features, dividers, and the system divider `system-sync-divider`. A feature's color is a circle. Est. weeks is editable and shows in the danger color when it overrides a feature that has units. Pin a track, or choose Move To Track. Add divider, Add To Backlog, and Add To Track are here. A virtual feature opens `VirtualFeature`.
+
+Releases: version and date. Add Release and Manage Releases. Manage Releases opens `Releases`. Nothing here creates a checkpoint.
 
 Sync Feature Requests reads `GET /sync-jira`, merges the issues into the board, keeps `jiraIssueType`, and saves. The sync stores pillars beside the board. They are not fields on the feature in the board JSON.
 
-Save Checkpoint opens `Checkpoint`. Finished work opens `Report`.
+Save Checkpoint opens `Checkpoint`. Finished work opens `FinishedWork`. Prepare Release opens `PrepareRelease`. View Task Metrics opens `TaskMetrics`. View Tasks opens `Tasks`. Schedule opens `Schedule`.
 
 Notes opens `Notes` for the week under inspection. A virtual feature row opens `VirtualFeature`.
 
@@ -275,6 +277,59 @@ PUT /model -> Board
     who:   Admin
     scope: the one board
 ```
+
+### `TaskMetrics`
+
+Audience: Admin. Modal. Close. Previous 5 Weeks and Next 5 Weeks move the window.
+
+```
+GET /metrics-window -> MetricsWindow
+    acl:   report.r
+    who:   Admin, Employee
+    scope: the one board
+```
+
+### `Tasks`
+
+Audience: Admin. Modal. Close. One tab per operator for the week under inspection.
+
+```
+GET /metrics-tasks -> TaskMetricTasks
+    acl:   board.r
+    who:   Admin
+    scope: the one board. Query: weekStart.
+```
+
+### `FinishedWork`
+
+Audience: Admin. Modal. Close. A year, then one tab per operator.
+
+```
+GET /finished-work -> FinishedWork
+    acl:   report.r
+    who:   Admin, Employee
+    scope: the one board
+```
+
+### `PrepareRelease`
+
+Audience: Admin. Modal. Close. A release is chosen, then its completed issues are listed.
+
+```
+GET /release-options -> ReleaseOptions
+    acl:   board.r
+    who:   Admin
+    scope: the one board
+
+GET /metrics-release-work-units -> ReleaseWorkUnits
+    acl:   report.r
+    who:   Admin, Employee
+    scope: the one board. Query: releaseVersion.
+```
+
+### `Releases`
+
+Audience: Admin. Modal. Close. Version and date are edited here. Delete removes one. This is the board's release list, saved with `PUT /model`. It is not a checkpoint.
 
 ## Stage 2 — Data Model
 
@@ -526,6 +581,9 @@ Replace each stub. Done when the Stage 3 groups pass against `test-lean-visualiz
 | `GET /sync-jira` | `Board` | Jira, then `feature_pillars` |
 | `POST /sync-task-metrics`, `GET /metrics`, `GET /metrics-tasks` | `Board` | the weekly sync |
 | `GET /schedule` | `Board`, `Schedule` | `lib.schedule` |
+| `GET /metrics-window` | `TaskMetrics` | the stored weeks |
+| `GET /finished-work` | `FinishedWork` | finished features |
+| `GET /release-options`, `GET /metrics-release-work-units` | `PrepareRelease` | a release and its issues |
 | `GET /report` | `Report` | `lib.report` |
 | `POST /checkpoints` | `Checkpoint` | `lib.save_checkpoint` |
 

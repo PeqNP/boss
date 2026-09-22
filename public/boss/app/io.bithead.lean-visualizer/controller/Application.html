@@ -1,0 +1,125 @@
+<div class="ui-application">
+  <script type="text/javascript">
+    function $(this.id)() {
+
+      // Stand-in for GET /me. An Employee opens Report and has no Board item.
+      const STUB_ROLE = "Admin";
+
+      function quit() {
+        os.closeApplication("$(app.bundleId)");
+      }
+      this.quit = quit;
+
+      /**
+       * Opens the board. An Employee lands on the report.
+       */
+      async function showBoard() {
+        await open(role() === "Employee" ? "Report" : "Board");
+      }
+      this.showBoard = showBoard;
+
+      /**
+       * Opens the capacity report.
+       */
+      async function showReport() {
+        const win = await $(this.controller).loadController("Report");
+        win.ui.show(function(ctrl) {
+          ctrl.configure({ role: role() });
+        });
+      }
+      this.showReport = showReport;
+
+      /**
+       * Opens the read-only schedule.
+       */
+      async function showSchedule() {
+        await open("Schedule");
+      }
+      this.showSchedule = showSchedule;
+
+      async function applicationDidStart() {
+        if (os.isGuestUser(os.user)) {
+          os.ui.showSignIn();
+          return;
+        }
+        applyRoleMenu();
+        await open(home());
+      }
+      this.applicationDidStart = applicationDidStart;
+
+      this.openDeepLink = async function(deepLink) {
+        if (os.isGuestUser(os.user)) {
+          os.ui.showSignIn();
+          return;
+        }
+        applyRoleMenu();
+        await open(screenFor(deepLink.path));
+      };
+
+      this.openUniversalLink = async function(link) {
+        if (os.isGuestUser(os.user)) {
+          os.ui.showSignIn();
+          return;
+        }
+        applyRoleMenu();
+        await open(screenFor(link.path));
+      };
+
+      function role() {
+        return STUB_ROLE;
+      }
+
+      function home() {
+        return role() === "Employee" ? "Report" : "Board";
+      }
+
+      function screenFor(path) {
+        const name = String(path || "").replace(/^\//, "").split("/")[0];
+        if (name === "schedule") {
+          return "Schedule";
+        }
+        if (name === "report") {
+          return "Report";
+        }
+        if (name === "board") {
+          return home();
+        }
+        return home();
+      }
+
+      function applyRoleMenu() {
+        if (role() !== "Employee") {
+          return;
+        }
+        const select = os.application("$(app.bundleId)").menus().ui.select("go-menu");
+        select.ui.removeOption("board");
+      }
+
+      async function open(name) {
+        if (name === "Report") {
+          await showReport();
+          return;
+        }
+        const win = await $(this.controller).loadController(name);
+        win.ui.show();
+      }
+    }
+  </script>
+
+  <div class="ui-menus">
+    <div class="ui-menu" style="width: 200px;">
+      <select name="application-menu">
+        <option>Lean Visualizer</option>
+        <option onclick="$(this.controller).quit();">Quit Lean Visualizer</option>
+      </select>
+    </div>
+    <div class="ui-menu secure" style="width: 140px;">
+      <select name="go-menu">
+        <option>Go</option>
+        <option value="board" onclick="$(this.controller).showBoard();">Board</option>
+        <option value="report" onclick="$(this.controller).showReport();">Report</option>
+        <option value="schedule" onclick="$(this.controller).showSchedule();">Schedule</option>
+      </select>
+    </div>
+  </div>
+</div>
