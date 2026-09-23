@@ -12,11 +12,11 @@ Stage 7 is complete. The private service is a package: `model.py` for the
 shapes, `db.py` for the database and every SQL statement, and `lib/` for the
 rules. Routes stay in `__init__.py`. No two models share a field set.
 `PillarFinished` stays apart from `PillarOpen`, and `SaveModelRequest` stays
-apart from `ModelResponse`. Step 8 is open. Flow 1 is done (`lean-visualizer-access.spec.js`).
-Flow 2 is next. A spec must not reset the live board until `db.py` can
-empty a database without `create_schema`. An Employee granted from
-Settings is refused until the app is on their session. This slice has
-no OS work.
+apart from `ModelResponse`. Step 8 is open. Flows 1 and 2 are done. Flow 3 is next, the capacity
+report. A spec must not reset the live board until `db.py` can empty a
+database without `create_schema`. Flow 2 puts the live board back with
+`PUT /model` when it ends. An Employee granted from Settings is refused
+until the app is on their session. This slice has no OS work.
 
 `index.html` is the old page. Stage 1 deletes it. It is not a client, and no route
 stays open so that it can keep calling. The plan decides the windows and the routes.
