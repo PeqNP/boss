@@ -327,7 +327,7 @@
               ? ""
               : "<button type=\"button\" class=\"primary delete\" aria-label=\"Delete\" data-action=\"delete-backlog\" data-id=\"" + item.id + "\"></button>";
             tr.innerHTML = "<td draggable=\"true\" data-drag=\"" + index + "\" style=\"cursor:grab\">⠿</td>"
-              + "<td colspan=\"11\"><span class=\"row-actions\">" + dot(item.color) + name + remove + "</span></td>";
+              + "<td colspan=\"12\"><span class=\"row-actions\">" + dot(item.color) + name + remove + "</span></td>";
             body.appendChild(tr);
             return;
           }
