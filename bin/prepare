@@ -43,13 +43,13 @@ if [[ $# -ne 1 ]]; then
     usage
 fi
 
-SERVER=$1
-if [ ! -f "$SERVER" ]; then
-    echo "Server file does not exist at ($SERVER)" >&2
+SERVER_FILE=$1
+if [ ! -f "$SERVER_FILE" ]; then
+    echo "Server file does not exist at ($SERVER_FILE)" >&2
     usage
 fi
 
-SERVER=$(cat "$SERVER")
+SERVER=$(cat "$SERVER_FILE")
 if [[ "$SERVER" == "" ]]; then
     echo "Please add user@server config in ~/.boss/server" >&2
     usage
@@ -85,4 +85,4 @@ echo "Uploading boss..."
 scp -i $HOME/.boss/boss-key.pem -r ./.build/release/boss ubuntu@$SERVER:~/boss-server-update
 
 cd -
-./bin/backup "$SERVER"
+./bin/backup "$SERVER_FILE"

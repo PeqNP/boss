@@ -1,15 +1,18 @@
 #!/bin/zsh
 #
-# Backs up all databases from production
+# Backs up all databases from production.
 #
+# With no argument, reads ~/.boss/server. prepare passes that same file.
 
-SERVER=$1
-if [ ! -f "$SERVER" ]; then
-    echo "Server file does not exist at ($SERVER)" >&2
+set -euo pipefail
+
+SERVER_FILE=${1:-$HOME/.boss/server}
+if [[ ! -f "$SERVER_FILE" ]]; then
+    echo "Server file does not exist at ($SERVER_FILE)" >&2
     exit 1
 fi
 
-SERVER=$(cat "$SERVER")
+SERVER=$(cat "$SERVER_FILE")
 if [[ "$SERVER" == "" ]]; then
     echo "Please add user@server config in ~/.boss/server" >&2
     exit 1
