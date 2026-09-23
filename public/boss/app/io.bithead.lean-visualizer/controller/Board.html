@@ -94,6 +94,28 @@
       }
       this.openFinishedWork = openFinishedWork;
 
+      async function openReleases() {
+        const win = await $(app.controller).loadController("Releases");
+        let chain = Promise.resolve();
+        win.ui.show(function(ctrl) {
+          ctrl.configure({ releases: releases });
+          ctrl.delegate = {
+            didChangeReleases: function(next) {
+              chain = chain.then(async function() {
+                const previous = releases;
+                releases = next;
+                try {
+                  await saved();
+                } catch (error) {
+                  releases = previous;
+                }
+              });
+            }
+          };
+        });
+      }
+      this.openReleases = openReleases;
+
       async function openTaskMetrics() {
         const win = await $(app.controller).loadController("TaskMetrics");
         win.ui.show();
@@ -152,24 +174,6 @@
         bindDrag(view.ui.table("tracks"), "tracks");
         bindDrag(view.ui.table("backlog"), "backlog");
         await loadBoard();
-        os.application("$(app.bundleId)").proxy.attachBoard({
-          snapshot: function() {
-            return {
-              revision: revision,
-              state: {
-                operators: operators,
-                tracks: tracks,
-                backlog: backlog,
-                releases: releases,
-                weeklyNotes: weeklyNotes
-              }
-            };
-          },
-          adopt: function(savedModel) {
-            revision = savedModel.revision;
-            releases = savedModel.state.releases || [];
-          }
-        });
       }
       this.viewDidLoad = viewDidLoad;
 
@@ -177,7 +181,6 @@
         for (const line of dragLines) {
           line.remove();
         }
-        os.application("$(app.bundleId)").proxy.attachBoard(null);
       }
       this.viewWillUnload = viewWillUnload;
 
@@ -978,6 +981,7 @@
         <option>File</option>
         <option onclick="$(this.controller).syncFeatures();">Sync Feature Requests</option>
         <option onclick="$(this.controller).openFinishedWork();">Finished work</option>
+        <option onclick="$(this.controller).openReleases();">Releases</option>
         <option onclick="$(this.controller).openCheckpoint();">Save Checkpoint</option>
         <option onclick="$(this.controller).openSchedule();">Schedule</option>
       </select>

@@ -30,7 +30,7 @@ None of these windows is a document. `bin/validate-app` would expect `this.docum
 
 | Window | Kind | Controls beyond a plain close |
 |---|---|---|
-| `Board` | Control panel. Every committed edit saves, so a document Save would have nothing left to confirm. The File menu is written by hand: Sync Feature Requests, Finished work, Save Checkpoint, Schedule. The board has no `controls` row, so the OS does not generate that menu. | The controls of the old board, apart from the up and down row buttons. Order is a grab handle on the row. |
+| `Board` | Control panel. Every committed edit saves, so a document Save would have nothing left to confirm. The File menu is written by hand: Sync Feature Requests, Finished work, Releases, Save Checkpoint, Schedule. The board has no `controls` row, so the OS does not generate that menu. | The controls of the old board, apart from the up and down row buttons. Order is a grab handle on the row. |
 | `Schedule` | View of the forecast | — |
 | `Report` | Report | Save Checkpoint, and only for an Admin |
 | `Checkpoint` | Modal. Pick a release and store it. | Cancel, Save Checkpoint. Save Checkpoint is this action, not a document Save. |
@@ -68,7 +68,7 @@ class Role(str, Enum):
 | `Notes` | the board |
 | `VirtualFeature` | the board |
 | `Checkpoint` | the board, or the report |
-| `Releases` | Dashboards |
+| `Releases` | Board File |
 
 **Employee** — the token role is `Employee`.
 
@@ -143,7 +143,7 @@ GET /me -> Me
 
 Audience: Admin.
 
-One window. It opens fullscreen. Operators, the week under inspection, tracks, and the backlog. Releases is a Dashboards menu item. File opens Schedule for the 180-day chart.
+One window. It opens fullscreen. Operators, the week under inspection, tracks, and the backlog. Releases is a File menu item. File opens Schedule for the 180-day chart.
 
 Operators, tracks, and the backlog are tables. A row is reordered by its grab handle. BOSS drag-reorder is the sortable list box, and that control is one label per row, so it is not the board table. The up and down buttons are not on the board.
 
@@ -153,7 +153,7 @@ Tracks: the name is edited in the row. Enabled, the feature, its key, units, com
 
 Backlog: features, virtual features, dividers, and the system divider `system-sync-divider`. A feature's color is a circle. Units and completed units are read-only. Est. weeks is an `.edit-label` and shows in the danger color when it overrides a feature that has units. Pin a track, or choose Move To Track. Add divider is here. A virtual feature opens `VirtualFeature`.
 
-Releases is not on this window. Dashboards opens `Releases`. Nothing here creates a checkpoint.
+Releases is not on this window. File opens `Releases`. Nothing here creates a checkpoint.
 
 Sync Feature Requests reads `GET /sync-jira`, merges the issues into the board, keeps `jiraIssueType`, and saves. The sync stores pillars beside the board. They are not fields on the feature in the board JSON.
 
@@ -311,7 +311,7 @@ GET /finished-work -> FinishedWork
 
 ### `Releases`
 
-Audience: Admin. Opened from Dashboards. Modal. Close. Version and date are edited here. Delete removes one. The table lists the next 20 releases dated today or later, and scrolls after five rows. A release outside that 20 stays stored and is not listed. This is the board's release list, saved with `PUT /model`. It is not a checkpoint.
+Audience: Admin. Opened from the board's File menu. Modal. Close. Version and date are edited here. Delete removes one. The table lists the next 20 releases dated today or later, and scrolls after five rows. A release outside that 20 stays stored and is not listed. This is the board's release list, saved with `PUT /model`. It is not a checkpoint.
 
 ## Stage 2 — Data Model
 

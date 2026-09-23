@@ -3,9 +3,6 @@
     function $(this.id)() {
 
       let signedInRole = "Employee";
-      let boardLink = null;
-
-      const API = "/api/io.bithead.lean-visualizer";
 
       function quit() {
         os.closeApplication("$(app.bundleId)");
@@ -38,50 +35,6 @@
         await open("Schedule");
       }
       this.showSchedule = showSchedule;
-
-      /**
-       * The open board, so a release save uses its revision.
-       *
-       * @param {{snapshot: function(): {revision: number, state: object}, adopt: function(object): void}|null} link
-       */
-      function attachBoard(link) {
-        boardLink = link;
-      }
-      this.attachBoard = attachBoard;
-
-      /**
-       * Opens Manage Releases. The list is the board's releases.
-       */
-      async function showReleases() {
-        let held = await os.network.get(API + "/model");
-        if (!isEmpty(boardLink)) {
-          held = boardLink.snapshot();
-        }
-        const win = await $(this.controller).loadController("Releases");
-        let chain = Promise.resolve();
-        win.ui.show(function(ctrl) {
-          ctrl.configure({ releases: held.state.releases || [] });
-          ctrl.delegate = {
-            didChangeReleases: function(next) {
-              chain = chain.then(async function() {
-                const source = isEmpty(boardLink) ? held : boardLink.snapshot();
-                const saved = await os.network.put(API + "/model", {
-                  revision: source.revision,
-                  state: Object.assign({}, source.state, { releases: next })
-                });
-                if (isEmpty(saved) || isEmpty(saved.revision)) {
-                  return;
-                }
-                held = saved;
-                if (!isEmpty(boardLink)) {
-                  boardLink.adopt(saved);
-                }
-              }).catch(function() {});
-            }
-          };
-        });
-      }
-      this.showReleases = showReleases;
 
       async function applicationDidStart() {
         await os.network.stylesheet("$(app.resourcePath)/lean.css");
@@ -140,7 +93,6 @@
         const select = os.application("$(app.bundleId)").menus().ui.select("go-menu");
         if (role() === "Employee") {
           select.ui.removeOption("board");
-          select.ui.removeOption("releases");
           return;
         }
         select.ui.removeOption("schedule");
@@ -169,7 +121,6 @@
         <option>Dashboards</option>
         <option value="board" onclick="$(this.controller).showBoard();">Board</option>
         <option value="report" onclick="$(this.controller).showReport();">Capacity report</option>
-        <option value="releases" onclick="$(this.controller).showReleases();">Releases</option>
         <option value="schedule" onclick="$(this.controller).showSchedule();">Schedule</option>
       </select>
     </div>
