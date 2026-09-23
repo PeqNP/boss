@@ -3,13 +3,13 @@
     function $(this.id)(view) {
 
       let weekStart = "";
+      let note = "";
 
       /**
        * Writes the week's note onto the board and closes.
        */
       async function save() {
         const text = view.ui.textarea("note").value;
-        // Stand-in for PUT /model of weeklyNotes[weekStart].
         if (!isEmpty(this.delegate)) {
           this.delegate.didSaveNotes(weekStart, text);
         }
@@ -27,15 +27,13 @@
        */
       function configure(options) {
         weekStart = options && options.weekStart ? options.weekStart : "";
+        note = options && options.note ? options.note : "";
       }
       this.configure = configure;
 
       function viewDidLoad() {
         view.ui.span("week").textContent = weekStart;
-        // Stand-in for the weeklyNotes value on GET /model.
-        view.ui.textarea("note").value = weekStart === "2026-09-13"
-          ? "Portal review moved to the 25 Sep release."
-          : "";
+        view.ui.textarea("note").value = note;
       }
       this.viewDidLoad = viewDidLoad;
     }

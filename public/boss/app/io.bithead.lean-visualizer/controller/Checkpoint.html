@@ -2,7 +2,6 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
-      const STUB_TODAY = "2026-09-22";
       const controller = this;
       let releases = [];
 
@@ -39,15 +38,23 @@
       }
       this.configure = configure;
 
+      function localToday() {
+        const now = new Date();
+        return now.getFullYear() + "-"
+          + String(now.getMonth() + 1).padStart(2, "0") + "-"
+          + String(now.getDate()).padStart(2, "0");
+      }
+
       function viewDidLoad() {
+        const today = localToday();
         const eligible = releases.filter(function(release) {
-          return release.date <= STUB_TODAY;
+          return release.date <= today;
         });
         const choices = eligible.map(function(release) {
           return { id: release.id, name: release.version + "  " + release.date };
         });
         view.ui.select("releases").ui.addNewOptions(choices);
-        view.ui.span("today").textContent = STUB_TODAY;
+        view.ui.span("today").textContent = today;
       }
       this.viewDidLoad = viewDidLoad;
 

@@ -134,11 +134,11 @@
         const win = await $(app.controller).loadController("Notes");
         const weekStart = isoDate(viewedWeek);
         win.ui.show(function(ctrl) {
-          ctrl.configure({ weekStart: weekStart });
+          ctrl.configure({ weekStart: weekStart, note: weeklyNotes[weekStart] || "" });
           ctrl.delegate = {
             didSaveNotes: function(week, text) {
               weeklyNotes[week] = text;
-              view.ui.showMessage("Saved");
+              saved();
             }
           };
         });

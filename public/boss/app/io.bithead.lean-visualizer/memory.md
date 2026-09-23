@@ -12,12 +12,13 @@ Stage 7 is complete. The private service is a package: `model.py` for the
 shapes, `db.py` for the database and every SQL statement, and `lib/` for the
 rules. Routes stay in `__init__.py`. No two models share a field set.
 `PillarFinished` stays apart from `PillarOpen`, and `SaveModelRequest` stays
-apart from `ModelResponse`. Step 8 is open. Flows 1 through 4 are done. Flow 5 is next, the
-windows the board opens. A spec must not reset the live board until
-`db.py` can empty a database without `create_schema`. Flows 2 through 4
-put the live board back with `PUT /model` when they end. An Employee
-granted from Settings is refused until the app is on their session.
-This slice has no OS work.
+apart from `ModelResponse`. Step 8 is complete. All five flows in `ui-plan.md` have a spec.
+A spec must not reset the live board and must not add `create_schema`.
+Flows that replace the board write the previous state back with
+`PUT /model`. Finished work in a spec is answered by the Jira stand-in
+at `PUT /api/debug/uitests/jira/{bundle}`, cleared when the spec ends.
+An Employee granted from Settings is refused until the app is on their
+session. This slice has no OS work.
 
 `index.html` is the old page. Stage 1 deletes it. It is not a client, and no route
 stays open so that it can keep calling. The plan decides the windows and the routes.

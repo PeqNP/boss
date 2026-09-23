@@ -23,7 +23,9 @@ from .time import *
 from .board import *
 
 
-PRIVATE_CONFIG_PATH = Path(__file__).resolve().with_name("config.json")
+log = logging.getLogger(__name__)
+
+PRIVATE_CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.json"
 
 COMPLETED_STATUSES = {
     "done",
@@ -527,7 +529,7 @@ def issue_completed_in_range(
 
     return False
 
-def fetch_json(url: str, headers: Dict[str, str]) -> Dict[str, Any]:
+def _live_fetch_json(url: str, headers: Dict[str, str]) -> Dict[str, Any]:
     started = time.monotonic()
     log.info("jira.fetch.start url=%s", url)
 
@@ -586,6 +588,30 @@ def fetch_json(url: str, headers: Dict[str, str]) -> Dict[str, Any]:
         len(payload)
     )
     return body
+
+class LiveJira:
+    def fetch_json(self, url: str, headers: Dict[str, str]) -> Dict[str, Any]:
+        return _live_fetch_json(url, headers)
+
+class FixtureJira:
+    def __init__(self, payload: Dict[str, Any]) -> None:
+        self.payload = payload
+
+    def fetch_json(self, url: str, headers: Dict[str, str]) -> Dict[str, Any]:
+        return self.payload
+
+_jira = LiveJira()
+
+def fetch_json(url: str, headers: Dict[str, str]) -> Dict[str, Any]:
+    return _jira.fetch_json(url, headers)
+
+def use_fixture_jira(payload: Dict[str, Any]) -> None:
+    global _jira
+    _jira = FixtureJira(payload)
+
+def use_live_jira() -> None:
+    global _jira
+    _jira = LiveJira()
 
 def fetch_all_issues(url: str, headers: Dict[str, str]) -> List[Dict[str, Any]]:
     started = time.monotonic()

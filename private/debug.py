@@ -27,7 +27,7 @@ import os
 import shutil
 import sys
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -170,3 +170,28 @@ async def load_snapshot(name: str, bundle: Optional[str] = None):
     if not acted:
         raise HTTPException(status_code=404, detail=f"No snapshot named ({name}).")
     return DebugResult(apps=acted)
+
+def _jira_app(bundle: str):
+    if not is_enabled():
+        raise HTTPException(status_code=404, detail="Not found.")
+    module = sys.modules.get(bundle)
+    if module is None or not hasattr(module, "use_fixture_jira"):
+        raise HTTPException(status_code=404, detail=f"No Jira stand-in for ({bundle}).")
+    return module
+
+@router.put("/jira/{bundle}", response_model=DebugResult)
+async def install_jira(bundle: str, body: Dict[str, Any]) -> DebugResult:
+    """Answer this app's Jira calls with `body` until the stand-in is cleared.
+
+    A UI test installs this before opening a window that would otherwise
+    reach Jira. It replaces the transport for the whole process, so the
+    test clears it when it ends.
+    """
+    _jira_app(bundle).use_fixture_jira(body)
+    return DebugResult(apps=[bundle])
+
+@router.delete("/jira/{bundle}", response_model=DebugResult)
+async def clear_jira(bundle: str) -> DebugResult:
+    """Send this app's Jira calls to Jira again."""
+    _jira_app(bundle).use_live_jira()
+    return DebugResult(apps=[bundle])
