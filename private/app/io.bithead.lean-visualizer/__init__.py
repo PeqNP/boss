@@ -203,15 +203,6 @@ class JiraSyncResponse(BaseModel):
     virtualFeaturesUpdated: int = 0
 
 
-class ReleaseOption(BaseModel):
-    version: str
-    date: str
-
-
-class ReleaseOptionsResponse(BaseModel):
-    releases: List[ReleaseOption]
-
-
 class ScheduleBar(BaseModel):
     featureId: str
     issueKey: str
@@ -392,7 +383,6 @@ class OperatorMetricTask(BaseModel):
     parentTask: str | None = None
     planned: bool
     releaseVersion: str = ""
-    operatorName: str = ""
 
 
 class OperatorMetricTasks(BaseModel):
@@ -409,12 +399,6 @@ class MetricsTasksResponse(BaseModel):
     jiraRootUrl: str
     jiraQuery: str
     operators: List[OperatorMetricTasks]
-
-
-class ReleaseWorkUnitsResponse(BaseModel):
-    jiraRootUrl: str
-    releaseVersion: str
-    tasks: List[OperatorMetricTask]
 
 
 class FinishedWorkItem(BaseModel):
@@ -441,11 +425,8 @@ MetricsWindowResponse.model_rebuild()
 OperatorMetricTask.model_rebuild()
 OperatorMetricTasks.model_rebuild()
 MetricsTasksResponse.model_rebuild()
-ReleaseWorkUnitsResponse.model_rebuild()
 FinishedWorkItem.model_rebuild()
 FinishedWorkResponse.model_rebuild()
-ReleaseOption.model_rebuild()
-ReleaseOptionsResponse.model_rebuild()
 
 
 def default_visualizer_state() -> Dict[str, Any]:
@@ -516,33 +497,6 @@ def normalize_release_date(value: Any) -> str | None:
     except ValueError:
         return None
     return parsed.isoformat()
-
-
-def build_release_options_from_state(state: Dict[str, Any]) -> List[ReleaseOption]:
-    releases = state.get("releases", [])
-    if not isinstance(releases, list):
-        return []
-
-    deduped: Dict[str, str] = {}
-    for raw_release in releases:
-        if not isinstance(raw_release, dict):
-            continue
-        version = str(raw_release.get("version", "")).strip()
-        release_date = normalize_release_date(raw_release.get("date"))
-        if version == "" or release_date is None:
-            continue
-        if version not in deduped:
-            deduped[version] = release_date
-
-    today = local_today_iso()
-    upcoming = sorted(
-        ((version, release_date) for version, release_date in deduped.items() if release_date >= today),
-        key=lambda item: (item[1], item[0]),
-    )[:3]
-    return [ReleaseOption(
-        version=version,
-        date=release_date
-    ) for version, release_date in upcoming]
 
 
 def next_jira_feature_color() -> str:
@@ -1240,27 +1194,6 @@ def get_operator_metric_task_rows(
     return rows_by_operator
 
 
-def get_release_metric_task_rows(
-    conn: sqlite3.Connection,
-    release_version: str,
-) -> List[sqlite3.Row]:
-    cursor = conn.execute(
-        """
-        SELECT issue_key,
-               issue_description,
-               parent_task,
-               planned,
-               release_version,
-               operator_name
-        FROM visualizer_operator_metric_tasks
-                WHERE release_version = ?
-        ORDER BY operator_name ASC, issue_key ASC
-        """,
-                (release_version,),
-    )
-    return cursor.fetchall()
-
-
 def build_metrics_summary(
     conn: sqlite3.Connection,
     metric_year: int | None = None,
@@ -1944,39 +1877,6 @@ def metrics_tasks_response(
         jiraRootUrl=jira_root,
         jiraQuery=jira_query,
         operators=operators_payload,
-    )
-
-
-def metrics_release_work_units_response(
-    conn: sqlite3.Connection,
-    release_version: str,
-) -> ReleaseWorkUnitsResponse:
-    task_rows = get_release_metric_task_rows(conn, release_version)
-
-    tasks_payload: List[OperatorMetricTask] = []
-    for row in task_rows:
-        tasks_payload.append(
-            OperatorMetricTask(
-                issueKey=str(row["issue_key"]),
-                description=str(row["issue_description"]) if row["issue_description"] is not None else None,
-                parentTask=str(row["parent_task"]) if row["parent_task"] is not None else None,
-                planned=bool(int(row["planned"])),
-                releaseVersion=str(row["release_version"]) if row["release_version"] is not None else "",
-                operatorName=str(row["operator_name"]),
-            )
-        )
-
-    jira_root = ""
-    try:
-        config = load_config()
-        jira_root = jira_root_url(config)
-    except HTTPException:
-        jira_root = ""
-
-    return ReleaseWorkUnitsResponse(
-        jiraRootUrl=jira_root,
-        releaseVersion=release_version,
-        tasks=tasks_payload,
     )
 
 
@@ -3181,53 +3081,6 @@ async def get_metrics_tasks(
             metric_week_number,
             week_start
         )
-    finally:
-        conn.close()
-
-
-@router.get(
-    "/metrics-release-work-units",
-    response_model=ReleaseWorkUnitsResponse
-)
-@require_acl("report.r", roles=[Role.ADMIN, Role.EMPLOYEE])
-async def get_metrics_release_work_units(
-    release_version: str,
-    boss_user: User = None,
-    request: Request = None,
-) -> ReleaseWorkUnitsResponse:
-    selected_release_version = release_version.strip()
-    if selected_release_version == "":
-        raise HTTPException(
-            status_code=400,
-            detail="release_version is required"
-        )
-
-    conn = get_model_db_connection()
-    try:
-        ensure_operator_metrics_table(conn)
-        ensure_operator_metric_tasks_table(conn)
-        return metrics_release_work_units_response(
-            conn,
-            selected_release_version
-        )
-    finally:
-        conn.close()
-
-
-@router.get("/release-options", response_model=ReleaseOptionsResponse)
-@require_acl("board.r", roles=[Role.ADMIN])
-async def get_release_options(boss_user: User, request: Request) -> ReleaseOptionsResponse:
-    conn = get_model_db_connection()
-    try:
-        ensure_model_table(conn)
-        row = read_model_row(conn)
-        if row is None:
-            state = default_visualizer_state()
-        else:
-            schema_version = int(row["schema_version"])
-            parsed_state = parse_model_state(str(row["state_json"]))
-            state = upgrade_model_state(schema_version, parsed_state)
-        return ReleaseOptionsResponse(releases=build_release_options_from_state(state))
     finally:
         conn.close()
 

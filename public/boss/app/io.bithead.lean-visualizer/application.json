@@ -26,7 +26,6 @@
         "TaskMetrics": { "modal": true },
         "Tasks": { "modal": true },
         "FinishedWork": { "modal": true },
-        "PrepareRelease": { "modal": true },
         "Releases": { "modal": true }
     }
 }

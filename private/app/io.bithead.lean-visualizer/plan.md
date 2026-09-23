@@ -21,7 +21,7 @@ Every controller is `public/boss/app/io.bithead.lean-visualizer/controller/<Name
 | Group | Windows | Modals |
 |---|---|---|
 | Entry | `Application` | |
-| Board | `Board`, `Schedule` | `Notes`, `VirtualFeature`, `Checkpoint`, `TaskMetrics`, `Tasks`, `FinishedWork`, `PrepareRelease`, `Releases` |
+| Board | `Board`, `Schedule` | `Notes`, `VirtualFeature`, `Checkpoint`, `TaskMetrics`, `Tasks`, `FinishedWork`, `Releases` |
 | Report | `Report` | |
 
 ### Documents
@@ -30,7 +30,7 @@ None of these windows is a document. `bin/validate-app` would expect `this.docum
 
 | Window | Kind | Controls beyond a plain close |
 |---|---|---|
-| `Board` | Control panel. Every committed edit saves, so a document Save would have nothing left to confirm. The File menu is written by hand: Sync Feature Requests, Finished work, Prepare Release, Save Checkpoint, Schedule. The board has no `controls` row, so the OS does not generate that menu. | The controls of the old board, apart from the up and down row buttons. Order is a grab handle on the row. |
+| `Board` | Control panel. Every committed edit saves, so a document Save would have nothing left to confirm. The File menu is written by hand: Sync Feature Requests, Finished work, Save Checkpoint, Schedule. The board has no `controls` row, so the OS does not generate that menu. | The controls of the old board, apart from the up and down row buttons. Order is a grab handle on the row. |
 | `Schedule` | View of the forecast | — |
 | `Report` | Report | Save Checkpoint, and only for an Admin |
 | `Checkpoint` | Modal. Pick a release and store it. | Cancel, Save Checkpoint. Save Checkpoint is this action, not a document Save. |
@@ -111,9 +111,7 @@ Prefix: `/api/io.bithead.lean-visualizer`.
 | `POST` | `/sync-task-metrics` | `board.w` | Admin |
 | `GET` | `/metrics` | `board.r` | Admin |
 | `GET` | `/metrics-tasks` | `board.r` | Admin |
-| `GET` | `/release-options` | `board.r` | Admin. The next 3 releases on or after today, date ascending. |
 | `GET` | `/metrics-window` | `report.r` | Admin, Employee |
-| `GET` | `/metrics-release-work-units` | `report.r` | Admin, Employee |
 | `GET` | `/finished-work` | `report.r` | Admin, Employee |
 | `GET` | `/me` | the role list | Admin, Employee |
 | `GET` | `/schedule` | `schedule.r` | Admin, Employee |
@@ -159,7 +157,7 @@ Releases is not on this window. Go opens `Releases`. Nothing here creates a chec
 
 Sync Feature Requests reads `GET /sync-jira`, merges the issues into the board, keeps `jiraIssueType`, and saves. The sync stores pillars beside the board. They are not fields on the feature in the board JSON.
 
-Save Checkpoint opens `Checkpoint`. Finished work opens `FinishedWork`. Prepare Release opens `PrepareRelease`. View Task Metrics opens `TaskMetrics`. View Tasks opens `Tasks`. Schedule opens `Schedule`.
+Save Checkpoint opens `Checkpoint`. Finished work opens `FinishedWork`. View Task Metrics opens `TaskMetrics`. View Tasks opens `Tasks`. Schedule opens `Schedule`.
 
 Notes opens `Notes` for the week under inspection. A virtual feature row opens `VirtualFeature`.
 
@@ -311,22 +309,6 @@ GET /finished-work -> FinishedWork
     scope: the one board
 ```
 
-### `PrepareRelease`
-
-Audience: Admin. Modal. Close. A release is chosen, then its completed issues are listed.
-
-```
-GET /release-options -> ReleaseOptions
-    acl:   board.r
-    who:   Admin
-    scope: the one board
-
-GET /metrics-release-work-units -> ReleaseWorkUnits
-    acl:   report.r
-    who:   Admin, Employee
-    scope: the one board. Query: releaseVersion.
-```
-
 ### `Releases`
 
 Audience: Admin. Opened from Go. Modal. Close. Version and date are edited here. Delete removes one. The table lists the next 20 releases dated today or later, and scrolls after five rows. A release outside that 20 stays stored and is not listed. This is the board's release list, saved with `PUT /model`. It is not a checkpoint.
@@ -452,7 +434,7 @@ CREATE TABLE IF NOT EXISTS checkpoint_forecasts (
 | jiraQuery | string |
 | operators | array of `operatorName`, `tasks` |
 
-A task: `issueKey`, `description`, `parentTask`, `planned`, `releaseVersion`, `operatorName`. `operatorName` is set on a release's tasks.
+A task: `issueKey`, `description`, `parentTask`, `planned`, `releaseVersion`.
 
 `Schedule`
 
@@ -582,11 +564,10 @@ Replace each stub. Done when the Stage 3 groups pass against `test-lean-visualiz
 | `GET /schedule` | `Board`, `Schedule` | `lib.schedule` |
 | `GET /metrics-window` | `TaskMetrics` | the stored weeks |
 | `GET /finished-work` | `FinishedWork` | finished features |
-| `GET /release-options`, `GET /metrics-release-work-units` | `PrepareRelease` | a release and its issues |
 | `GET /report` | `Report` | `lib.report` |
 | `PUT /checkpoints/{releaseId}` | `Checkpoint` | `lib.save_checkpoint` |
 
-`GET /metrics-window`, `GET /metrics-release-work-units`, `GET /release-options`, and `GET /finished-work` gain the guard in the route table. No window stubs them. A caller with no role is refused on each.
+`GET /metrics-window` and `GET /finished-work` gain the guard in the route table. No window stubs them. A caller with no role is refused on each.
 
 ## Stage 6 — Grouping
 

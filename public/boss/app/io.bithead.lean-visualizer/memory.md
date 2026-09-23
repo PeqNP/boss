@@ -7,7 +7,7 @@ requires a role. The routes are live and the board, schedule, report, and
 checkpoint call them. The rate, the schedule, pillars, the board save, the
 fourteen-day change, who may call a route, and checkpoint credits are tested.
 A checkpoint save pulls the issues the weekly sync would count for that
-release window. Tasks, Finished Work, and Prepare Release call their routes.
+release window. Tasks and Finished Work call their routes.
 Next is the split into separate files. This slice has no OS work.
 
 `index.html` is the old page. Stage 1 deletes it. It is not a client, and no route
@@ -22,8 +22,7 @@ schedule chart places each feature by its start and finish, and a release in
 that horizon is a vertical line across the rows. Unpinned backlog items are
 dealt in list order across the enabled tracks. A track that any feature pins
 itself to, such as DevOps, only receives features pinned to it. Tasks lists the stored issues for the week under inspection. Finished Work lists
-the year's completed epics from Jira, one operator at a time. Prepare Release
-lists the next releases and the completed issues stored for the one you choose.
+the year's completed epics from Jira, one operator at a time.
 
 ### Public half
 

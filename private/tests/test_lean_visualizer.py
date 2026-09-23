@@ -99,22 +99,6 @@ def bar_names(schedule):
 # week directly so they do not call Jira, and so a week can sit in the past.
 
 
-def test_release_options():
-    today = date.today()
-    state = lv.default_visualizer_state()
-    state["releases"] = [
-        release("past", "9.0.0", today - timedelta(days=21)),
-        release("soon", "1.0.0", today + timedelta(days=21)),
-        release("today", "3.0.0", today),
-        release("next", "2.0.0", today + timedelta(days=7)),
-        release("later", "4.0.0", today + timedelta(days=40)),
-    ]
-
-    # describe: one past release and four on or after today
-    versions = [item.version for item in lv.build_release_options_from_state(state)]
-    assert versions == ["3.0.0", "2.0.0", "1.0.0"], "it: keeps the next three, earliest date first"
-
-
 def test_checkpoint():
     today = date.today()
     save_board([

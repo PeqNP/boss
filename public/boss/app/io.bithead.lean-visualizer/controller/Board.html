@@ -94,12 +94,6 @@
       }
       this.openFinishedWork = openFinishedWork;
 
-      async function openPrepareRelease() {
-        const win = await $(app.controller).loadController("PrepareRelease");
-        win.ui.show();
-      }
-      this.openPrepareRelease = openPrepareRelease;
-
       async function openTaskMetrics() {
         const win = await $(app.controller).loadController("TaskMetrics");
         win.ui.show();
@@ -984,7 +978,6 @@
         <option>File</option>
         <option onclick="$(this.controller).syncFeatures();">Sync Feature Requests</option>
         <option onclick="$(this.controller).openFinishedWork();">Finished work</option>
-        <option onclick="$(this.controller).openPrepareRelease();">Prepare Release</option>
         <option onclick="$(this.controller).openCheckpoint();">Save Checkpoint</option>
         <option onclick="$(this.controller).openSchedule();">Schedule</option>
       </select>
