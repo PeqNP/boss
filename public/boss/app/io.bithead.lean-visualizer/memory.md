@@ -7,8 +7,8 @@ requires a role. The routes are live and the board, schedule, report, and
 checkpoint call them. The rate, the schedule, pillars, the board save, the
 fourteen-day change, who may call a route, and checkpoint credits are tested.
 A checkpoint save pulls the issues the weekly sync would count for that
-release window. Next is Tasks, Finished Work, and Prepare Release. The private
-module stays one file until those windows are live. This slice has no OS work.
+release window. Tasks, Finished Work, and Prepare Release call their routes.
+Next is the split into separate files. This slice has no OS work.
 
 `index.html` is the old page. Stage 1 deletes it. It is not a client, and no route
 stays open so that it can keep calling. The plan decides the windows and the routes.
@@ -21,8 +21,9 @@ is a line per operator, five weeks at a time, from `GET /metrics-window`. The
 schedule chart places each feature by its start and finish, and a release in
 that horizon is a vertical line across the rows. Unpinned backlog items are
 dealt in list order across the enabled tracks. A track that any feature pins
-itself to, such as DevOps, only receives features pinned to it. Tasks, Finished Work, and
-Prepare Release still use sample rows.
+itself to, such as DevOps, only receives features pinned to it. Tasks lists the stored issues for the week under inspection. Finished Work lists
+the year's completed epics from Jira, one operator at a time. Prepare Release
+lists the next releases and the completed issues stored for the one you choose.
 
 ### Public half
 

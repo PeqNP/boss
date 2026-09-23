@@ -2,18 +2,14 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
-      const WORK = {
-        "2026": {
-          "Simon Lemay": [{ issueKey: "FR-301", description: "Client portal", week: "2026-08-16" }],
-          "Nadeem Maida": [{ issueKey: "FR-280", description: "Billing export", week: "2026-07-12" }]
-        },
-        "2025": {
-          "Simon Lemay": [],
-          "Nadeem Maida": [{ issueKey: "FR-190", description: "Import spike", week: "2025-12-28" }]
-        }
-      };
-      let year = "2026";
-      let operatorName = "Simon Lemay";
+      let year = "";
+      let payload = null;
+      let operatorName = "";
+
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
 
       function showOperator(name) {
         operatorName = name;
@@ -21,35 +17,102 @@
       }
       this.showOperator = showOperator;
 
-      function close() {
-        view.ui.close();
-      }
-      this.close = close;
-
-      function viewDidLoad() {
+      async function viewDidLoad() {
+        const now = new Date().getFullYear();
+        const years = [];
+        for (let value = 2026; value <= now; value += 1) {
+          years.push({ id: String(value), name: String(value) });
+        }
+        const menu = view.ui.select("year").ui;
+        menu.addNewOptions(years);
         view.ui.select("year").addEventListener("change", function() {
-          const value = view.ui.select("year").ui.selectedValue();
-          if (isEmpty(value)) {
+          const value = menu.selectedValue();
+          if (isEmpty(value) || value === year) {
             return;
           }
           year = value;
-          render();
+          load();
         });
-        view.ui.select("year").ui.selectValue("2026");
-        render();
+        year = String(Math.max(now, 2026));
+        menu.selectValue(year);
+        await load();
       }
       this.viewDidLoad = viewDidLoad;
 
+      async function load() {
+        payload = await os.network.get(
+          "/api/io.bithead.lean-visualizer/finished-work?year=" + encodeURIComponent(year)
+        );
+        const names = [];
+        for (const item of payload.items || []) {
+          if (names.indexOf(item.operatorName) === -1) {
+            names.push(item.operatorName);
+          }
+        }
+        operatorName = names.length === 0 ? "" : names[0];
+        render();
+      }
+
       function render() {
-        const rows = (WORK[year] && WORK[year][operatorName]) || [];
-        view.ui.span("count").textContent = String(rows.length);
+        const items = (payload && payload.items || []).filter(function(item) {
+          return item.operatorName === operatorName;
+        });
+        view.ui.span("count").textContent = String(items.length);
+        drawOperators(payload ? payload.items || [] : []);
         const body = view.ui.table("finished").querySelector("tbody");
         body.innerHTML = "";
-        for (const item of rows) {
+        if (items.length === 0) {
+          const empty = document.createElement("tr");
+          empty.innerHTML = "<td colspan=\"3\">No finished work for this year.</td>";
+          body.appendChild(empty);
+          return;
+        }
+        const root = payload ? payload.jiraRootUrl : "";
+        for (const item of items) {
           const tr = document.createElement("tr");
-          tr.innerHTML = "<td>" + item.issueKey + "</td><td>" + item.description + "</td><td>" + item.week + "</td>";
+          tr.innerHTML = "<td>" + keyLink(root, item.issueKey) + "</td><td>"
+            + escapeHtml(item.description || "—") + "</td><td>"
+            + escapeHtml(item.completedWeek || "—") + "</td>";
           body.appendChild(tr);
         }
+      }
+
+      function drawOperators(items) {
+        const box = view.ui.div("operators");
+        box.innerHTML = "";
+        const names = [];
+        for (const item of items) {
+          if (names.indexOf(item.operatorName) === -1) {
+            names.push(item.operatorName);
+          }
+        }
+        for (const name of names) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "primary";
+          button.textContent = name;
+          button.addEventListener("click", function() {
+            showOperator(name);
+          });
+          box.appendChild(button);
+        }
+      }
+
+      function keyLink(root, key) {
+        const text = escapeHtml(key || "");
+        if (isEmpty(root) || isEmpty(key)) {
+          return text;
+        }
+        const href = String(root).replace(/\/$/, "") + "/browse/" + encodeURIComponent(key);
+        return "<a class=\"jira-key\" href=\"" + escapeHtml(href) + "\" target=\"_blank\">" + text + "</a>";
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll("\"", "&quot;");
       }
     }
   </script>
@@ -60,18 +123,13 @@
       <label for="year">Year</label>
       <select name="year">
         <option>Year</option>
-        <option value="2026">2026</option>
-        <option value="2025">2025</option>
       </select>
     </div>
     <div class="read-only">
       <label>Completed FRs</label>
       <span name="count"></span>
     </div>
-    <div class="controls">
-      <button class="primary" onclick="$(this.controller).showOperator('Simon Lemay');">Simon Lemay</button>
-      <button class="primary" onclick="$(this.controller).showOperator('Nadeem Maida');">Nadeem Maida</button>
-    </div>
+    <div name="operators" class="operator-tabs"></div>
     <table name="finished">
       <thead>
         <tr><th title="Key"><span class="column-name">Key</span></th><th title="Description"><span class="column-name">Description</span></th><th title="Week"><span class="column-name">Week</span></th></tr>

@@ -453,7 +453,7 @@ CREATE TABLE IF NOT EXISTS checkpoint_forecasts (
 | jiraQuery | string |
 | operators | array of `operatorName`, `tasks` |
 
-A task: `issueKey`, `description`, `parentTask`, `planned`, `releaseVersion`.
+A task: `issueKey`, `description`, `parentTask`, `planned`, `releaseVersion`, `operatorName`. `operatorName` is set on a release's tasks.
 
 `Schedule`
 

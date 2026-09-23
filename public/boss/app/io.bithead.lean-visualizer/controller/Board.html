@@ -109,7 +109,7 @@
       async function openTasks() {
         const win = await $(app.controller).loadController("Tasks");
         win.ui.show(function(ctrl) {
-          ctrl.configure({ weekLabel: weekLabel });
+          ctrl.configure({ weekStart: isoDate(viewedWeek) });
         });
       }
       this.openTasks = openTasks;

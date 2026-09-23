@@ -2,29 +2,15 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
-      const RELEASES = [
-        {
-          version: "1.4.0",
-          date: "2026-09-11",
-          tasks: [
-            { issueKey: "SD-400", description: "Portal login", operatorName: "Simon Lemay" }
-          ]
-        },
-        {
-          version: "1.3.0",
-          date: "2026-08-28",
-          tasks: [
-            { issueKey: "SD-360", description: "Billing export", operatorName: "Nadeem Maida" }
-          ]
-        }
-      ];
+      let releases = [];
+      let root = "";
 
       function close() {
         view.ui.close();
       }
       this.close = close;
 
-      function viewDidLoad() {
+      async function viewDidLoad() {
         const list = view.ui.select("release-choices").ui;
         list.delegate = {
           didSelectListBoxOption: function(option) {
@@ -32,6 +18,8 @@
           },
           didRemoveAllOptions: function() {}
         };
+        const options = await os.network.get("/api/io.bithead.lean-visualizer/release-options");
+        releases = options.releases || [];
         showMatches("");
         view.ui.input("release-search").addEventListener("input", function(event) {
           showMatches(event.target.value);
@@ -41,7 +29,7 @@
 
       function showMatches(term) {
         const needle = term.trim().toLowerCase();
-        const matches = RELEASES.filter(function(release) {
+        const matches = releases.filter(function(release) {
           return isEmpty(needle) || release.version.toLowerCase().indexOf(needle) >= 0;
         });
         view.ui.select("release-choices").ui.addNewOptions(matches.map(function(release) {
@@ -49,19 +37,49 @@
         }));
       }
 
-      function showRelease(version) {
-        const release = RELEASES.find(function(item) { return item.version === version; });
-        view.ui.span("chosen").textContent = isEmpty(release) ? "" : release.version;
+      async function showRelease(version) {
+        view.ui.span("chosen").textContent = version || "";
         const body = view.ui.table("units").querySelector("tbody");
         body.innerHTML = "";
-        if (isEmpty(release)) {
+        if (isEmpty(version)) {
           return;
         }
-        for (const task of release.tasks) {
+        const result = await os.network.get(
+          "/api/io.bithead.lean-visualizer/metrics-release-work-units?release_version="
+          + encodeURIComponent(version)
+        );
+        root = result.jiraRootUrl || "";
+        const tasks = result.tasks || [];
+        if (tasks.length === 0) {
+          const empty = document.createElement("tr");
+          empty.innerHTML = "<td colspan=\"3\">No completed issues for this release.</td>";
+          body.appendChild(empty);
+          return;
+        }
+        for (const task of tasks) {
           const tr = document.createElement("tr");
-          tr.innerHTML = "<td>" + task.issueKey + "</td><td>" + task.description + "</td><td>" + task.operatorName + "</td>";
+          tr.innerHTML = "<td>" + keyLink(task.issueKey) + "</td><td>"
+            + escapeHtml(task.description || "—") + "</td><td>"
+            + escapeHtml(task.operatorName || "—") + "</td>";
           body.appendChild(tr);
         }
+      }
+
+      function keyLink(key) {
+        const text = escapeHtml(key || "");
+        if (isEmpty(root) || isEmpty(key)) {
+          return text;
+        }
+        const href = String(root).replace(/\/$/, "") + "/browse/" + encodeURIComponent(key);
+        return "<a class=\"jira-key\" href=\"" + escapeHtml(href) + "\" target=\"_blank\">" + text + "</a>";
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll("\"", "&quot;");
       }
     }
   </script>

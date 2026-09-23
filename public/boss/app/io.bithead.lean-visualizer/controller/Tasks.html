@@ -2,23 +2,9 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
-      const TASKS = {
-        "Simon Lemay": [
-          { issueKey: "SD-410", description: "Portal login", planned: true },
-          { issueKey: "SD-411", description: "Session timeout", planned: true }
-        ],
-        "Frankie English": [
-          { issueKey: "SUP-88", description: "Password reset", planned: false }
-        ]
-      };
-      let weekLabel = "";
-      let operatorName = "Simon Lemay";
-
-      function showOperator(name) {
-        operatorName = name;
-        render();
-      }
-      this.showOperator = showOperator;
+      let weekStart = "";
+      let payload = null;
+      let operatorName = "";
 
       function close() {
         view.ui.close();
@@ -26,30 +12,88 @@
       this.close = close;
 
       /**
-       * @param {{weekLabel: string}} options
+       * @param {{weekStart: string}} options
        */
       function configure(options) {
-        weekLabel = options && options.weekLabel ? options.weekLabel : "";
+        weekStart = options && options.weekStart ? options.weekStart : "";
       }
       this.configure = configure;
 
-      function viewDidLoad() {
-        view.ui.span("week").textContent = weekLabel;
+      function showOperator(name) {
+        operatorName = name;
+        render();
+      }
+      this.showOperator = showOperator;
+
+      async function viewDidLoad() {
+        let path = "/api/io.bithead.lean-visualizer/metrics-tasks";
+        if (!isEmpty(weekStart)) {
+          path += "?week_start=" + encodeURIComponent(weekStart);
+        }
+        payload = await os.network.get(path);
+        const names = (payload.operators || []).map(function(item) { return item.operatorName; });
+        operatorName = names.length === 0 ? "" : names[0];
         render();
       }
       this.viewDidLoad = viewDidLoad;
 
       function render() {
+        const week = payload ? payload.weekStart + " – " + payload.weekEnd : weekStart;
+        view.ui.span("week").textContent = week;
+        view.ui.span("operator").textContent = operatorName;
+        drawOperators((payload && payload.operators) || []);
         const body = view.ui.table("tasks").querySelector("tbody");
         body.innerHTML = "";
-        const rows = TASKS[operatorName] || [];
-        for (const task of rows) {
+        const group = ((payload && payload.operators) || []).find(function(item) {
+          return item.operatorName === operatorName;
+        });
+        const tasks = group ? group.tasks : [];
+        if (tasks.length === 0) {
+          const empty = document.createElement("tr");
+          empty.innerHTML = "<td colspan=\"3\">No tasks for this week.</td>";
+          body.appendChild(empty);
+          return;
+        }
+        const root = payload ? payload.jiraRootUrl : "";
+        for (const task of tasks) {
           const tr = document.createElement("tr");
-          tr.innerHTML = "<td>" + task.issueKey + "</td><td>" + task.description + "</td><td>"
+          tr.innerHTML = "<td>" + keyLink(root, task.issueKey) + "</td><td>"
+            + escapeHtml(task.description || "—") + "</td><td>"
             + (task.planned ? "Planned" : "Unplanned") + "</td>";
           body.appendChild(tr);
         }
-        view.ui.span("operator").textContent = operatorName;
+      }
+
+      function drawOperators(operators) {
+        const box = view.ui.div("operators");
+        box.innerHTML = "";
+        for (const item of operators) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "primary";
+          button.textContent = item.operatorName;
+          button.addEventListener("click", function() {
+            showOperator(item.operatorName);
+          });
+          box.appendChild(button);
+        }
+      }
+
+      function keyLink(root, key) {
+        const text = escapeHtml(key || "");
+        if (isEmpty(root) || isEmpty(key)) {
+          return text;
+        }
+        const href = String(root).replace(/\/$/, "") + "/browse/" + encodeURIComponent(key);
+        return "<a class=\"jira-key\" href=\"" + escapeHtml(href) + "\" target=\"_blank\">" + text + "</a>";
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll("\"", "&quot;");
       }
     }
   </script>
@@ -60,10 +104,7 @@
       <label>Week</label>
       <span name="week"></span>
     </div>
-    <div class="controls">
-      <button class="primary" onclick="$(this.controller).showOperator('Simon Lemay');">Simon Lemay</button>
-      <button class="primary" onclick="$(this.controller).showOperator('Frankie English');">Frankie English</button>
-    </div>
+    <div name="operators" class="operator-tabs"></div>
     <div class="read-only">
       <label>Operator</label>
       <span name="operator"></span>

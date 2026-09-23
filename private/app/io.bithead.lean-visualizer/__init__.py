@@ -399,6 +399,7 @@ class OperatorMetricTask(BaseModel):
     parentTask: str | None = None
     planned: bool
     releaseVersion: str = ""
+    operatorName: str = ""
 
 
 class OperatorMetricTasks(BaseModel):
@@ -1256,10 +1257,11 @@ def get_release_metric_task_rows(
                issue_description,
                parent_task,
                planned,
-               release_version
+               release_version,
+               operator_name
         FROM visualizer_operator_metric_tasks
                 WHERE release_version = ?
-        ORDER BY issue_key ASC
+        ORDER BY operator_name ASC, issue_key ASC
         """,
                 (release_version,),
     )
@@ -1967,6 +1969,7 @@ def metrics_release_work_units_response(
                 parentTask=str(row["parent_task"]) if row["parent_task"] is not None else None,
                 planned=bool(int(row["planned"])),
                 releaseVersion=str(row["release_version"]) if row["release_version"] is not None else "",
+                operatorName=str(row["operator_name"]),
             )
         )
 

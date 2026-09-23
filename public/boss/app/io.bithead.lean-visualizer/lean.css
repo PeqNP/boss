@@ -203,3 +203,9 @@ a.jira-key {
   height: 12px;
   border: 1px solid #000;
 }
+
+.operator-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
