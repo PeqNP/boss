@@ -263,3 +263,7 @@ a.jira-key {
   flex-wrap: wrap;
   gap: 6px;
 }
+
+.operator-initials {
+  cursor: default;
+}

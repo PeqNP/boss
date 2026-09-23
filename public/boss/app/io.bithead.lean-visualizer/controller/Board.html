@@ -306,11 +306,15 @@
               + narrow(isEmpty(feature.finishOn) ? "—" : escapeHtml(feature.finishOn));
           tr.innerHTML = "<td draggable=\"true\" data-drag=\"" + index + "\" style=\"cursor:grab\">⠿</td>"
             + "<td>" + editLabel("track-name", track.id, track.name) + "</td>"
+            + "<td>" + operatorInitials(track.id) + "</td>"
             + "<td><label class=\"checkbox\"><input type=\"checkbox\" data-role=\"track-enabled\" data-id=\"" + track.id + "\"" + (track.enabled ? " checked" : "") + "> " + (track.enabled ? "Enabled" : "Disabled") + "</label></td>"
             + featureCells
             + "<td><span class=\"row-actions\"><button type=\"button\" class=\"primary\" data-action=\"move-to-backlog\" data-id=\"" + track.id + "\"" + (isEmpty(feature) ? " disabled" : "") + ">Backlog →</button>"
             + "<button type=\"button\" class=\"primary delete\" aria-label=\"Delete\" data-action=\"delete-feature\" data-id=\"" + track.id + "\"" + (isEmpty(feature) ? " disabled" : "") + "></button></span></td>";
           body.appendChild(tr);
+          tr.querySelectorAll(".operator-initials").forEach(function(item) {
+            new UIPopOver(item, new UIPopOverSide("right", "below"), escapeHtml(item.dataset.summary));
+          });
         });
       }
 
@@ -658,6 +662,22 @@
           return [0, 0, 0];
         }
         return weekMetrics[operator.name] || [0, 0, 0];
+      }
+
+      function operatorInitials(trackId) {
+        const people = operators.filter(function(operator) {
+          return operator.trackId === trackId && !isEmpty(operator.name);
+        });
+        if (people.length === 0) {
+          return "—";
+        }
+        return people.map(function(operator) {
+          const initials = String(operator.name).trim().split(/\s+/).map(function(part) {
+            return part.charAt(0).toUpperCase();
+          }).join("");
+          return "<span class=\"ui-help-balloon operator-initials\" data-summary=\""
+            + escapeHtml(operator.name) + "\">" + escapeHtml(initials) + "</span>";
+        }).join(", ");
       }
 
       function trackRate(trackId) {
@@ -1020,7 +1040,7 @@
         <table name="tracks">
           <thead>
             <tr>
-              <th></th><th title="Track"><span class="column-name">Track</span></th><th title="State"><span class="column-name">State</span></th><th title="Feature"><span class="column-name">Feature</span></th><th class="narrow" title="Total Units"><span class="column-name">Total Units</span></th><th class="narrow" title="Completed Units"><span class="column-name">Completed Units</span></th><th class="narrow" title="Units Applied / Week"><span class="column-name">Units Applied / Week</span></th><th class="narrow" title="Remaining Weeks"><span class="column-name">Remaining Weeks</span></th><th title="Est. Weeks"><span class="column-name">Est. Weeks</span></th><th class="narrow" title="Est. Date"><span class="column-name">Est. Date</span></th><th title="Actions"><span class="column-name">Actions</span></th>
+              <th></th><th title="Track"><span class="column-name">Track</span></th><th title="Operators"><span class="column-name">Operators</span></th><th title="State"><span class="column-name">State</span></th><th title="Feature"><span class="column-name">Feature</span></th><th class="narrow" title="Total Units"><span class="column-name">Total Units</span></th><th class="narrow" title="Completed Units"><span class="column-name">Completed Units</span></th><th class="narrow" title="Units Applied / Week"><span class="column-name">Units Applied / Week</span></th><th class="narrow" title="Remaining Weeks"><span class="column-name">Remaining Weeks</span></th><th title="Est. Weeks"><span class="column-name">Est. Weeks</span></th><th class="narrow" title="Est. Date"><span class="column-name">Est. Date</span></th><th title="Actions"><span class="column-name">Actions</span></th>
             </tr>
           </thead>
           <tbody></tbody>
