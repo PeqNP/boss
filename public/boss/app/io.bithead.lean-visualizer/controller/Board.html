@@ -40,20 +40,6 @@
       }
       this.addDivider = addDivider;
 
-      function addRelease() {
-        const date = view.ui.input("release-date").value;
-        const version = view.ui.input("release-version").value.trim();
-        if (isEmpty(date) || isEmpty(version)) {
-          view.ui.showMessage("Provide a release date and version.", { error: true });
-          return;
-        }
-        releases.push({ id: uid("rel"), version: version, date: date });
-        view.ui.input("release-date").value = "";
-        view.ui.input("release-version").value = "";
-        saved();
-      }
-      this.addRelease = addRelease;
-
       async function syncFeatures() {
         await os.network.get(API + "/sync-jira");
         await loadBoard();
@@ -158,21 +144,6 @@
       }
       this.openVirtual = openVirtual;
 
-      async function openReleases() {
-        const win = await $(app.controller).loadController("Releases");
-        win.ui.show(function(ctrl) {
-          ctrl.configure({ releases: releases });
-          ctrl.delegate = {
-            didChangeReleases: function(next) {
-              releases = next;
-              renderReleases();
-              view.ui.showMessage("Saved");
-            }
-          };
-        });
-      }
-      this.openReleases = openReleases;
-
       async function openSchedule() {
         const win = await $(app.controller).loadController("Schedule");
         win.ui.show();
@@ -187,6 +158,24 @@
         bindDrag(view.ui.table("tracks"), "tracks");
         bindDrag(view.ui.table("backlog"), "backlog");
         await loadBoard();
+        os.application("$(app.bundleId)").proxy.attachBoard({
+          snapshot: function() {
+            return {
+              revision: revision,
+              state: {
+                operators: operators,
+                tracks: tracks,
+                backlog: backlog,
+                releases: releases,
+                weeklyNotes: weeklyNotes
+              }
+            };
+          },
+          adopt: function(savedModel) {
+            revision = savedModel.revision;
+            releases = savedModel.state.releases || [];
+          }
+        });
       }
       this.viewDidLoad = viewDidLoad;
 
@@ -194,6 +183,7 @@
         for (const line of dragLines) {
           line.remove();
         }
+        os.application("$(app.bundleId)").proxy.attachBoard(null);
       }
       this.viewWillUnload = viewWillUnload;
 
@@ -253,10 +243,10 @@
         view.ui.span("week-label").textContent = weekLabel;
         view.ui.button("previous-week").disabled = false;
         view.ui.button("next-week").disabled = !canMoveForward();
+        const weeksById = forecastWeeks();
         renderOperators();
-        renderTracks();
-        renderBacklog();
-        renderReleases();
+        renderTracks(weeksById);
+        renderBacklog(weeksById);
         const capacity = tracks.reduce(function(sum, track) {
           return sum + (track.enabled ? trackRate(track.id) : 0);
         }, 0);
@@ -292,7 +282,7 @@
         body.appendChild(totalRow);
       }
 
-      function renderTracks() {
+      function renderTracks(weeksById) {
         const body = view.ui.table("tracks").querySelector("tbody");
         body.innerHTML = "";
         tracks.forEach(function(track, index) {
@@ -303,12 +293,12 @@
             ? "<td class=\"muted\">No active feature</td><td>—</td>"
               + narrow("—") + narrow("—") + narrow("—") + narrow("—")
               + "<td>—</td>" + narrow("—")
-            : "<td>" + featureTitle(feature) + "</td>"
+            : "<td>" + featureTitle(feature, true) + "</td>"
               + "<td>" + keyCell(feature) + "</td>"
               + narrow(feature.units)
               + narrow(feature.completedUnits)
               + narrow(trackRate(track.id))
-              + narrow(feature.remainingWeeks === "" ? "—" : feature.remainingWeeks)
+              + narrow(weeksCell(weeksById[feature.id]))
               + "<td>" + estWeeksLabel(feature, "track") + "</td>"
               + narrow(isEmpty(feature.finishOn) ? "—" : escapeHtml(feature.finishOn));
           tr.innerHTML = "<td draggable=\"true\" data-drag=\"" + index + "\" style=\"cursor:grab\">⠿</td>"
@@ -321,7 +311,7 @@
         });
       }
 
-      function renderBacklog() {
+      function renderBacklog(weeksById) {
         const body = view.ui.table("backlog").querySelector("tbody");
         body.innerHTML = "";
         const enabled = tracks.filter(function(track) { return track.enabled; });
@@ -336,17 +326,17 @@
               ? ""
               : "<button type=\"button\" class=\"primary delete\" aria-label=\"Delete\" data-action=\"delete-backlog\" data-id=\"" + item.id + "\"></button>";
             tr.innerHTML = "<td draggable=\"true\" data-drag=\"" + index + "\" style=\"cursor:grab\">⠿</td>"
-              + "<td colspan=\"11\">" + dot(item.color) + " " + name + " " + remove + "</td>";
+              + "<td colspan=\"11\"><span class=\"row-actions\">" + dot(item.color) + name + remove + "</span></td>";
             body.appendChild(tr);
             return;
           }
           tr.innerHTML = "<td draggable=\"true\" data-drag=\"" + index + "\" style=\"cursor:grab\">⠿</td>"
             + "<td>" + (index + 1) + "</td>"
-            + "<td>" + featureTitle(item) + "</td>"
+            + "<td>" + featureTitle(item, true) + "</td>"
             + "<td>" + keyCell(item) + "</td>"
             + narrow(item.units)
             + narrow(item.completedUnits)
-            + narrow(item.remainingWeeks === "" ? "—" : item.remainingWeeks)
+            + narrow(weeksCell(weeksById[item.id]))
             + "<td>" + estWeeksLabel(item, "backlog") + "</td>"
             + narrow(isEmpty(item.finishOn) ? "—" : escapeHtml(item.finishOn))
             + "<td data-cell=\"pin\"></td>"
@@ -356,16 +346,6 @@
           body.appendChild(tr);
           tr.querySelector("[data-cell='pin']").appendChild(pinMenu(item));
           tr.querySelector("[data-cell='move']").appendChild(moveMenu(item, enabled));
-        });
-      }
-
-      function renderReleases() {
-        const body = view.ui.table("releases").querySelector("tbody");
-        body.innerHTML = "";
-        releases.forEach(function(release) {
-          const tr = document.createElement("tr");
-          tr.innerHTML = "<td>" + escapeHtml(release.version) + "</td><td>" + escapeHtml(release.date) + "</td>";
-          body.appendChild(tr);
         });
       }
 
@@ -686,6 +666,84 @@
         }, 0);
       }
 
+      /**
+       * Weeks of work. A manual estimate wins. No rate and remaining units is uncomputable.
+       */
+      function durationWeeks(feature, capacity) {
+        const manual = Number(feature.manualEstWeeks || 0);
+        if (manual > 0) {
+          return manual;
+        }
+        const remaining = Math.max(0, Number(feature.units || 0) - Number(feature.completedUnits || 0));
+        if (remaining === 0) {
+          return 0;
+        }
+        if (!(capacity > 0)) {
+          return null;
+        }
+        return remaining / capacity;
+      }
+
+      function featureIsOpen(feature) {
+        if (isEmpty(feature) || feature.done) {
+          return false;
+        }
+        const kind = feature.kind || "feature";
+        if (kind === "divider" || kind === "system-divider") {
+          return false;
+        }
+        return !isEmpty(feature.name);
+      }
+
+      /**
+       * Weeks from today until a feature finishes, including work queued ahead of it.
+       */
+      function forecastWeeks() {
+        const found = {};
+        const cursors = {};
+        let firstEnabled = "";
+        tracks.forEach(function(track) {
+          const capacity = trackRate(track.id);
+          let cursor = 0;
+          if (featureIsOpen(track.feature)) {
+            const span = durationWeeks(track.feature, capacity);
+            found[track.feature.id] = span;
+            if (!isEmpty(span)) {
+              cursor = span;
+            }
+          }
+          if (track.enabled && firstEnabled === "") {
+            firstEnabled = track.id;
+          }
+          cursors[track.id] = cursor;
+        });
+        backlog.forEach(function(item) {
+          if (!featureIsOpen(item)) {
+            return;
+          }
+          const pin = item.pinnedTrackId || "";
+          const targetId = pin in cursors ? pin : firstEnabled;
+          if (!(targetId in cursors)) {
+            found[item.id] = null;
+            return;
+          }
+          const span = durationWeeks(item, trackRate(targetId));
+          const start = cursors[targetId];
+          found[item.id] = isEmpty(span) ? null : start + span;
+          if (!isEmpty(span)) {
+            cursors[targetId] = start + span;
+          }
+        });
+        return found;
+      }
+
+      function weeksCell(weeks) {
+        if (!Number.isFinite(weeks)) {
+          return "—";
+        }
+        return weeks.toFixed(2);
+      }
+
       function isoDate(value) {
         const month = String(value.getMonth() + 1).padStart(2, "0");
         const day = String(value.getDate()).padStart(2, "0");
@@ -744,8 +802,14 @@
           + "\" target=\"_blank\" rel=\"noopener noreferrer\">" + escapeHtml(feature.issueKey) + "</a>";
       }
 
-      function featureTitle(feature) {
-        return "<span class=\"feature-name\">" + dot(feature.color) + " " + escapeHtml(feature.name) + "</span>";
+      function featureTitle(feature, clip) {
+        const full = String(feature.name || "");
+        let name = escapeHtml(full);
+        if (clip && full.length > 20) {
+          name = "<span class=\"feature-label\" title=\"" + escapeHtml(full) + "\">"
+            + escapeHtml(full.slice(0, 20)) + "…</span>";
+        }
+        return "<span class=\"feature-name\">" + dot(feature.color) + " " + name + "</span>";
       }
 
       function editLabel(role, id, value) {
@@ -948,32 +1012,6 @@
             <tr>
               <th></th><th title="#"><span class="column-name">#</span></th><th title="Feature"><span class="column-name">Feature</span></th><th title="Jira Key"><span class="column-name">Jira Key</span></th><th class="narrow" title="Total Units"><span class="column-name">Total Units</span></th><th class="narrow" title="Completed Units"><span class="column-name">Completed Units</span></th><th class="narrow" title="Remaining Weeks"><span class="column-name">Remaining Weeks</span></th><th title="Est. Weeks"><span class="column-name">Est. Weeks</span></th><th class="narrow" title="Est. Date"><span class="column-name">Est. Date</span></th><th title="Pinned Track"><span class="column-name">Pinned Track</span></th><th title="Predicted Track"><span class="column-name">Predicted Track</span></th><th title="Move To Track"><span class="column-name">Move To Track</span></th><th></th>
             </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </fieldset>
-
-    <fieldset>
-      <legend>Releases</legend>
-      <div class="vbox gap-10">
-        <div class="hbox gap-10" style="align-items: flex-end;">
-          <div class="text-field">
-            <label for="release-date">Date</label>
-            <input type="date" name="release-date">
-          </div>
-          <div class="text-field">
-            <label for="release-version">Version</label>
-            <input type="text" name="release-version" autocomplete="off">
-          </div>
-          <button class="primary" onclick="$(this.controller).addRelease();">Add Release</button>
-        </div>
-        <div class="hbox gap-10" style="margin-top: 10px;">
-          <button class="primary" onclick="$(this.controller).openReleases();">Manage Releases</button>
-        </div>
-        <table name="releases">
-          <thead>
-            <tr><th title="Version"><span class="column-name">Version</span></th><th title="Date"><span class="column-name">Date</span></th></tr>
           </thead>
           <tbody></tbody>
         </table>

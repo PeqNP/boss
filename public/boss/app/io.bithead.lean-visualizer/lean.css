@@ -51,6 +51,23 @@ td:has(> .edit-label) {
   white-space: nowrap;
 }
 
+/* A clipped feature name stays on one line. The title holds the rest. */
+.feature-label {
+  white-space: nowrap;
+}
+
+/* Five release rows. The header stays put while the rest scroll. */
+.release-scroll {
+  max-height: 190px;
+  overflow-y: auto;
+}
+
+.release-scroll thead th {
+  position: sticky;
+  top: 0;
+  background: #fff;
+}
+
 a.jira-key {
   color: inherit;
   text-decoration: underline;

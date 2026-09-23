@@ -23,7 +23,9 @@ Finished Work, and Prepare Release still use sample rows.
 - The product UI is the controllers named in the plan. A feature keeps its own color.
   The rest of the chrome is the BOSS desktop.
 - Server calls go through `os.network` with the signed-in session.
-- A value edited inside the operators, tracks, or backlog table is an `.edit-label` in `lean.css`: a dotted underline, a tap turns it into a text field, and a commit turns it back into a label. Fields outside those tables stay text fields. Feature names, total units, and completed units come from Jira and are not edited. A Jira key is an `a.jira-key`.
+- A value edited inside the operators, tracks, or backlog table is an `.edit-label` in `lean.css`: a dotted underline, a tap turns it into a text field, and a commit turns it back into a label. Fields outside those tables stay text fields. Feature names, total units, and completed units come from Jira and are not edited. A feature name on a track or in the backlog clips at 20 characters. Remaining weeks is computed when the board draws; a feature from Jira does not carry that field. A Jira key is an `a.jira-key`.
+- Releases is a Go menu item, not a fieldset on the board. The modal lists the next 20 releases dated today or later and scrolls after five rows. Releases outside that 20 stay stored. An Employee's Go menu does not include it.
+- A window reaches the application controller through `os.application(bundleId).proxy`. The application object itself does not carry those methods.
 
 ### Private half
 
@@ -42,7 +44,9 @@ Finished Work, and Prepare Release still use sample rows.
   Jira URL, account email, API key, `fr_board_id`, `planned_board_names`,
   `unplanned_board_names`.
 - `require_acl` is the guard, the same mechanism Scheduler uses. A caller with no role
-  is refused.
+  is refused. The module must not postpone annotations. `require_acl` matches
+  `boss_user: User` by the class, and a postponed annotation is the string
+  `"User"`, so FastAPI asks for a body and `GET /me` answers 422.
 
 ### Contract between the halves
 

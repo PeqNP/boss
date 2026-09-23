@@ -45,10 +45,37 @@
       }
       this.viewDidLoad = viewDidLoad;
 
+      /**
+       * The next 20 releases from today. Older and later ones stay stored.
+       */
+      function visibleReleases() {
+        const now = new Date();
+        const today = now.getFullYear() + "-"
+          + String(now.getMonth() + 1).padStart(2, "0") + "-"
+          + String(now.getDate()).padStart(2, "0");
+        return releases.filter(function(release) {
+          return release.date >= today;
+        }).sort(function(a, b) {
+          if (a.date < b.date) {
+            return -1;
+          }
+          if (a.date > b.date) {
+            return 1;
+          }
+          if (a.version < b.version) {
+            return -1;
+          }
+          if (a.version > b.version) {
+            return 1;
+          }
+          return 0;
+        }).slice(0, 20);
+      }
+
       function render() {
         const body = view.ui.table("release-rows").querySelector("tbody");
         body.innerHTML = "";
-        for (const release of releases) {
+        for (const release of visibleReleases()) {
           const tr = document.createElement("tr");
           tr.innerHTML = "<td><input type=\"text\" data-role=\"version\" data-id=\"" + release.id + "\" value=\"" + escapeHtml(release.version) + "\"></td>"
             + "<td><input type=\"date\" data-role=\"date\" data-id=\"" + release.id + "\" value=\"" + release.date + "\"></td>"
@@ -107,12 +134,14 @@
       </div>
       <button class="primary" onclick="$(this.controller).addRelease();">Add Release</button>
     </div>
-    <table name="release-rows">
-      <thead>
-        <tr><th title="Version"><span class="column-name">Version</span></th><th title="Date"><span class="column-name">Date</span></th><th></th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+    <div class="release-scroll">
+      <table name="release-rows">
+        <thead>
+          <tr><th title="Version"><span class="column-name">Version</span></th><th title="Date"><span class="column-name">Date</span></th><th></th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
     <div class="controls">
       <button class="default" onclick="$(this.controller).close();">Close</button>
     </div>

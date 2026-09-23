@@ -68,6 +68,7 @@ class Role(str, Enum):
 | `Notes` | the board |
 | `VirtualFeature` | the board |
 | `Checkpoint` | the board, or the report |
+| `Releases` | Go |
 
 **Employee** — the token role is `Employee`.
 
@@ -144,17 +145,17 @@ GET /me -> Me
 
 Audience: Admin.
 
-One window. Operators, the week under inspection, tracks, backlog, and releases. File opens Schedule for the 180-day chart.
+One window. Operators, the week under inspection, tracks, and the backlog. Releases is a Go menu item. File opens Schedule for the 180-day chart.
 
 Operators, tracks, and the backlog are tables. A row is reordered by its grab handle. BOSS drag-reorder is the sortable list box, and that control is one label per row, so it is not the board table. The up and down buttons are not on the board.
 
-Operators: name, units, planned, unplanned, waste, track, and Remove. A value edited inside the operators, tracks, or backlog table is an `.edit-label`: dotted underline, a tap turns it into a text field, and a commit turns it back into a label. A field outside those tables stays a text field. Feature names come from Jira and are not edited. The color circle sits on the same line as the name. A Jira key links to `config.jiraRootUrl` plus `/browse/` and the key. Track, the backlog's pinned track, Move To Track, and Add To Track are pop-up menus. A column name stays on one line and shows the full name on hover. The release date and version in the Releases fieldset stay text fields. Sync Task Metrics and Copy Jira Query sit on their own row. The week controls sit under that row. Add Operator, View Task Metrics, View Tasks, and Notes sit under the week controls. The last row of the operator table is the totals, with a black line above it, and it stays last when an operator is added. Total enabled capacity sits under that table. The week under inspection moves to the previous complete week and stops at the current week.
+Operators: name, units, planned, unplanned, waste, track, and Remove. A value edited inside the operators, tracks, or backlog table is an `.edit-label`: dotted underline, a tap turns it into a text field, and a commit turns it back into a label. A field outside those tables stays a text field. Feature names come from Jira and are not edited. The color circle sits on the same line as the name. A Jira key links to `config.jiraRootUrl` plus `/browse/` and the key. Track, the backlog's pinned track, Move To Track, and Add To Track are pop-up menus. A column name stays on one line and shows the full name on hover. A feature name on a track or in the backlog clips at 20 characters and shows the full name on hover. Sync Task Metrics and Copy Jira Query sit on their own row. The week controls sit under that row. Add Operator, View Task Metrics, View Tasks, and Notes sit under the week controls. The last row of the operator table is the totals, with a black line above it, and it stays last when an operator is added. Total enabled capacity sits under that table. The week under inspection moves to the previous complete week and stops at the current week.
 
 Tracks: the name is edited in the row. Enabled, the feature, its key, units, completed units, the rate, remaining weeks, est. weeks, and the date. Units and completed units come from Jira and are read-only. Est. weeks is an `.edit-label` override. Backlog → and Delete act on the feature. Add Track appends one.
 
 Backlog: features, virtual features, dividers, and the system divider `system-sync-divider`. A feature's color is a circle. Units and completed units are read-only. Est. weeks is an `.edit-label` and shows in the danger color when it overrides a feature that has units. Pin a track, or choose Move To Track. Add divider is here. A virtual feature opens `VirtualFeature`.
 
-Releases: version and date. Add Release and Manage Releases. Manage Releases opens `Releases`. Nothing here creates a checkpoint.
+Releases is not on this window. Go opens `Releases`. Nothing here creates a checkpoint.
 
 Sync Feature Requests reads `GET /sync-jira`, merges the issues into the board, keeps `jiraIssueType`, and saves. The sync stores pillars beside the board. They are not fields on the feature in the board JSON.
 
@@ -329,7 +330,7 @@ GET /metrics-release-work-units -> ReleaseWorkUnits
 
 ### `Releases`
 
-Audience: Admin. Modal. Close. Version and date are edited here. Delete removes one. This is the board's release list, saved with `PUT /model`. It is not a checkpoint.
+Audience: Admin. Opened from Go. Modal. Close. Version and date are edited here. Delete removes one. The table lists the next 20 releases dated today or later, and scrolls after five rows. A release outside that 20 stays stored and is not listed. This is the board's release list, saved with `PUT /model`. It is not a checkpoint.
 
 ## Stage 2 — Data Model
 
