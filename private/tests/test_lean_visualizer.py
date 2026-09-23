@@ -372,6 +372,46 @@ def test_schedule():
         conn.close()
 
 
+def test_schedule_distribution():
+    today = date.today()
+    sunday = week_sunday(today) - timedelta(days=7)
+    state = lv.default_visualizer_state()
+    state["operators"] = [
+        operator("Ada", "track_a"),
+        operator("Bea", "track_b"),
+        operator("Cal", "track_d"),
+    ]
+    state["tracks"] = [
+        track("track_a", "Platform"),
+        track("track_b", "Mobile"),
+        track("track_d", "DevOps", held=feature(
+            "soc", "SOC", pinnedTrackId="track_d"
+        )),
+    ]
+    state["backlog"] = [
+        feature("one", "One", units=7),
+        feature("two", "Two", units=7),
+        feature("three", "Three", units=7),
+        feature("ops", "Pipeline", units=7, pinnedTrackId="track_d"),
+    ]
+    conn, _saved = open_board(state)
+    try:
+        lv.record_operator_week(conn, "Ada", sunday, 7, 0)
+        lv.record_operator_week(conn, "Bea", sunday, 7, 0)
+        lv.record_operator_week(conn, "Cal", sunday, 7, 0)
+        names = {
+            item.name: [bar.name for bar in item.bars]
+            for item in lv.build_schedule(conn).tracks
+        }
+        # describe: unpinned backlog items are listed in priority order
+        assert names["Platform"] == ["One", "Three"], "it: items are dealt across the enabled tracks in list order"
+        assert names["Mobile"] == ["Two"], "it: the next item uses the next enabled track"
+        # describe: a feature pins itself to DevOps
+        assert names["DevOps"] == ["SOC", "Pipeline"], "it: that track receives only the features pinned to it"
+    finally:
+        conn.close()
+
+
 def test_pillar():
     state = lv.default_visualizer_state()
     state["backlog"] = [

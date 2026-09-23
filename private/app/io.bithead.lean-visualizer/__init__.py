@@ -2534,6 +2534,25 @@ def track_capacity(
     return round(total, 2)
 
 
+def special_track_ids(state: Dict[str, Any], track_ids: set[str]) -> set[str]:
+    """A track is special when any feature pins itself to that track."""
+    special: set[str] = set()
+
+    def note(feature: Any) -> None:
+        if not isinstance(feature, dict):
+            return
+        pin = str(feature.get("pinnedTrackId") or "")
+        if pin in track_ids:
+            special.add(pin)
+
+    for raw in state.get("tracks") or []:
+        if isinstance(raw, dict):
+            note(raw.get("feature"))
+    for raw in state.get("backlog") or []:
+        note(raw)
+    return special
+
+
 def build_schedule(conn: sqlite3.Connection) -> ScheduleResponse:
     today = local_now().date()
     state = read_board_state(conn)
@@ -2541,7 +2560,6 @@ def build_schedule(conn: sqlite3.Connection) -> ScheduleResponse:
     operators = state.get("operators") or []
     tracks: List[ScheduleTrack] = []
     cursors: Dict[str, date] = {}
-    first_enabled = ""
     for raw in state.get("tracks") or []:
         if not isinstance(raw, dict):
             continue
@@ -2553,8 +2571,6 @@ def build_schedule(conn: sqlite3.Connection) -> ScheduleResponse:
         if feature_is_open(feature) and isinstance(feature, dict):
             bars.append(schedule_bar(feature, cursor, capacity))
             cursor = advance_cursor(cursor, feature, capacity)
-        if bool(raw.get("enabled")) and first_enabled == "":
-            first_enabled = track_id
         cursors[track_id] = cursor
         tracks.append(ScheduleTrack(
             id=track_id,
@@ -2564,12 +2580,28 @@ def build_schedule(conn: sqlite3.Connection) -> ScheduleResponse:
             bars=bars,
         ))
     by_id = {track.id: track for track in tracks}
+    special = special_track_ids(state, set(by_id))
+    general = [
+        track for track in tracks
+        if track.enabled and track.id not in special and track.capacity > 0
+    ]
+    if len(general) == 0:
+        general = [
+            track for track in tracks
+            if track.enabled and track.id not in special
+        ]
+    # Backlog order is priority. Unpinned items are dealt across the ordinary tracks.
+    deal = 0
     for raw in state.get("backlog") or []:
         if not feature_is_open(raw) or not isinstance(raw, dict):
             continue
         pin = str(raw.get("pinnedTrackId") or "")
-        target_id = pin if pin in by_id else first_enabled
-        target = by_id.get(target_id)
+        target = by_id.get(pin)
+        if target is None:
+            if len(general) == 0:
+                continue
+            target = general[deal % len(general)]
+            deal += 1
         if target is None:
             continue
         start = cursors.get(target.id, today)

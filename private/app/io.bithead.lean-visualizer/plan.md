@@ -207,7 +207,7 @@ GET /schedule -> Schedule
 
 Audience: Admin and Employee.
 
-The 180-day chart from `GET /schedule` is drawn above the track table. One row per track. A bar is positioned by its start and finish, in `feature.color`. A release inside the horizon is a vertical line across every row, labeled on the axis. The table under the chart names the track, its rate, and the feature on it. Manage Releases opens `Releases`. `didChangeReleases` redraws the chart.
+The 180-day chart from `GET /schedule` is drawn above the track table. One row per track. A bar is positioned by its start and finish, in `feature.color`. Unpinned backlog items are taken in array order, which is their priority, and dealt in turn across the enabled tracks. A track that any feature pins itself to is left out of that deal and receives only the features pinned to it. A release inside the horizon is a vertical line across every row, labeled on the axis. The table under the chart names the track, its rate, and the feature on it. Manage Releases opens `Releases`. `didChangeReleases` redraws the chart.
 
 State: load, show. A release added in the modal updates the chart.
 

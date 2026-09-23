@@ -19,7 +19,9 @@ The BOSS app is this bundle: `application.json`, sign-in, and ACL. Board,
 Schedule, Report, Checkpoint, and Task Metrics call the live routes. Task Metrics
 is a line per operator, five weeks at a time, from `GET /metrics-window`. The
 schedule chart places each feature by its start and finish, and a release in
-that horizon is a vertical line across the rows. Tasks, Finished Work, and
+that horizon is a vertical line across the rows. Unpinned backlog items are
+dealt in list order across the enabled tracks. A track that any feature pins
+itself to, such as DevOps, only receives features pinned to it. Tasks, Finished Work, and
 Prepare Release still use sample rows.
 
 ### Public half

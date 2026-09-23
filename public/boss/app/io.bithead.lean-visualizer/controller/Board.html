@@ -702,8 +702,9 @@
       function forecastWeeks() {
         const found = {};
         const cursors = {};
-        let firstEnabled = "";
+        const known = {};
         tracks.forEach(function(track) {
+          known[track.id] = true;
           const capacity = trackRate(track.id);
           let cursor = 0;
           if (featureIsOpen(track.feature)) {
@@ -713,26 +714,52 @@
               cursor = span;
             }
           }
-          if (track.enabled && firstEnabled === "") {
-            firstEnabled = track.id;
-          }
           cursors[track.id] = cursor;
         });
+        const special = {};
+        function notePin(feature) {
+          if (isEmpty(feature)) {
+            return;
+          }
+          const pin = feature.pinnedTrackId || "";
+          if (known[pin]) {
+            special[pin] = true;
+          }
+        }
+        tracks.forEach(function(track) { notePin(track.feature); });
+        backlog.forEach(notePin);
+        let general = tracks.filter(function(track) {
+          return track.enabled && !special[track.id] && trackRate(track.id) > 0;
+        });
+        if (general.length === 0) {
+          general = tracks.filter(function(track) {
+            return track.enabled && !special[track.id];
+          });
+        }
+        let deal = 0;
         backlog.forEach(function(item) {
           if (!featureIsOpen(item)) {
             return;
           }
           const pin = item.pinnedTrackId || "";
-          const targetId = pin in cursors ? pin : firstEnabled;
-          if (!(targetId in cursors)) {
+          let target = known[pin] ? tracks.find(function(track) { return track.id === pin; }) : null;
+          if (isEmpty(target)) {
+            if (general.length === 0) {
+              found[item.id] = null;
+              return;
+            }
+            target = general[deal % general.length];
+            deal += 1;
+          }
+          if (isEmpty(target)) {
             found[item.id] = null;
             return;
           }
-          const span = durationWeeks(item, trackRate(targetId));
-          const start = cursors[targetId];
+          const span = durationWeeks(item, trackRate(target.id));
+          const start = cursors[target.id];
           found[item.id] = isEmpty(span) ? null : start + span;
           if (!isEmpty(span)) {
-            cursors[targetId] = start + span;
+            cursors[target.id] = start + span;
           }
         });
         return found;
