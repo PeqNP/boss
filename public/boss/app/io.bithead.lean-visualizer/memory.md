@@ -8,10 +8,12 @@ checkpoint call them. The rate, the schedule, pillars, the board save, the
 fourteen-day change, who may call a route, and checkpoint credits are tested.
 A checkpoint save pulls the issues the weekly sync would count for that
 release window. Tasks and Finished Work call their routes.
-Stage 6 is complete. The private service is a package: `model.py` for the
+Stage 7 is complete. The private service is a package: `model.py` for the
 shapes, `db.py` for the database and every SQL statement, and `lib/` for the
-rules. Routes stay in `__init__.py`. Step 7 is next: reconcile the client
-with the models. This slice has no OS work.
+rules. Routes stay in `__init__.py`. No two models share a field set.
+`PillarFinished` stays apart from `PillarOpen`, and `SaveModelRequest` stays
+apart from `ModelResponse`. Step 8 is next: write `ui-plan.md`, then the UI
+tests. This slice has no OS work.
 
 `index.html` is the old page. Stage 1 deletes it. It is not a client, and no route
 stays open so that it can keep calling. The plan decides the windows and the routes.

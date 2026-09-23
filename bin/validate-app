@@ -507,6 +507,9 @@ def check_response_fields(bundle, report):
 
         # The variable a response lands in, plus anything iterating over it —
         # `for (const job of response)`, `response.map(function(line) {`.
+        # `of response.items` is a field, not the response: the `.` is the
+        # difference, and treating it as the response flags the loop's own
+        # fields (`release.left`) as missing from the model.
         # A URL that does not contain this app's prefix is not this app's model.
         holders = set()
         for match in re.finditer(
@@ -516,8 +519,10 @@ def check_response_fields(bundle, report):
                 continue
             holders.add(holder)
         for holder in list(holders):
-            holders |= set(re.findall(rf"for\s*\(\s*const\s+(\w+)\s+of\s+{holder}\b", src))
-            holders |= set(re.findall(rf"{holder}\.map\(\s*function\s*\(\s*(\w+)", src))
+            holders |= set(re.findall(
+                rf"for\s*\(\s*const\s+(\w+)\s+of\s+{holder}\b(?!\.)", src))
+            holders |= set(re.findall(
+                rf"(?<!\.){holder}\.map\(\s*function\s*\(\s*(\w+)", src))
         holders.discard("")
 
         seen = set()
