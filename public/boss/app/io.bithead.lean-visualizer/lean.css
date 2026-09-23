@@ -21,6 +21,10 @@ tr.totals td {
   border-top: 1px solid #000;
 }
 
+tr.divider td {
+  border-bottom: 1px solid #000;
+}
+
 .row-actions {
   display: inline-flex;
   align-items: center;

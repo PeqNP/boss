@@ -317,6 +317,12 @@ class CheckpointResponse(BaseModel):
     issueCount: int
 
 
+class CheckpointIssue(BaseModel):
+    operatorName: str
+    issueKey: str
+    planned: bool
+
+
 class ConfigResponse(BaseModel):
     jiraRootUrl: str
 
@@ -2805,7 +2811,76 @@ def ensure_checkpoint_tables(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-def save_checkpoint(conn: sqlite3.Connection, release_id: str) -> CheckpointResponse:
+def store_checkpoint_issues(
+    conn: sqlite3.Connection,
+    checkpoint_id: int,
+    issues: List[Dict[str, Any]],
+    operator_names: List[str],
+    window_start: str,
+    window_end: str,
+    developers_field: str,
+) -> int:
+    """Credit operators for issues that moved to done inside the window.
+
+    A parent makes the credit planned. A developer who is not an operator is skipped.
+    """
+    start = date.fromisoformat(window_start)
+    end = date.fromisoformat(window_end)
+    operators = {name for name in operator_names if name != ""}
+    credited = 0
+    for issue in issues:
+        if not issue_completed_in_range(issue, start, end):
+            continue
+        fields = issue.get("fields") if isinstance(issue.get("fields"), dict) else {}
+        issue_key = str(issue.get("key") or "").strip()
+        if issue_key == "":
+            continue
+        parent = parent_task_label(fields)
+        planned = 1 if parent else 0
+        summary = str(fields.get("summary") or "").strip() or None
+        for name in extract_people(fields.get(developers_field)):
+            if name not in operators:
+                continue
+            conn.execute(
+                """
+                INSERT INTO checkpoint_issues (
+                    checkpoint_id, operator_name, issue_key, issue_description,
+                    parent_task, planned
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (checkpoint_id, name, issue_key, summary, parent, planned),
+            )
+            credited += 1
+    return credited
+
+
+def read_checkpoint_issues(conn: sqlite3.Connection, release_id: str) -> List[CheckpointIssue]:
+    ensure_checkpoint_tables(conn)
+    rows = conn.execute(
+        """
+        SELECT operator_name, issue_key, planned
+        FROM checkpoint_issues
+        JOIN checkpoints ON checkpoints.id = checkpoint_issues.checkpoint_id
+        WHERE checkpoints.release_id = ?
+        ORDER BY issue_key, operator_name
+        """,
+        (release_id,),
+    ).fetchall()
+    return [
+        CheckpointIssue(
+            operatorName=str(row["operator_name"]),
+            issueKey=str(row["issue_key"]),
+            planned=bool(row["planned"]),
+        )
+        for row in rows
+    ]
+
+
+def save_checkpoint(
+    conn: sqlite3.Connection,
+    release_id: str,
+    issues: List[Dict[str, Any]] | None = None,
+) -> CheckpointResponse:
     state = read_board_state(conn)
     release = next((item for item in state.get("releases") or [] if isinstance(item, dict) and str(item.get("id")) == release_id), None)
     if release is None:
@@ -2850,6 +2925,20 @@ def save_checkpoint(conn: sqlite3.Connection, release_id: str) -> CheckpointResp
         ),
     )
     checkpoint_id = int(cursor.lastrowid)
+    operator_names = [
+        str(item.get("name") or "").strip()
+        for item in state.get("operators") or []
+        if isinstance(item, dict)
+    ]
+    issue_count = store_checkpoint_issues(
+        conn,
+        checkpoint_id,
+        issues or [],
+        operator_names,
+        window_start,
+        release_date,
+        "developers",
+    )
     for track in schedule.tracks:
         for bar in track.bars:
             conn.execute(
@@ -2869,7 +2958,7 @@ def save_checkpoint(conn: sqlite3.Connection, release_id: str) -> CheckpointResp
         windowStart=window_start,
         windowEnd=release_date,
         savedAt=saved_at,
-        issueCount=0,
+        issueCount=issue_count,
     )
 
 

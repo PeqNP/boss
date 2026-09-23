@@ -7,12 +7,15 @@
 
 import os
 
-from datetime import date, timedelta
+import asyncio
+from datetime import date, datetime, timedelta
 
 import pytest
 from fastapi import HTTPException
+from starlette.requests import Request
 
 from lib import get_config
+from lib.model import User
 from libtest import get_app_module
 
 lv = get_app_module("io.bithead.lean-visualizer")
@@ -456,3 +459,117 @@ def test_report():
         assert report.rates.windowStart > "2025-12-28", "it: the rate window stays the recent eight weeks"
     finally:
         conn.close()
+
+
+def jira_stamp(day):
+    offset = datetime.now().astimezone().strftime("%z")
+    return day.isoformat() + "T12:00:00.000" + offset
+
+
+def done_issue(key, day, developer, parent=None):
+    fields = {
+        "summary": key,
+        "developers": [{"displayName": developer}],
+    }
+    if parent is not None:
+        fields["parent"] = {"key": parent}
+    return {
+        "key": key,
+        "fields": fields,
+        "changelog": {
+            "histories": [{
+                "created": jira_stamp(day),
+                "items": [{"field": "status", "toString": "Done"}],
+            }],
+        },
+    }
+
+
+def test_checkpoint_issues():
+    today = date.today()
+    state = lv.default_visualizer_state()
+    state["operators"] = [operator("Ada")]
+    state["releases"] = [release("rel", "1.0.0", today)]
+    conn, _saved = open_board(state)
+    try:
+        # describe: an issue transitioned to done inside the window and names a Developer who is an operator
+        saved = lv.save_checkpoint(conn, "rel", [
+            done_issue("FR-10", today, "Ada", parent="FR-1"),
+            done_issue("FR-11", today, "Ada"),
+            done_issue("FR-12", today - timedelta(days=40), "Ada", parent="FR-1"),
+            done_issue("FR-13", today, "Bob", parent="FR-1"),
+        ])
+        assert saved.issueCount == 2, "it: that operator is credited"
+        rows = {item.issueKey: item for item in lv.read_checkpoint_issues(conn, "rel")}
+        assert rows["FR-10"].planned is True, "it: planned when the issue has a parent"
+        assert rows["FR-10"].operatorName == "Ada", "it: the credit names that operator"
+        assert rows["FR-11"].planned is False, "it: an issue with no parent is unplanned"
+        assert "FR-12" not in rows, "it: a transition outside the window is not credited"
+        assert "FR-13" not in rows, "it: a developer who is not an operator is not credited"
+    finally:
+        conn.close()
+
+
+def http_request():
+    return Request({
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path": b"/",
+        "query_string": b"",
+        "headers": [],
+        "client": ("127.0.0.1", 50000),
+        "server": ("testserver", 80),
+    })
+
+
+def status_of(handler, **kwargs):
+    try:
+        asyncio.run(handler(request=http_request(), **kwargs))
+    except HTTPException as exc:
+        return exc.status_code
+    return 200
+
+
+def test_access(monkeypatch):
+    config = get_config()
+    previous_login = config.login_enabled
+    config.login_enabled = True
+    grants = set()
+
+    async def verify(request, bundle_id, feature):
+        if feature not in grants:
+            raise HTTPException(status_code=403, detail="refused")
+        return User(
+            id=2,
+            system=0,
+            fullName="Pat",
+            email="pat@example.com",
+            verified=True,
+            enabled=True,
+        )
+
+    monkeypatch.setattr("lib.server.verify_user", verify)
+    fresh_database()
+    body = lv.SaveModelRequest(state=lv.default_visualizer_state())
+    try:
+        # describe: caller has no role
+        assert status_of(lv.get_me) == 403, "it: GET /me is refused"
+        assert status_of(lv.get_model) == 403, "it: GET /model is refused"
+
+        grants.update(["schedule.r", "report.r"])
+        # describe: caller is an Employee
+        assert status_of(lv.put_model, body=body) == 403, "it: PUT /model is refused"
+        assert status_of(lv.get_model) == 403, "it: GET /model is refused"
+        assert status_of(lv.put_checkpoint, release_id="rel") == 403, "it: PUT /checkpoints/{releaseId} is refused"
+        assert status_of(lv.get_schedule) == 200, "it: GET /schedule returns the forecast"
+        assert status_of(lv.get_report) == 200, "it: GET /report returns the report"
+
+        grants.update(["board.w", "board.r", "checkpoint.w"])
+        # describe: caller is an Admin
+        assert status_of(lv.put_model, body=body) == 200, "it: PUT /model is allowed"
+    finally:
+        config.login_enabled = previous_login

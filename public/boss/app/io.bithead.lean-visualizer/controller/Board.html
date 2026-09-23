@@ -1,4 +1,4 @@
-<div class="ui-window">
+<div class="ui-window fullscreen">
   <script type="text/javascript">
     function $(this.id)(view) {
 
@@ -319,6 +319,7 @@
           const tr = document.createElement("tr");
           tr.dataset.index = String(index);
           if (item.kind === "divider" || item.kind === "system-divider") {
+            tr.className = "divider";
             const name = item.kind === "system-divider"
               ? escapeHtml(item.name)
               : editLabel("divider-name", item.id, item.name);
@@ -937,6 +938,7 @@
   <div class="top">
     <div class="close-button"></div>
     <div class="title"><span>Board</span></div>
+    <div class="zoom-button"></div>
   </div>
 
   <div class="container vbox gap-20 resizable" style="width: 1100px; height: 720px;">

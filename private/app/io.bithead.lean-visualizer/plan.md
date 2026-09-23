@@ -145,7 +145,7 @@ GET /me -> Me
 
 Audience: Admin.
 
-One window. Operators, the week under inspection, tracks, and the backlog. Releases is a Go menu item. File opens Schedule for the 180-day chart.
+One window. It opens fullscreen. Operators, the week under inspection, tracks, and the backlog. Releases is a Go menu item. File opens Schedule for the 180-day chart.
 
 Operators, tracks, and the backlog are tables. A row is reordered by its grab handle. BOSS drag-reorder is the sortable list box, and that control is one label per row, so it is not the board table. The up and down buttons are not on the board.
 

@@ -4,10 +4,11 @@ Lean Multi-Track Production Simulator: a release-forecasting board backed by Jir
 Shipped and in daily use. The spec is [description.md](description.md). The contract
 is [plan.md](../../../../private/app/io.bithead.lean-visualizer/plan.md). Every route
 requires a role. The routes are live and the board, schedule, report, and
-checkpoint call them. The rate, the schedule, pillars, the board save, and the
-fourteen-day change are tested. Next is who may call which route, and which
-issues a checkpoint credits. This slice has no OS work. The private module
-stays one file until those tests pass.
+checkpoint call them. The rate, the schedule, pillars, the board save, the
+fourteen-day change, who may call a route, and checkpoint credits are tested.
+Next is connecting a checkpoint save to the Jira pull, then the four windows
+that still use sample rows. The private module stays one file until that pull
+is in. This slice has no OS work.
 
 `index.html` is the old page. Stage 1 deletes it. It is not a client, and no route
 stays open so that it can keep calling. The plan decides the windows and the routes.
@@ -22,6 +23,7 @@ Finished Work, and Prepare Release still use sample rows.
 
 - The product UI is the controllers named in the plan. A feature keeps its own color.
   The rest of the chrome is the BOSS desktop.
+- Board opens fullscreen: `ui-window fullscreen`, with a zoom button. The OS moves that class onto the window container and fills the desktop.
 - Server calls go through `os.network` with the signed-in session.
 - A value edited inside the operators, tracks, or backlog table is an `.edit-label` in `lean.css`: a dotted underline, a tap turns it into a text field, and a commit turns it back into a label. Fields outside those tables stay text fields. Feature names, total units, and completed units come from Jira and are not edited. A feature name on a track or in the backlog clips at 20 characters. Remaining weeks is computed when the board draws; a feature from Jira does not carry that field. A Jira key is an `a.jira-key`.
 - Releases is a Go menu item, not a fieldset on the board. The modal lists the next 20 releases dated today or later and scrolls after five rows. Releases outside that 20 stay stored. An Employee's Go menu does not include it.
@@ -100,9 +102,9 @@ Finished Work, and Prepare Release still use sample rows.
 
 1. Schema changes need their own migration patch plus a DB version bump. Do not delete or
    recreate the database to apply one.
-2. `test_access` is not written. Admin and Employee reach are the route decorators only.
-3. A checkpoint's `issueCount` stays 0. Issues completed in the release window are not
-   stored yet. Hand the test the issues; do not call Jira.
+2. `save_checkpoint` credits issues it is handed. The route still hands it none, so a
+   checkpoint saved from the board has `issueCount` 0 until that save runs the same
+   pull as the weekly sync. Do not call Jira from the test.
 
 ## Running it
 
