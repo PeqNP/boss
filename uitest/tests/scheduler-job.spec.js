@@ -1,7 +1,7 @@
 // Copyright ⓒ 2026 Bithead LLC. All rights reserved.
 
 /**
- * Flow 9 — an appointment as the operator works it.
+ * An appointment as the operator works it.
  *
  * Where a job is moved, given to somebody, finished, and paid for. Each of
  * those is a write the screen has to read back: what was collected against an
@@ -10,7 +10,7 @@
  * counted.
  *
  * What a payment means — deposit, part payment, written off — is settled in
- * the private suite. See `ui-plan.md`.
+ * the private suite.
  */
 
 import { test, expect } from "@playwright/test";

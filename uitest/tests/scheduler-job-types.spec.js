@@ -1,7 +1,7 @@
 // Copyright ⓒ 2026 Bithead LLC. All rights reserved.
 
 /**
- * Flow 4 — the work a business offers.
+ * The work a business offers.
  *
  * A job type is created as a draft the moment the window opens, so its sizes
  * and contact fields have something to belong to before anything is named. The
@@ -10,7 +10,7 @@
  *
  * That is the part worth proving through a browser: a draft nobody finished
  * must not reach a customer, and only the kiosk's own answer says whether it
- * did. See `ui-plan.md`.
+ * did.
  */
 
 import { test, expect } from "@playwright/test";

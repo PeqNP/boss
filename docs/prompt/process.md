@@ -582,7 +582,7 @@ See [Iteration](#iteration--a-slice-on-a-finished-plan).
 
    Write a `ui-plan.md` beside the app's `plan.md` first. `plan.md` is the implementation contract; `ui-plan.md` is the coverage contract — the flows to cover, in order, each saying what it must prove, plus a status table. UI testing is long and interruptible, so the plan is what lets it stop and resume: the table says what is done, and no one has to remember a conversation.
 
-   Each flow becomes one spec file. Update its status in the same commit as the spec, and record any defect it turns up under **Findings**, so the next session can tell a gap in coverage from a gap in the app.
+   Each flow becomes one spec file. The spec does not name the flow or its place in the plan. The file says what it tests. The order and the status stay in `ui-plan.md`, and they change without the spec changing. Update its status in the same commit as the spec, and record any defect it turns up under **Findings**, so the next session can tell a gap in coverage from a gap in the app.
 
    The `commit` skill writes the message for the flow.
 

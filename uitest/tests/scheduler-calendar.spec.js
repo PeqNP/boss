@@ -1,7 +1,7 @@
 // Copyright ⓒ 2026 Bithead LLC. All rights reserved.
 
 /**
- * Flow 8 — the operator's view of the work.
+ * The operator's view of the work.
  *
  * A month, a week and a day are the same appointments read at three widths,
  * and Day has a Queue that stacks what is still to do.
@@ -9,8 +9,7 @@
  * and the employee both. What this proves is that each width draws what was
  * booked and that a day leads to the job.
  *
- * Which appointments belong to a day is settled in the private suite. See
- * `ui-plan.md`.
+ * Which appointments belong to a day is settled in the private suite.
  */
 
 import { test, expect } from "@playwright/test";

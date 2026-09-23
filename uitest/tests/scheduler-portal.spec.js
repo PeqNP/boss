@@ -1,7 +1,7 @@
 // Copyright ⓒ 2026 Bithead LLC. All rights reserved.
 
 /**
- * Flow 12 — the day as the person doing the work sees it.
+ * The day as the person doing the work sees it.
  *
  * An employee reaches the same routes an operator does, narrowed to the jobs
  * they are on. So every test here books work for two people and asserts that

@@ -1,7 +1,7 @@
 // Copyright ⓒ 2026 Bithead LLC. All rights reserved.
 
 /**
- * Flow 6 — the path a customer walks.
+ * The path a customer walks.
  *
  * The kiosk is the whole of the customer surface and asks for no account, so
  * nobody signs in to notice it broken. It is also the longest path in the app:
@@ -11,7 +11,7 @@
  * What the rules decide — which times are open, who is free, what a hold
  * expires to — is settled in the private suite. What this proves is that each
  * step reaches the next and that the appointment exists afterwards with what
- * the customer chose. See `ui-plan.md`.
+ * the customer chose.
  */
 
 import { test, expect } from "@playwright/test";

@@ -1,7 +1,7 @@
 // Copyright ⓒ 2026 Bithead LLC. All rights reserved.
 
 /**
- * Flow 7 — a customer letting themselves back in.
+ * A customer letting themselves back in.
  *
  * A job code says which appointment; a code sent to the contact they gave says
  * it is them. Six wrong codes closes the door for good, and the operator still
@@ -9,7 +9,7 @@
  *
  * The code goes to a phone nobody is holding during a test, so the app records
  * what a vendor would have sent — see `lib/notify.py`, wired in development
- * only. Without it the verify step cannot be reached at all. See `ui-plan.md`.
+ * only. Without it the verify step cannot be reached at all.
  */
 
 import { test, expect } from "@playwright/test";

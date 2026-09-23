@@ -1,14 +1,14 @@
 // Copyright ⓒ 2026 Bithead LLC. All rights reserved.
 
 /**
- * Flow 3 — the capacity report.
+ * The capacity report.
  *
  * Dashboards opens the report, and the tables are the report response.
  * The eight-week arithmetic stays in the private suite. An operator with
  * no stored weeks is enough to prove the row is read: zeros, in the
  * column order the board's rate is built from.
  *
- * The live board is put back when the test ends. See `ui-plan.md`.
+ * The live board is put back when the test ends.
  */
 
 import { test, expect } from "@playwright/test";

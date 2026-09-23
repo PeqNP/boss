@@ -1,7 +1,7 @@
 // Copyright ⓒ 2026 Bithead LLC. All rights reserved.
 
 /**
- * Flow 10 — the people a business books work for.
+ * The people a business books work for.
  *
  * A customer record is made by a booking rather than by an operator typing one
  * in, so these tests start at the kiosk and pick the record up afterwards: the

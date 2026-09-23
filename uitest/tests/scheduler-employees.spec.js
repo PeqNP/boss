@@ -1,7 +1,7 @@
 // Copyright ⓒ 2026 Bithead LLC. All rights reserved.
 
 /**
- * Flow 5 — the people a business schedules.
+ * The people a business schedules.
  *
  * An employee record exists before the person has a BOSS account: somebody is
  * added to the schedule long before they sign in. Like a job type it is
@@ -10,7 +10,7 @@
  *
  * `canManageOwnSchedule` is what puts the calendar and profile on their
  * dashboard, and it was dropped on create until recently — which is the kind
- * of thing only reading the record back catches. See `ui-plan.md`.
+ * of thing only reading the record back catches.
  */
 
 import { test, expect } from "@playwright/test";

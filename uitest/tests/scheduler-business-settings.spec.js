@@ -1,7 +1,7 @@
 // Copyright ⓒ 2026 Bithead LLC. All rights reserved.
 
 /**
- * Flow 3 — the settings an operator chooses for their business.
+ * The settings an operator chooses for their business.
  *
  * The screen writes as the owner works: leaving a field saves it, and so does
  * ticking a box, choosing from a menu, or pressing Enter. There is no Save
@@ -9,8 +9,7 @@
  * looks exactly like a field that saved.
  *
  * What the settings mean is settled in the private suite. What this proves is
- * that each tab reaches the route and that the value comes back. See
- * `ui-plan.md`.
+ * that each tab reaches the route and that the value comes back.
  */
 
 import { test, expect } from "@playwright/test";

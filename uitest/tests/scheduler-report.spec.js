@@ -1,7 +1,7 @@
 // Copyright ⓒ 2026 Bithead LLC. All rights reserved.
 
 /**
- * Flow 11 — what the business took over a period.
+ * What the business took over a period.
  *
  * The figures an owner reads to decide whether the quarter went well, so each
  * one is asserted against what was actually booked and paid rather than

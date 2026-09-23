@@ -1,14 +1,14 @@
 // Copyright ⓒ 2026 Bithead LLC. All rights reserved.
 
 /**
- * Flow 2 — the board saves and reads back.
+ * The board saves and reads back.
  *
  * The rows on screen are whatever `PUT /model` stored. A renamed operator
  * has to survive closing the app, which is the wiring the private suite
  * cannot see: the blur saved, and the next open read the new name.
  *
  * The live board is put back when the test ends. This app is not on the
- * UI reset. See `ui-plan.md`.
+ * UI reset.
  */
 
 import { test, expect } from "@playwright/test";

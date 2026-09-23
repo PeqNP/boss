@@ -1,13 +1,11 @@
 // Copyright ⓒ 2026 Bithead LLC. All rights reserved.
 
 /**
- * Flow 1 — who the app opens for.
+ * Who the app opens for.
  *
  * An admin lands on the board and an employee lands on the capacity report.
  * The menus are the wiring: a role that can open the wrong window is a menu
  * item left in place, which the private suite never draws.
- *
- * See `ui-plan.md`.
  */
 
 import { test, expect } from "@playwright/test";

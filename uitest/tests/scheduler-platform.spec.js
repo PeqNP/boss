@@ -1,7 +1,7 @@
 // Copyright ⓒ 2026 Bithead LLC. All rights reserved.
 
 /**
- * Flow 13 — what the platform owns rather than any one business.
+ * What the platform owns rather than any one business.
  *
  * Holidays, the hold timeout and vendors are seeded once and shared by
  * every business, so an edit here reaches all of them. Contact field types
