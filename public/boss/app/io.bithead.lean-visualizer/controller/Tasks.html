@@ -31,17 +31,33 @@
           path += "?week_start=" + encodeURIComponent(weekStart);
         }
         payload = await os.network.get(path);
-        const names = (payload.operators || []).map(function(item) { return item.operatorName; });
-        operatorName = names.length === 0 ? "" : names[0];
-        render();
+        const tabs = view.ui.select("operators").ui;
+        tabs.delegate = {
+          didSelectTab: function(option) {
+            showOperator(option.value);
+          },
+          didCloseTab: function() {}
+        };
+        const choices = (payload.operators || []).map(function(item) {
+          return new UITabChoice(item.operatorName, item.operatorName);
+        });
+        if (choices.length === 0) {
+          render();
+          return;
+        }
+        tabs.addNewTabs(choices);
+        operatorName = choices[0].id;
+        tabs.selectTab(operatorName);
+        const selected = tabs.selectedTab();
+        if (!isEmpty(selected) && !isEmpty(selected.ui)) {
+          selected.ui.parentElement.scrollLeft = selected.ui.offsetLeft;
+        }
       }
       this.viewDidLoad = viewDidLoad;
 
       function render() {
         const week = payload ? payload.weekStart + " – " + payload.weekEnd : weekStart;
         view.ui.span("week").textContent = week;
-        view.ui.span("operator").textContent = operatorName;
-        drawOperators((payload && payload.operators) || []);
         const body = view.ui.table("tasks").querySelector("tbody");
         body.innerHTML = "";
         const group = ((payload && payload.operators) || []).find(function(item) {
@@ -57,25 +73,12 @@
         const root = payload ? payload.jiraRootUrl : "";
         for (const task of tasks) {
           const tr = document.createElement("tr");
-          tr.innerHTML = "<td>" + keyLink(root, task.issueKey) + "</td><td>"
-            + escapeHtml(task.description || "—") + "</td><td>"
-            + (task.planned ? "Planned" : "Unplanned") + "</td>";
+          const description = task.description || "—";
+          tr.innerHTML = "<td class=\"key\">" + keyLink(root, task.issueKey) + "</td>"
+            + "<td class=\"summary\" title=\"" + escapeHtml(description) + "\">"
+            + escapeHtml(description) + "</td>"
+            + "<td class=\"kind\">" + (task.planned ? "Planned" : "Unplanned") + "</td>";
           body.appendChild(tr);
-        }
-      }
-
-      function drawOperators(operators) {
-        const box = view.ui.div("operators");
-        box.innerHTML = "";
-        for (const item of operators) {
-          const button = document.createElement("button");
-          button.type = "button";
-          button.className = "primary";
-          button.textContent = item.operatorName;
-          button.addEventListener("click", function() {
-            showOperator(item.operatorName);
-          });
-          box.appendChild(button);
         }
       }
 
@@ -104,17 +107,17 @@
       <label>Week</label>
       <span name="week"></span>
     </div>
-    <div name="operators" class="operator-tabs"></div>
-    <div class="read-only">
-      <label>Operator</label>
-      <span name="operator"></span>
+    <div class="ui-tabs">
+      <select name="operators"></select>
     </div>
-    <table name="tasks">
-      <thead>
-        <tr><th title="Key"><span class="column-name">Key</span></th><th title="Description"><span class="column-name">Description</span></th><th title="Kind"><span class="column-name">Kind</span></th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+    <div class="task-scroll">
+      <table name="tasks">
+        <thead>
+          <tr><th class="key" title="Key">Key</th><th class="summary" title="Description">Description</th><th class="kind" title="Kind">Kind</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
     <div class="controls">
       <button class="default" onclick="$(this.controller).close();">Close</button>
     </div>

@@ -66,6 +66,46 @@ td:has(> .edit-label) {
   overflow-y: auto;
 }
 
+/* Five task rows. The header stays put while the rest scroll. */
+.task-scroll {
+  max-height: 158px;
+  overflow-y: auto;
+}
+
+.task-scroll thead th {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 1;
+}
+
+.task-scroll table {
+  table-layout: fixed;
+}
+
+.task-scroll th.key,
+.task-scroll td.key {
+  width: 9em;
+  white-space: nowrap;
+}
+
+.task-scroll th.kind,
+.task-scroll td.kind {
+  width: 7em;
+  white-space: nowrap;
+}
+
+.task-scroll th.summary,
+.task-scroll td.summary {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.task-scroll td.summary {
+  max-width: 0;
+}
+
 .release-scroll thead th {
   position: sticky;
   top: 0;

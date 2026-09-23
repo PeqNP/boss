@@ -292,7 +292,7 @@ GET /metrics-window -> MetricsWindow
 
 ### `Tasks`
 
-Audience: Admin. Modal. Close. One tab per operator for the week under inspection.
+Audience: Admin. Modal. Close. One tab per operator for the week under inspection. The task table shows five rows and scrolls.
 
 ```
 GET /metrics-tasks -> TaskMetricTasks
