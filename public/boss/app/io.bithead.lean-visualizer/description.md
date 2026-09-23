@@ -23,7 +23,6 @@ The capacity report is a view in the same app. An employee opens on the report a
 
 - Planned versus unplanned work, per operator, for the last eight complete weeks and for the stored history.
 - Allocation by strategic pillar. The pillars are Growth / Acquisition, New Features / Retention, Tech Debt / Stability, and Process Efficiency / Cost Savings, read from the Strategic Pillar field on the feature request. A feature with no pillar is Unassigned and stays on the report. A feature with more than one pillar counts in each. Process Efficiency / Cost Savings is the work that saves time or reduces operational effort. New Features / Retention and Growth / Acquisition are the work that improves the client experience. Tech Debt / Stability is capacity spent keeping the product working.
-- Current tracks and available capacity: each enabled track's rate, the feature on it, when that feature frees the track, and the features waiting behind it.
 - Material changes since the last release checkpoint: forecasted finishes that moved by two weeks or more.
 
 The look back covers the stored weekly throughput and the feature requests finished over that stretch, grouped by pillar. Forecast accuracy starts with the first checkpoint.

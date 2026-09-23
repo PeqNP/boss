@@ -280,14 +280,6 @@ class PillarFinished(BaseModel):
     featureCount: int
 
 
-class ReportTrack(BaseModel):
-    name: str
-    capacity: float
-    feature: str
-    freesOn: str
-    waiting: str
-
-
 class MaterialChange(BaseModel):
     featureId: str
     name: str
@@ -306,7 +298,6 @@ class ReportResponse(BaseModel):
     asOf: str
     rates: ReportRates
     pillars: ReportPillars
-    tracks: List[ReportTrack]
     changes: List[MaterialChange]
 
 
@@ -2785,18 +2776,6 @@ def build_report(conn: sqlite3.Connection) -> ReportResponse:
             )
     schedule = build_schedule(conn)
     history = merge_history(window_history, read_stored_weeks(conn, HISTORY_START))
-    report_tracks = []
-    for track in schedule.tracks:
-        feature_name = track.bars[0].name if track.bars else "—"
-        frees = track.bars[0].finishOn if track.bars else ""
-        waiting = [bar.name for bar in track.bars[1:]]
-        report_tracks.append(ReportTrack(
-            name=track.name,
-            capacity=track.capacity,
-            feature=feature_name,
-            freesOn=frees,
-            waiting=", ".join(waiting) if waiting else "—",
-        ))
     return ReportResponse(
         asOf=today.isoformat(),
         rates=ReportRates(
@@ -2809,7 +2788,6 @@ def build_report(conn: sqlite3.Connection) -> ReportResponse:
             open=pillar_groups(open_features_for_pillars(state, pillars_by_issue(conn))),
             finished=[],
         ),
-        tracks=report_tracks,
         changes=material_changes(conn, schedule),
     )
 

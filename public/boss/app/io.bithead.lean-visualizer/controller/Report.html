@@ -59,9 +59,6 @@
         fill(view.ui.table("open-pillars"), report.pillars.open.map(function(row) {
           return [row.pillar, row.remainingUnits, row.featureCount];
         }));
-        fill(view.ui.table("track-capacity"), report.tracks.map(function(row) {
-          return [row.name, row.capacity, row.feature, row.freesOn, row.waiting];
-        }));
         const changes = view.ui.table("changes").querySelector("tbody");
         changes.innerHTML = "";
         if (report.changes.length === 0) {
@@ -143,18 +140,6 @@
         <table name="open-pillars">
           <thead>
             <tr><th title="Pillar">Pillar</th><th title="Remaining units">Remaining</th><th title="Features">Features</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </fieldset>
-
-    <fieldset>
-      <legend>Tracks and available capacity</legend>
-      <div class="vbox gap-10">
-        <table name="track-capacity">
-          <thead>
-            <tr><th title="Track"><span class="column-name">Track</span></th><th title="Rate"><span class="column-name">Rate</span></th><th title="On it"><span class="column-name">On it</span></th><th title="Frees"><span class="column-name">Frees</span></th><th title="Waiting"><span class="column-name">Waiting</span></th></tr>
           </thead>
           <tbody></tbody>
         </table>
