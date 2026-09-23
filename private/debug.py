@@ -27,7 +27,7 @@ import os
 import shutil
 import sys
 
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -171,23 +171,26 @@ async def load_snapshot(name: str, bundle: Optional[str] = None):
         raise HTTPException(status_code=404, detail=f"No snapshot named ({name}).")
     return DebugResult(apps=acted)
 
+class JiraFixtureName(BaseModel):
+    fixture: str
+
 def _jira_app(bundle: str):
     if not is_enabled():
         raise HTTPException(status_code=404, detail="Not found.")
     module = sys.modules.get(bundle)
-    if module is None or not hasattr(module, "use_fixture_jira"):
+    if module is None or not hasattr(module, "use_jira_fixture"):
         raise HTTPException(status_code=404, detail=f"No Jira stand-in for ({bundle}).")
     return module
 
 @router.put("/jira/{bundle}", response_model=DebugResult)
-async def install_jira(bundle: str, body: Dict[str, Any]) -> DebugResult:
-    """Answer this app's Jira calls with `body` until the stand-in is cleared.
+async def install_jira(bundle: str, body: JiraFixtureName) -> DebugResult:
+    """Load a named fixture into this app's Jira adapter until it is cleared.
 
-    A UI test installs this before opening a window that would otherwise
-    reach Jira. It replaces the transport for the whole process, so the
-    test clears it when it ends.
+    A UI test names the fixture before opening a window that would
+    otherwise reach Jira. The adapter replaces the transport for the
+    whole process, so the test clears it when it ends.
     """
-    _jira_app(bundle).use_fixture_jira(body)
+    _jira_app(bundle).use_jira_fixture(body.fixture)
     return DebugResult(apps=[bundle])
 
 @router.delete("/jira/{bundle}", response_model=DebugResult)

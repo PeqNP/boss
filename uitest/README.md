@@ -193,6 +193,16 @@ Tests" in [`docs/prompt/process.md`](../docs/prompt/process.md).
 A spec does not name which flow it is. The order lives in the app's
 `ui-plan.md`. See [`process.md`](../docs/prompt/process.md) § Development Order, step 8.
 
+**No external service.** A UI test never calls Jira, a mailer, a payment
+host, or anything else off this machine. The app reaches that service
+through an adapter. A private route, mounted only when `env` is `dev`,
+tells the adapter which fixture to load for this test. The fixture is a
+file the app owns. The test names it. When the test ends, the same route
+clears the adapter and live calls resume.
+
+While the fixture is loaded, every call that app makes uses it, including
+one a person starts in the same process. Clear it in `afterEach`.
+
 - Happy flows first: the path a user actually takes to get work done.
 - A little edge-case cover where the *screen* behaves differently — an empty
   list, a blocked action, a validation message.

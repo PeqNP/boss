@@ -89,7 +89,7 @@ test.describe("windows the board opens @window", () => {
   test.beforeEach(async ({ page }) => {
     await signInAsAdmin(page);
     const standIn = await page.request.put(`/api/debug/uitests/jira/${BUNDLE}`, {
-      data: { issues: [], total: 0, isLast: true }
+      data: { fixture: "finished-work-empty" }
     });
     expect(standIn.ok(), await standIn.text()).toBe(true);
     const model = await readModel(page);

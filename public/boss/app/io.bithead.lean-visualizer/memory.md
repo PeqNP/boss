@@ -15,8 +15,8 @@ rules. Routes stay in `__init__.py`. No two models share a field set.
 apart from `ModelResponse`. Step 8 is complete. All five flows in `ui-plan.md` have a spec.
 A spec must not reset the live board and must not add `create_schema`.
 Flows that replace the board write the previous state back with
-`PUT /model`. Finished work in a spec is answered by the Jira stand-in
-at `PUT /api/debug/uitests/jira/{bundle}`, cleared when the spec ends.
+`PUT /model`. Finished work in a spec names the fixture `finished-work-empty`
+through `PUT /api/debug/uitests/jira/{bundle}`, cleared when the spec ends.
 An Employee granted from Settings is refused until the app is on their
 session. This slice has no OS work.
 

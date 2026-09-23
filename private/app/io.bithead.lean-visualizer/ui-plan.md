@@ -40,7 +40,7 @@ Defects and blockers UI testing turns up, so a later session can tell a gap in c
 | — | `db.py` does not expose `get_db_path`, `delete_database`, and `start_database`, so `GET /api/debug/uitests/reset` skips this app. A spec run against the live file would replace the board the developer is using. Do not add `create_schema`. `bin/check-db --fix` deletes and rebuilds an app that has both `create_schema` and `get_db_path` | No |
 | 1 | Settings grants Employee with the license left off, because this app does not declare `licensed`. Access still requires the app in the session, so that account is refused and `GET /me` answers 401. The spec issues the license itself | No |
 | 3 | Weekly rates and pillar tags are written by the Jira sync. No route seeds either without calling Jira. Flow 3 proves the rows render, including zeros. The numbers themselves stay in the private suite | — |
-| 5 | Saving a checkpoint calls Jira. The spec opens the modal and reads the release. It does not click Save. Finished work is answered by `PUT /api/debug/uitests/jira/{bundle}` and cleared when the spec ends. While that stand-in is installed, every Jira call from this app on this machine uses it | — |
+| 5 | Saving a checkpoint calls Jira. The spec opens the modal and reads the release. It does not click Save. Finished work names the fixture `finished-work-empty` through `PUT /api/debug/uitests/jira/{bundle}` and clears it when the spec ends. While that fixture is loaded, every Jira call from this app on this machine uses it | — |
 
 ## What every flow has to do
 

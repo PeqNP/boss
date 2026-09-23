@@ -609,6 +609,16 @@ def use_fixture_jira(payload: Dict[str, Any]) -> None:
     global _jira
     _jira = FixtureJira(payload)
 
+_FIXTURE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
+
+def use_jira_fixture(name: str) -> None:
+    if _FIXTURE_NAME.match(name) is None:
+        raise HTTPException(status_code=400, detail="Invalid fixture name.")
+    path = Path(__file__).resolve().parents[1] / "fixtures" / f"{name}.json"
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail=f"No Jira fixture named ({name}).")
+    use_fixture_jira(json.loads(path.read_text()))
+
 def use_live_jira() -> None:
     global _jira
     _jira = LiveJira()

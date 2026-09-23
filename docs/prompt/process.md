@@ -480,7 +480,7 @@ The two suites answer different questions, and each stays with its own.
 
 **Private API tests** prove the **rules**. Write one when **three or more behaviours** can be exhibited for a given input (null check, empty string, size limit, uniqueness, success path). A simple `if/then` needs none. Always test critical subsystems: authentication, notifications, shared helper functions.
 
-**UI tests** prove the **wiring** — that a screen calls the right endpoint and puts the answer in the right place. Keep them to happy flows plus a little edge-case cover. Business logic is settled by the private suite: that a requeue jumps the queue is answered there, faster.
+**UI tests** prove the **wiring** — that a screen calls the right endpoint and puts the answer in the right place. Keep them to happy flows plus a little edge-case cover. Business logic is settled by the private suite: that a requeue jumps the queue is answered there, faster. A UI test never calls an external service. The adapter and the route that loads its fixture are in [`uitest/README.md`](../../uitest/README.md) § "What belongs in a UI test".
 
 A UI test earns its place by catching the class of defect the private suite is blind to — a renamed field, a call sent to the wrong path, a response nobody reads. It clicks Save and checks the row appeared. It does not assert size, position, or other style — that rule is in [`uitest/README.md`](../../uitest/README.md) § "Writing a test".
 
@@ -588,7 +588,7 @@ See [Iteration](#iteration--a-slice-on-a-finished-plan).
 
    Run the flow's own spec while writing it — the whole suite takes minutes and most of it cannot be affected by the line just typed. Then run every test at the end of the step, without exception: flows share an OS, a server, and a database, and what one breaks for another shows up nowhere else.
 
-   Keep to wiring, not rules — see "When to Write Tests" above, and `uitest/README.md` for signing in and seeding.
+   Keep to wiring, not rules — see "When to Write Tests" above, and `uitest/README.md` for signing in, seeding, and external services.
 
 ### After each step — close the gaps
 
