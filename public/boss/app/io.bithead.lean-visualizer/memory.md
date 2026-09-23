@@ -31,7 +31,7 @@ the year's completed epics from Jira, one operator at a time.
 - Board opens fullscreen: `ui-window fullscreen`, with a zoom button. The OS moves that class onto the window container and fills the desktop.
 - Server calls go through `os.network` with the signed-in session.
 - A value edited inside the operators, tracks, or backlog table is an `.edit-label` in `lean.css`: a dotted underline, a tap turns it into a text field, and a commit turns it back into a label. Fields outside those tables stay text fields. Feature names, total units, and completed units come from Jira and are not edited. A feature name on a track or in the backlog clips at 30 characters. The cell is the issue key, as a link, then the name. An operator row shows that person's eight-week rate, planned plus unplanned, to two decimal places. Remaining weeks is computed when the board draws; a feature from Jira does not carry that field. A Jira key is an `a.jira-key`.
-- Releases is a Go menu item, not a fieldset on the board. The modal lists the next 20 releases dated today or later and scrolls after five rows. Releases outside that 20 stay stored. An Employee's Go menu does not include it.
+- Releases is a Dashboards menu item, not a fieldset on the board. The modal lists the next 20 releases dated today or later and scrolls after five rows. Releases outside that 20 stay stored. An Employee's Dashboards menu does not include it. The report item is labeled Capacity report.
 - A window reaches the application controller through `os.application(bundleId).proxy`. The application object itself does not carry those methods.
 
 ### Private half
