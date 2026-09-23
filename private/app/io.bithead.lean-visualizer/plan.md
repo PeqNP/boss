@@ -207,7 +207,7 @@ GET /schedule -> Schedule
 
 Audience: Admin and Employee.
 
-The 180-day chart from `GET /schedule` is drawn above the track table. One row per track, bars in `feature.color`. Release dates are markers on the chart. The track table under the chart shows the rate and the work on each track. Manage Releases opens `Releases`. `didChangeReleases` redraws the chart.
+The 180-day chart from `GET /schedule` is drawn above the track table. One row per track. A bar is positioned by its start and finish, in `feature.color`. A release inside the horizon is a vertical line across every row, labeled on the axis. The table under the chart names the track, its rate, and the feature on it. Manage Releases opens `Releases`. `didChangeReleases` redraws the chart.
 
 State: load, show. A release added in the modal updates the chart.
 
@@ -281,7 +281,7 @@ PUT /model -> Board
 
 ### `TaskMetrics`
 
-Audience: Admin. Modal. Close. Previous 5 Weeks and Next 5 Weeks move the window.
+Audience: Admin. Modal. Close. A line for each operator, weeks across and completed tasks up. Previous 5 Weeks and Next 5 Weeks move that window. Next does not pass the current week.
 
 ```
 GET /metrics-window -> MetricsWindow

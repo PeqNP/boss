@@ -6,8 +6,8 @@ is [plan.md](../../../../private/app/io.bithead.lean-visualizer/plan.md). Every 
 requires a role. The routes are live and the board, schedule, report, and
 checkpoint call them. The rate, the schedule, pillars, the board save, the
 fourteen-day change, who may call a route, and checkpoint credits are tested.
-Next is connecting a checkpoint save to the Jira pull, then the four windows
-that still use sample rows. The private module stays one file until that pull
+Next is connecting a checkpoint save to the Jira pull, then Tasks, Finished
+Work, and Prepare Release. The private module stays one file until that pull
 is in. This slice has no OS work.
 
 `index.html` is the old page. Stage 1 deletes it. It is not a client, and no route
@@ -16,8 +16,11 @@ stays open so that it can keep calling. The plan decides the windows and the rou
 ## Architecture
 
 The BOSS app is this bundle: `application.json`, sign-in, and ACL. Board,
-Schedule, Report, and Checkpoint call the live routes. Task Metrics, Tasks,
-Finished Work, and Prepare Release still use sample rows.
+Schedule, Report, Checkpoint, and Task Metrics call the live routes. Task Metrics
+is a line per operator, five weeks at a time, from `GET /metrics-window`. The
+schedule chart places each feature by its start and finish, and a release in
+that horizon is a vertical line across the rows. Tasks, Finished Work, and
+Prepare Release still use sample rows.
 
 ### Public half
 

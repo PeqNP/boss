@@ -4,7 +4,6 @@
 
       const DAY_SPAN = 180;
       const PX_PER_DAY = 8;
-      const LABEL_WIDTH = 160;
 
       let schedule = null;
 
@@ -41,10 +40,11 @@
 
       function renderGantt() {
         const width = DAY_SPAN * PX_PER_DAY;
+        const releases = visibleReleases();
         const ticks = [];
         for (let day = 0; day <= DAY_SPAN; day += 28) {
-          ticks.push("<span class=\"gantt-tick\" style=\"left:" + (day * PX_PER_DAY) + "px;\">W+"
-            + (day / 7) + "</span>");
+          ticks.push("<span class=\"gantt-tick\" style=\"left:" + (day * PX_PER_DAY) + "px;\">"
+            + shortDate(day) + "</span>");
         }
         const rows = schedule.tracks.map(function(track) {
           const bars = (track.bars || []).map(function(bar) {
@@ -52,25 +52,13 @@
           }).join("");
           const label = escapeHtml(track.name) + (track.enabled ? "" : " (disabled)");
           return "<div class=\"gantt-row\"><div class=\"gantt-track-label\">" + label
-            + "</div><div class=\"gantt-grid\" style=\"width:" + width + "px;\">" + bars + "</div></div>";
-        }).join("");
-        const markers = schedule.releases.slice().sort(function(a, b) {
-          return a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
-        }).map(function(release) {
-          const day = daysFromToday(release.date);
-          if (!isNumeric(day) || day < 0 || day > DAY_SPAN) {
-            return "";
-          }
-          return "<div class=\"release-marker\" style=\"left:" + (day * PX_PER_DAY) + "px;\">"
-            + "<div class=\"release-pole\"></div>"
-            + "<div class=\"release-flag\"><strong>" + escapeHtml(release.version) + "</strong> "
-            + escapeHtml(release.date) + "</div></div>";
+            + "</div><div class=\"gantt-grid\" style=\"width:" + width + "px;\">"
+            + bars + poleMarkup(releases) + "</div></div>";
         }).join("");
         view.ui.div("gantt").innerHTML = "<div class=\"gantt-header\"><div class=\"gantt-track-label\">Track</div>"
-          + "<div class=\"gantt-grid\" style=\"width:" + width + "px;\">" + ticks.join("") + "</div></div>"
-          + rows
-          + "<div class=\"gantt-release-layer\" style=\"left:" + (LABEL_WIDTH + 8) + "px;width:" + width + "px;\">"
-          + markers + "</div>";
+          + "<div class=\"gantt-grid\" style=\"width:" + width + "px;\">" + ticks.join("")
+          + flagMarkup(releases) + poleMarkup(releases) + "</div></div>"
+          + rows;
       }
 
       function renderTracks() {
@@ -78,16 +66,55 @@
         body.innerHTML = "";
         for (const track of schedule.tracks) {
           const tr = document.createElement("tr");
-          const bars = (track.bars || []).map(function(bar) {
-            const finish = bar.finishOn || "—";
-            return "<span style=\"display:inline-block;width:12px;height:12px;border-radius:50%;background:"
-              + bar.color + "\"></span> " + escapeHtml(bar.name) + " " + escapeHtml(finish);
-          }).join("<br>");
+          const bars = track.bars || [];
+          const current = bars[0];
+          const waiting = Math.max(bars.length - 1, 0);
+          const work = isEmpty(current)
+            ? "—"
+            : escapeHtml(current.name) + (waiting > 0 ? " · " + waiting + " queued" : "");
           tr.innerHTML = "<td>" + escapeHtml(track.name) + "</td>"
             + "<td>" + track.capacity + "</td>"
-            + "<td>" + (bars || "—") + "</td>";
+            + "<td>" + work + "</td>";
           body.appendChild(tr);
         }
+      }
+
+      function visibleReleases() {
+        const found = [];
+        for (const release of schedule.releases || []) {
+          const day = daysFromToday(release.date);
+          if (!isNumeric(day) || day < 0 || day > DAY_SPAN) {
+            continue;
+          }
+          found.push({
+            left: day * PX_PER_DAY,
+            version: release.version,
+            date: release.date
+          });
+        }
+        found.sort(function(a, b) { return a.left - b.left; });
+        return found;
+      }
+
+      function poleMarkup(releases) {
+        return releases.map(function(release) {
+          return "<div class=\"release-pole\" style=\"left:" + release.left + "px;\" title=\""
+            + escapeHtml(release.version + " " + release.date) + "\"></div>";
+        }).join("");
+      }
+
+      function flagMarkup(releases) {
+        return releases.map(function(release) {
+          return "<div class=\"release-flag\" style=\"left:" + release.left + "px;\"><strong>"
+            + escapeHtml(release.version) + "</strong> " + escapeHtml(release.date) + "</div>";
+        }).join("");
+      }
+
+      function shortDate(dayOffset) {
+        const value = new Date();
+        value.setHours(0, 0, 0, 0);
+        value.setDate(value.getDate() + dayOffset);
+        return (value.getMonth() + 1) + "/" + value.getDate();
       }
 
       function barMarkup(bar) {
@@ -129,7 +156,7 @@
     <div class="title"><span>Schedule</span></div>
   </div>
 
-  <div class="container vbox gap-20 resizable" style="width: 860px; height: 640px;">
+  <div class="container vbox gap-20 resizable" style="width: 1100px; height: 720px;">
     <div class="hbox gap-10">
       <button class="primary" onclick="$(this.controller).openReleases();">Manage Releases</button>
     </div>

@@ -2,77 +2,184 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
-      const WINDOWS = [
-        ["2026-08-16", 18, 13],
-        ["2026-08-23", 38, 22],
-        ["2026-08-30", 32, 18],
-        ["2026-09-06", 18, 10],
-        ["2026-09-13", 21, 13]
-      ];
-      let start = 0;
-
-      function previousWindow() {
-        if (start === 0) {
-          return;
-        }
-        start -= 1;
-        render();
-      }
-      this.previousWindow = previousWindow;
-
-      function nextWindow() {
-        if (start >= WINDOWS.length - 1) {
-          return;
-        }
-        start += 1;
-        render();
-      }
-      this.nextWindow = nextWindow;
+      const WINDOW = 5;
+      const COLORS = ["#1f4b99", "#b42318", "#0f7b4c", "#8a4b08", "#6b3fa0", "#0e7490", "#9a3412", "#365314"];
+      let windowData = null;
 
       function close() {
         view.ui.close();
       }
       this.close = close;
 
-      function viewDidLoad() {
-        render();
+      async function previousWindow() {
+        const end = endWeek();
+        if (isEmpty(end)) {
+          return;
+        }
+        await load(addDays(end, -7 * WINDOW));
+      }
+      this.previousWindow = previousWindow;
+
+      async function nextWindow() {
+        const end = endWeek();
+        if (isEmpty(end) || end >= windowData.currentWeekStart) {
+          return;
+        }
+        const candidate = addDays(end, 7 * WINDOW);
+        await load(candidate > windowData.currentWeekStart ? windowData.currentWeekStart : candidate);
+      }
+      this.nextWindow = nextWindow;
+
+      async function viewDidLoad() {
+        await load(null);
       }
       this.viewDidLoad = viewDidLoad;
 
+      async function load(weekStart) {
+        let path = "/api/io.bithead.lean-visualizer/metrics-window?window_size=" + WINDOW;
+        if (!isEmpty(weekStart)) {
+          path += "&week_start=" + encodeURIComponent(weekStart);
+        }
+        windowData = await os.network.get(path);
+        render();
+      }
+
+      function endWeek() {
+        const weeks = windowData && windowData.weeks ? windowData.weeks : [];
+        if (weeks.length === 0) {
+          return "";
+        }
+        return weeks[weeks.length - 1].weekStart;
+      }
+
       function render() {
-        const row = WINDOWS[start];
-        view.ui.span("window-label").textContent = row[0];
-        view.ui.span("units").textContent = String(row[1]);
-        view.ui.span("unplanned").textContent = String(row[2]);
-        view.ui.button("previous-window").disabled = start === 0;
-        view.ui.button("next-window").disabled = start >= WINDOWS.length - 1;
-        const bar = view.ui.div("bar");
-        bar.style.width = Math.min(row[1], 40) * 8 + "px";
-        bar.style.height = "14px";
-        bar.style.background = "#000";
+        const weeks = windowData.weeks || [];
+        const label = weeks.length === 0
+          ? ""
+          : weeks[0].weekStart + " – " + weeks[weeks.length - 1].weekEnd;
+        view.ui.span("window-label").textContent = label;
+        view.ui.button("previous-window").disabled = weeks.length === 0;
+        view.ui.button("next-window").disabled = weeks.length === 0 || endWeek() >= windowData.currentWeekStart;
+        view.ui.div("graph").innerHTML = chart(weeks);
+      }
+
+      function chart(weeks) {
+        const names = operatorNames(weeks);
+        if (names.length === 0 || weeks.length === 0) {
+          return "<p>Sync task metrics to see each operator's output.</p>";
+        }
+        const series = names.map(function(name, index) {
+          return {
+            name: name,
+            color: COLORS[index % COLORS.length],
+            values: weeks.map(function(week) { return unitsFor(week, name); })
+          };
+        });
+        const maxUnits = Math.max(1, ...series.flatMap(function(entry) { return entry.values; }));
+        const width = 720;
+        const height = 300;
+        const left = 48;
+        const right = 16;
+        const top = 16;
+        const bottom = 36;
+        const plotWidth = width - left - right;
+        const plotHeight = height - top - bottom;
+        const step = weeks.length > 1 ? plotWidth / (weeks.length - 1) : 0;
+        const xFor = function(index) { return left + index * step; };
+        const yFor = function(value) { return top + (1 - value / maxUnits) * plotHeight; };
+        const live = weeks.length >= 2 && weeks[weeks.length - 1].weekStart === windowData.currentWeekStart;
+        const grid = [];
+        for (let tick = 0; tick <= 4; tick += 1) {
+          const value = (maxUnits / 4) * tick;
+          const y = yFor(value);
+          grid.push("<line x1=\"" + left + "\" y1=\"" + y + "\" x2=\"" + (width - right) + "\" y2=\"" + y + "\" stroke=\"#000\" stroke-opacity=\"0.15\"/>");
+          grid.push("<text x=\"" + (left - 8) + "\" y=\"" + (y + 4) + "\" text-anchor=\"end\" font-size=\"11\">" + Math.round(value) + "</text>");
+        }
+        const labels = weeks.map(function(week, index) {
+          return "<text x=\"" + xFor(index) + "\" y=\"" + (height - 12) + "\" text-anchor=\"middle\" font-size=\"11\">"
+            + escapeHtml(shortDate(week.weekStart)) + "</text>";
+        }).join("");
+        const lines = series.map(function(entry) {
+          const segments = [];
+          for (let index = 0; index < entry.values.length - 1; index += 1) {
+            const dashed = live && index === entry.values.length - 2 ? " stroke-dasharray=\"4 4\"" : "";
+            segments.push("<line x1=\"" + xFor(index) + "\" y1=\"" + yFor(entry.values[index])
+              + "\" x2=\"" + xFor(index + 1) + "\" y2=\"" + yFor(entry.values[index + 1])
+              + "\" stroke=\"" + entry.color + "\" stroke-width=\"2\"" + dashed + "/>");
+          }
+          const dots = entry.values.map(function(value, index) {
+            return "<circle cx=\"" + xFor(index) + "\" cy=\"" + yFor(value) + "\" r=\"3\" fill=\"" + entry.color + "\"/>";
+          }).join("");
+          return segments.join("") + dots;
+        }).join("");
+        const legend = series.map(function(entry) {
+          return "<span class=\"metrics-legend\"><span class=\"metrics-swatch\" style=\"background:"
+            + entry.color + "\"></span>" + escapeHtml(entry.name) + "</span>";
+        }).join("");
+        return "<svg class=\"metrics-graph\" viewBox=\"0 0 " + width + " " + height + "\" role=\"img\" aria-label=\"Completed tasks per operator\">"
+          + grid.join("")
+          + "<line x1=\"" + left + "\" y1=\"" + (top + plotHeight) + "\" x2=\"" + (width - right) + "\" y2=\"" + (top + plotHeight) + "\" stroke=\"#000\"/>"
+          + "<line x1=\"" + left + "\" y1=\"" + top + "\" x2=\"" + left + "\" y2=\"" + (top + plotHeight) + "\" stroke=\"#000\"/>"
+          + lines
+          + labels
+          + "</svg><div class=\"metrics-legend-row\">" + legend + "</div>";
+      }
+
+      function operatorNames(weeks) {
+        const names = [];
+        for (const week of weeks) {
+          for (const operator of week.operators || []) {
+            if (names.indexOf(operator.operatorName) === -1) {
+              names.push(operator.operatorName);
+            }
+          }
+        }
+        return names;
+      }
+
+      function unitsFor(week, name) {
+        const row = (week.operators || []).find(function(operator) {
+          return operator.operatorName === name;
+        });
+        const units = row ? Number(row.unitsWeek) : 0;
+        return isNumeric(units) ? units : 0;
+      }
+
+      function addDays(iso, days) {
+        const value = new Date(iso + "T00:00:00");
+        value.setDate(value.getDate() + days);
+        const month = String(value.getMonth() + 1).padStart(2, "0");
+        const day = String(value.getDate()).padStart(2, "0");
+        return value.getFullYear() + "-" + month + "-" + day;
+      }
+
+      function shortDate(iso) {
+        const value = new Date(iso + "T00:00:00");
+        return (value.getMonth() + 1) + "/" + value.getDate();
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll("\"", "&quot;");
       }
     }
   </script>
 
   <div class="title">Task Metrics</div>
-  <div class="container vbox gap-10" style="width: 520px;">
+  <div class="container vbox gap-10" style="width: 760px;">
     <div class="controls">
       <button name="previous-window" class="primary" onclick="$(this.controller).previousWindow();">Previous 5 Weeks</button>
       <button name="next-window" class="primary" onclick="$(this.controller).nextWindow();">Next 5 Weeks</button>
     </div>
     <div class="read-only">
-      <label>Week</label>
+      <label>Weeks</label>
       <span name="window-label"></span>
     </div>
-    <div class="read-only">
-      <label>Units</label>
-      <span name="units"></span>
-    </div>
-    <div class="read-only">
-      <label>Unplanned</label>
-      <span name="unplanned"></span>
-    </div>
-    <div name="bar"></div>
+    <p>Completed tasks each week. The dashed segment is the current week.</p>
+    <div name="graph"></div>
     <div class="controls">
       <button class="default" onclick="$(this.controller).close();">Close</button>
     </div>
