@@ -47,18 +47,17 @@
         view.ui.span("as-of").textContent = report.asOf;
         view.ui.span("rate-window").textContent = report.rates.windowStart + " – " + report.rates.windowEnd;
         fill(view.ui.table("rates"), report.rates.operators.map(function(row) {
-          return [row.operatorName, row.plannedPerWeek, row.unplannedPerWeek, row.weeksCounted];
-        }));
-        const history = report.rates.history[0];
-        view.ui.span("history-week").textContent = history.weekStart;
-        fill(view.ui.table("history"), history.operators.map(function(row) {
-          return [row.operatorName, row.planned, row.unplanned];
+          return [
+            row.operatorName,
+            row.plannedTotal,
+            row.unplannedTotal,
+            row.plannedPerWeek,
+            row.unplannedPerWeek,
+            row.weeksCounted
+          ];
         }));
         fill(view.ui.table("open-pillars"), report.pillars.open.map(function(row) {
           return [row.pillar, row.remainingUnits, row.featureCount];
-        }));
-        fill(view.ui.table("finished-pillars"), report.pillars.finished.map(function(row) {
-          return [row.pillar, row.featureCount];
         }));
         fill(view.ui.table("track-capacity"), report.tracks.map(function(row) {
           return [row.name, row.capacity, row.feature, row.freesOn, row.waiting];
@@ -124,14 +123,14 @@
       <div class="vbox gap-10">
         <table name="rates">
           <thead>
-            <tr><th title="Operator"><span class="column-name">Operator</span></th><th title="Planned / week"><span class="column-name">Planned / week</span></th><th title="Unplanned / week"><span class="column-name">Unplanned / week</span></th><th title="Weeks"><span class="column-name">Weeks</span></th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-        <div>History from <span name="history-week"></span></div>
-        <table name="history">
-          <thead>
-            <tr><th title="Operator"><span class="column-name">Operator</span></th><th title="Planned"><span class="column-name">Planned</span></th><th title="Unplanned"><span class="column-name">Unplanned</span></th></tr>
+            <tr>
+              <th title="Operator">Operator</th>
+              <th title="Planned tasks in these weeks">Planned</th>
+              <th title="Unplanned tasks in these weeks">Unplanned</th>
+              <th title="Average planned tasks per week">Planned / week</th>
+              <th title="Average unplanned tasks per week">Unplanned / week</th>
+              <th title="Weeks in the average">Weeks</th>
+            </tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -141,17 +140,9 @@
     <fieldset>
       <legend>Strategic pillar</legend>
       <div class="vbox gap-10">
-        <div>Open</div>
         <table name="open-pillars">
           <thead>
-            <tr><th title="Pillar"><span class="column-name">Pillar</span></th><th title="Remaining"><span class="column-name">Remaining</span></th><th title="Features"><span class="column-name">Features</span></th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-        <div>Finished since 28 Dec 2025</div>
-        <table name="finished-pillars">
-          <thead>
-            <tr><th title="Pillar"><span class="column-name">Pillar</span></th><th title="Features"><span class="column-name">Features</span></th></tr>
+            <tr><th title="Pillar">Pillar</th><th title="Remaining units">Remaining</th><th title="Features">Features</th></tr>
           </thead>
           <tbody></tbody>
         </table>

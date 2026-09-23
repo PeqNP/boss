@@ -243,6 +243,8 @@ class ScheduleResponse(BaseModel):
 
 class RateOperator(BaseModel):
     operatorName: str
+    plannedTotal: int
+    unplannedTotal: int
     plannedPerWeek: float
     unplannedPerWeek: float
     weeksCounted: int
@@ -2379,6 +2381,8 @@ def operator_rate_window(conn: sqlite3.Connection, today: date) -> tuple[str, st
     rates = {
         name: RateOperator(
             operatorName=name,
+            plannedTotal=int(bucket["planned"]),
+            unplannedTotal=int(bucket["unplanned"]),
             plannedPerWeek=round(bucket["planned"] / bucket["weeks"], 2) if bucket["weeks"] else 0,
             unplannedPerWeek=round(bucket["unplanned"] / bucket["weeks"], 2) if bucket["weeks"] else 0,
             weeksCounted=int(bucket["weeks"]),
@@ -2629,8 +2633,19 @@ def build_schedule(conn: sqlite3.Connection) -> ScheduleResponse:
     return ScheduleResponse(horizonDays=180, tracks=tracks, releases=releases)
 
 
+PILLAR_NAMES = (
+    "Growth / Acquisition",
+    "New Features / Retention",
+    "Tech Debt / Stability",
+    "Process Efficiency / Cost Savings",
+    "Unassigned",
+)
+
+
 def pillar_groups(features: List[Dict[str, Any]]) -> List[PillarOpen]:
-    grouped: Dict[str, Dict[str, int]] = {}
+    grouped: Dict[str, Dict[str, int]] = {
+        name: {"remaining": 0, "count": 0} for name in PILLAR_NAMES
+    }
     for feature in features:
         pillars = feature.get("pillars") if isinstance(feature.get("pillars"), list) else []
         names = [str(item) for item in pillars if str(item).strip() != ""] or ["Unassigned"]
@@ -2639,9 +2654,10 @@ def pillar_groups(features: List[Dict[str, Any]]) -> List[PillarOpen]:
             bucket = grouped.setdefault(name, {"remaining": 0, "count": 0})
             bucket["remaining"] += remaining
             bucket["count"] += 1
+    order = list(PILLAR_NAMES) + sorted(name for name in grouped if name not in PILLAR_NAMES)
     return [
-        PillarOpen(pillar=name, remainingUnits=bucket["remaining"], featureCount=bucket["count"])
-        for name, bucket in sorted(grouped.items())
+        PillarOpen(pillar=name, remainingUnits=grouped[name]["remaining"], featureCount=grouped[name]["count"])
+        for name in order
     ]
 
 
@@ -2761,6 +2777,8 @@ def build_report(conn: sqlite3.Connection) -> ReportResponse:
         if name not in rates:
             rates[name] = RateOperator(
                 operatorName=name,
+                plannedTotal=0,
+                unplannedTotal=0,
                 plannedPerWeek=0,
                 unplannedPerWeek=0,
                 weeksCounted=0,

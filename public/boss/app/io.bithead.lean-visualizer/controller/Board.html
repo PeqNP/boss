@@ -256,12 +256,14 @@
       function renderOperators() {
         const body = view.ui.table("operators").querySelector("tbody");
         body.innerHTML = "";
-        const totals = [0, 0, 0];
+        const totals = [0, 0, 0, 0];
         operators.forEach(function(operator, index) {
           const figures = figuresFor(operator.id);
+          const rate = rateByName[operator.name] || 0;
           totals[0] += figures[0];
           totals[1] += figures[1];
           totals[2] += figures[2];
+          totals[3] += rate;
           const tr = document.createElement("tr");
           tr.dataset.index = String(index);
           tr.innerHTML = "<td draggable=\"true\" data-drag=\"" + index + "\" style=\"cursor:grab\">⠿</td>"
@@ -270,6 +272,7 @@
             + "<td>" + figures[1] + "</td>"
             + "<td>" + figures[2] + "</td>"
             + "<td>" + waste(figures[1], figures[2]) + "</td>"
+            + "<td>" + rate + "</td>"
             + "<td data-cell=\"track\"></td>"
             + "<td><button type=\"button\" class=\"primary delete\" aria-label=\"Remove\" data-action=\"remove-operator\" data-id=\"" + operator.id + "\"></button></td>";
           body.appendChild(tr);
@@ -278,7 +281,8 @@
         const totalRow = document.createElement("tr");
         totalRow.className = "totals";
         totalRow.innerHTML = "<td></td><td>Total</td><td>" + totals[0] + "</td><td>" + totals[1]
-          + "</td><td>" + totals[2] + "</td><td>" + waste(totals[1], totals[2]) + "</td><td></td><td></td>";
+          + "</td><td>" + totals[2] + "</td><td>" + waste(totals[1], totals[2]) + "</td><td>"
+          + totals[3] + "</td><td></td><td></td>";
         body.appendChild(totalRow);
       }
 
@@ -290,11 +294,10 @@
           const tr = document.createElement("tr");
           tr.dataset.index = String(index);
           const featureCells = isEmpty(feature)
-            ? "<td class=\"muted\">No active feature</td><td>—</td>"
+            ? "<td class=\"muted\">No active feature</td>"
               + narrow("—") + narrow("—") + narrow("—") + narrow("—")
               + "<td>—</td>" + narrow("—")
             : "<td>" + featureTitle(feature, true) + "</td>"
-              + "<td>" + keyCell(feature) + "</td>"
               + narrow(feature.units)
               + narrow(feature.completedUnits)
               + narrow(trackRate(track.id))
@@ -327,14 +330,13 @@
               ? ""
               : "<button type=\"button\" class=\"primary delete\" aria-label=\"Delete\" data-action=\"delete-backlog\" data-id=\"" + item.id + "\"></button>";
             tr.innerHTML = "<td draggable=\"true\" data-drag=\"" + index + "\" style=\"cursor:grab\">⠿</td>"
-              + "<td colspan=\"12\"><span class=\"row-actions\">" + dot(item.color) + name + remove + "</span></td>";
+              + "<td colspan=\"11\"><span class=\"row-actions\">" + dot(item.color) + name + remove + "</span></td>";
             body.appendChild(tr);
             return;
           }
           tr.innerHTML = "<td draggable=\"true\" data-drag=\"" + index + "\" style=\"cursor:grab\">⠿</td>"
             + "<td>" + (index + 1) + "</td>"
             + "<td>" + featureTitle(item, true) + "</td>"
-            + "<td>" + keyCell(item) + "</td>"
             + narrow(item.units)
             + narrow(item.completedUnits)
             + narrow(weeksCell(weeksById[item.id]))
@@ -815,12 +817,9 @@
         return "<td class=\"narrow\">" + text + "</td>";
       }
 
-      function keyCell(feature) {
-        if (feature.kind === "virtual") {
-          return "<button type=\"button\" class=\"primary\" data-action=\"edit-virtual\" data-id=\"" + feature.id + "\">JQL</button>";
-        }
+      function featureLink(feature) {
         if (isEmpty(feature.issueKey)) {
-          return "—";
+          return "";
         }
         const root = boardConfig.jiraRootUrl.replace(/\/$/, "");
         if (isEmpty(root)) {
@@ -833,11 +832,17 @@
       function featureTitle(feature, clip) {
         const full = String(feature.name || "");
         let name = escapeHtml(full);
-        if (clip && full.length > 20) {
+        if (clip && full.length > 30) {
           name = "<span class=\"feature-label\" title=\"" + escapeHtml(full) + "\">"
-            + escapeHtml(full.slice(0, 20)) + "…</span>";
+            + escapeHtml(full.slice(0, 30)) + "…</span>";
         }
-        return "<span class=\"feature-name\">" + dot(feature.color) + " " + name + "</span>";
+        const key = featureLink(feature);
+        const label = isEmpty(key) ? name : key + ": " + name;
+        const query = feature.kind === "virtual" || feature.kind === "virtual-feature"
+          ? " <button type=\"button\" class=\"primary\" data-action=\"edit-virtual\" data-id=\""
+            + feature.id + "\">JQL</button>"
+          : "";
+        return "<span class=\"feature-name\">" + dot(feature.color) + " " + label + query + "</span>";
       }
 
       function editLabel(role, id, value) {
@@ -993,7 +998,7 @@
         <table name="operators">
           <thead>
             <tr>
-              <th></th><th title="Name"><span class="column-name">Name</span></th><th title="Units / Week"><span class="column-name">Units / Week</span></th><th title="Planned Work"><span class="column-name">Planned Work</span></th><th title="Unplanned Work"><span class="column-name">Unplanned Work</span></th><th title="Waste %"><span class="column-name">Waste %</span></th><th title="Track"><span class="column-name">Track</span></th><th title="Actions"><span class="column-name">Actions</span></th>
+              <th></th><th title="Name"><span class="column-name">Name</span></th><th title="Units / Week"><span class="column-name">Units / Week</span></th><th title="Planned Work"><span class="column-name">Planned Work</span></th><th title="Unplanned Work"><span class="column-name">Unplanned Work</span></th><th title="Waste %"><span class="column-name">Waste %</span></th><th title="Average planned tasks per week"><span class="column-name">Rate</span></th><th title="Track"><span class="column-name">Track</span></th><th title="Actions"><span class="column-name">Actions</span></th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -1011,7 +1016,7 @@
         <table name="tracks">
           <thead>
             <tr>
-              <th></th><th title="Track"><span class="column-name">Track</span></th><th title="State"><span class="column-name">State</span></th><th title="Feature"><span class="column-name">Feature</span></th><th title="Jira Key"><span class="column-name">Jira Key</span></th><th class="narrow" title="Total Units"><span class="column-name">Total Units</span></th><th class="narrow" title="Completed Units"><span class="column-name">Completed Units</span></th><th class="narrow" title="Units Applied / Week"><span class="column-name">Units Applied / Week</span></th><th class="narrow" title="Remaining Weeks"><span class="column-name">Remaining Weeks</span></th><th title="Est. Weeks"><span class="column-name">Est. Weeks</span></th><th class="narrow" title="Est. Date"><span class="column-name">Est. Date</span></th><th title="Actions"><span class="column-name">Actions</span></th>
+              <th></th><th title="Track"><span class="column-name">Track</span></th><th title="State"><span class="column-name">State</span></th><th title="Feature"><span class="column-name">Feature</span></th><th class="narrow" title="Total Units"><span class="column-name">Total Units</span></th><th class="narrow" title="Completed Units"><span class="column-name">Completed Units</span></th><th class="narrow" title="Units Applied / Week"><span class="column-name">Units Applied / Week</span></th><th class="narrow" title="Remaining Weeks"><span class="column-name">Remaining Weeks</span></th><th title="Est. Weeks"><span class="column-name">Est. Weeks</span></th><th class="narrow" title="Est. Date"><span class="column-name">Est. Date</span></th><th title="Actions"><span class="column-name">Actions</span></th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -1039,7 +1044,7 @@
         <table name="backlog">
           <thead>
             <tr>
-              <th></th><th title="#"><span class="column-name">#</span></th><th title="Feature"><span class="column-name">Feature</span></th><th title="Jira Key"><span class="column-name">Jira Key</span></th><th class="narrow" title="Total Units"><span class="column-name">Total Units</span></th><th class="narrow" title="Completed Units"><span class="column-name">Completed Units</span></th><th class="narrow" title="Remaining Weeks"><span class="column-name">Remaining Weeks</span></th><th title="Est. Weeks"><span class="column-name">Est. Weeks</span></th><th class="narrow" title="Est. Date"><span class="column-name">Est. Date</span></th><th title="Pinned Track"><span class="column-name">Pinned Track</span></th><th title="Predicted Track"><span class="column-name">Predicted Track</span></th><th title="Move To Track"><span class="column-name">Move To Track</span></th><th></th>
+              <th></th><th title="#"><span class="column-name">#</span></th><th title="Feature"><span class="column-name">Feature</span></th><th class="narrow" title="Total Units"><span class="column-name">Total Units</span></th><th class="narrow" title="Completed Units"><span class="column-name">Completed Units</span></th><th class="narrow" title="Remaining Weeks"><span class="column-name">Remaining Weeks</span></th><th title="Est. Weeks"><span class="column-name">Est. Weeks</span></th><th class="narrow" title="Est. Date"><span class="column-name">Est. Date</span></th><th title="Pinned Track"><span class="column-name">Pinned Track</span></th><th title="Predicted Track"><span class="column-name">Predicted Track</span></th><th title="Move To Track"><span class="column-name">Move To Track</span></th><th></th>
             </tr>
           </thead>
           <tbody></tbody>

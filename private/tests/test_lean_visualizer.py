@@ -273,6 +273,8 @@ def test_rate():
         # describe: eight complete weeks are stored
         ada = rate_of(report, "Ada")
         assert ada.plannedPerWeek == 8, "it: the rate is their mean planned count"
+        assert ada.plannedTotal == 64, "it: the total is the planned tasks in those weeks"
+        assert ada.unplannedTotal == 0, "it: the unplanned total is beside it"
         assert ada.weeksCounted == 8, "it: counts each of the eight"
 
         # describe: the newest row is the current, unfinished week
@@ -447,6 +449,8 @@ def test_pillar():
         assert rows["New Features / Retention"].remainingUnits == 6, "it: the second pillar counts the same units"
         assert rows["Unassigned"].remainingUnits == 3, "it: the second is Unassigned"
         assert rows["Unassigned"].featureCount == 1, "it: a virtual feature is not in this section"
+        assert rows["Tech Debt / Stability"].featureCount == 0, "it: a pillar with no work is still listed"
+        assert rows["Process Efficiency / Cost Savings"].remainingUnits == 0, "it: every pillar has a row"
 
         # describe: a second sync does not mention an older issue key
         lv.store_pillars(conn, [{"issueKey": "FR-2", "pillars": ["Tech Debt / Stability"]}])

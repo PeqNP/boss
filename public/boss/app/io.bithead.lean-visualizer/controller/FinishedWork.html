@@ -25,6 +25,13 @@
         }
         const menu = view.ui.select("year").ui;
         menu.addNewOptions(years);
+        const tabs = view.ui.select("operators").ui;
+        tabs.delegate = {
+          didSelectTab: function(option) {
+            showOperator(option.value);
+          },
+          didCloseTab: function() {}
+        };
         view.ui.select("year").addEventListener("change", function() {
           const value = menu.selectedValue();
           if (isEmpty(value) || value === year) {
@@ -49,16 +56,31 @@
             names.push(item.operatorName);
           }
         }
-        operatorName = names.length === 0 ? "" : names[0];
-        render();
+        const tabs = view.ui.select("operators").ui;
+        if (names.length === 0) {
+          tabs.addNewTabs([]);
+          operatorName = "";
+          render();
+          return;
+        }
+        tabs.addNewTabs(names.map(function(name) {
+          return new UITabChoice(name, name);
+        }));
+        operatorName = names[0];
+        tabs.selectTab(operatorName);
+        const selected = tabs.selectedTab();
+        if (!isEmpty(selected) && !isEmpty(selected.ui)) {
+          selected.ui.parentElement.scrollLeft = selected.ui.offsetLeft;
+        }
       }
 
       function render() {
-        const items = (payload && payload.items || []).filter(function(item) {
+        const all = (payload && payload.items) || [];
+        const items = all.filter(function(item) {
           return item.operatorName === operatorName;
         });
-        view.ui.span("count").textContent = String(items.length);
-        drawOperators(payload ? payload.items || [] : []);
+        view.ui.span("year-count").textContent = String(all.length);
+        view.ui.span("operator-count").textContent = String(items.length);
         const body = view.ui.table("finished").querySelector("tbody");
         body.innerHTML = "";
         if (items.length === 0) {
@@ -69,32 +91,13 @@
         }
         const root = payload ? payload.jiraRootUrl : "";
         for (const item of items) {
+          const description = item.description || "—";
           const tr = document.createElement("tr");
-          tr.innerHTML = "<td>" + keyLink(root, item.issueKey) + "</td><td>"
-            + escapeHtml(item.description || "—") + "</td><td>"
-            + escapeHtml(item.completedWeek || "—") + "</td>";
+          tr.innerHTML = "<td class=\"key\">" + keyLink(root, item.issueKey) + "</td>"
+            + "<td class=\"summary\" title=\"" + escapeHtml(description) + "\">"
+            + escapeHtml(description) + "</td>"
+            + "<td class=\"week\">" + escapeHtml(item.completedWeek || "—") + "</td>";
           body.appendChild(tr);
-        }
-      }
-
-      function drawOperators(items) {
-        const box = view.ui.div("operators");
-        box.innerHTML = "";
-        const names = [];
-        for (const item of items) {
-          if (names.indexOf(item.operatorName) === -1) {
-            names.push(item.operatorName);
-          }
-        }
-        for (const name of names) {
-          const button = document.createElement("button");
-          button.type = "button";
-          button.className = "primary";
-          button.textContent = name;
-          button.addEventListener("click", function() {
-            showOperator(name);
-          });
-          box.appendChild(button);
         }
       }
 
@@ -126,16 +129,24 @@
       </select>
     </div>
     <div class="read-only">
-      <label>Completed FRs</label>
-      <span name="count"></span>
+      <label class="intrinsic">Completed FRs</label>
+      <span name="year-count"></span>
     </div>
-    <div name="operators" class="operator-tabs"></div>
-    <table name="finished">
-      <thead>
-        <tr><th title="Key"><span class="column-name">Key</span></th><th title="Description"><span class="column-name">Description</span></th><th title="Week"><span class="column-name">Week</span></th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+    <div class="ui-tabs">
+      <select name="operators"></select>
+    </div>
+    <div class="read-only">
+      <label class="intrinsic">Completed FRs</label>
+      <span name="operator-count"></span>
+    </div>
+    <div class="five-rows">
+      <table name="finished">
+        <thead>
+          <tr><th class="key" title="Key">Key</th><th class="summary" title="Description">Description</th><th class="week" title="Week">Week</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
     <div class="controls">
       <button class="default" onclick="$(this.controller).close();">Close</button>
     </div>
