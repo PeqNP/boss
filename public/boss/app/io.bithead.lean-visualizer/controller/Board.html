@@ -222,7 +222,7 @@
         const report = await os.network.get(API + "/report");
         rateByName = {};
         for (const row of report.rates.operators) {
-          rateByName[row.operatorName] = row.plannedPerWeek;
+          rateByName[row.operatorName] = (row.plannedPerWeek || 0) + (row.unplannedPerWeek || 0);
         }
         await loadWeek();
         render();
@@ -272,7 +272,7 @@
             + "<td>" + figures[1] + "</td>"
             + "<td>" + figures[2] + "</td>"
             + "<td>" + waste(figures[1], figures[2]) + "</td>"
-            + "<td>" + rate + "</td>"
+            + "<td>" + rateText(rate) + "</td>"
             + "<td data-cell=\"track\"></td>"
             + "<td><button type=\"button\" class=\"primary delete\" aria-label=\"Remove\" data-action=\"remove-operator\" data-id=\"" + operator.id + "\"></button></td>";
           body.appendChild(tr);
@@ -282,7 +282,7 @@
         totalRow.className = "totals";
         totalRow.innerHTML = "<td></td><td>Total</td><td>" + totals[0] + "</td><td>" + totals[1]
           + "</td><td>" + totals[2] + "</td><td>" + waste(totals[1], totals[2]) + "</td><td>"
-          + totals[3] + "</td><td></td><td></td>";
+          + rateText(totals[3]) + "</td><td></td><td></td>";
         body.appendChild(totalRow);
       }
 
@@ -813,6 +813,10 @@
           + shown + "</span>";
       }
 
+      function rateText(value) {
+        return (Number(value) || 0).toFixed(2);
+      }
+
       function narrow(text) {
         return "<td class=\"narrow\">" + text + "</td>";
       }
@@ -998,7 +1002,7 @@
         <table name="operators">
           <thead>
             <tr>
-              <th></th><th title="Name"><span class="column-name">Name</span></th><th title="Units / Week"><span class="column-name">Units / Week</span></th><th title="Planned Work"><span class="column-name">Planned Work</span></th><th title="Unplanned Work"><span class="column-name">Unplanned Work</span></th><th title="Waste %"><span class="column-name">Waste %</span></th><th title="Average planned tasks per week"><span class="column-name">Rate</span></th><th title="Track"><span class="column-name">Track</span></th><th title="Actions"><span class="column-name">Actions</span></th>
+              <th></th><th title="Name"><span class="column-name">Name</span></th><th title="Units / Week"><span class="column-name">Units / Week</span></th><th title="Planned Work"><span class="column-name">Planned Work</span></th><th title="Unplanned Work"><span class="column-name">Unplanned Work</span></th><th title="Waste %"><span class="column-name">Waste %</span></th><th title="Average planned and unplanned tasks per week"><span class="column-name">Rate</span></th><th title="Track"><span class="column-name">Track</span></th><th title="Actions"><span class="column-name">Actions</span></th>
             </tr>
           </thead>
           <tbody></tbody>
