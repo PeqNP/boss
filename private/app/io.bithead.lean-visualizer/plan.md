@@ -12,7 +12,7 @@
 - **Reference for UI components:** `public/boss/app/io.bithead.tutorial/controller/Example.html`
 - **Reference for roles:** `io.bithead.scheduler` — `Role` enum, `require_acl`, `grant_role`
 - **Retired:** `index.html`. Stage 1 deletes it. No route stays open for it.
-- **What is left:** every stage below. None of them has started.
+- **What is left:** the stages below are done, and every flow in `ui-plan.md` has a spec. An Employee granted from Settings is still refused, because a private call checks for a license and this app does not require one. The UI reset does not cover this database. Do not add `create_schema`.
 
 ## Controllers
 
