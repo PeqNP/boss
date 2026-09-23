@@ -1192,6 +1192,9 @@ button.image {
 .controls-right.thin {
   flex: 0 0 100px;
 }
+.controls-right.wider {
+  flex: 0 0 180px;
+}
 
 /**
  * In rare contexts, the `controls-center` provides a way to
