@@ -15,13 +15,20 @@ from lib.model import User
 # TODO: Decorate
 from lib.server import get_dbm_path, require_user
 from fastapi import APIRouter, HTTPException, Request
+from . import db
 from .fonts import SystemFonts, get_system_fonts
+from .model import AppLink, Workspace
 from pydantic import BaseModel
 from starlette.responses import Response
 from starlette.status import HTTP_403_FORBIDDEN
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 HEARTBEAT_ENDPOINT = "http://127.0.0.1:8081/heartbeat"
+
+
+def start():
+    """Create the workspace database."""
+    db.start_database()
 
 # MARK: Data Models
 
@@ -30,19 +37,6 @@ class Default(BaseModel):
     userId: int
     key: str
     value: Optional[Any]
-
-class AppLink(BaseModel):
-    bundleId: str
-    name: str
-    icon: str
-    # TODO: If specific information about opening a file is required
-    # there could be a `data` attribute here OR a path to a file to
-    # DL, etc. It's not clear how files and folders will work at this
-    # time.
-
-class Workspace(BaseModel):
-    desktop: List[AppLink]
-    dock: List[AppLink]
 
 class ServerInfo(BaseModel):
     # Valuse: dev | prod
