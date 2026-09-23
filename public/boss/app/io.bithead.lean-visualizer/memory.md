@@ -8,7 +8,10 @@ checkpoint call them. The rate, the schedule, pillars, the board save, the
 fourteen-day change, who may call a route, and checkpoint credits are tested.
 A checkpoint save pulls the issues the weekly sync would count for that
 release window. Tasks and Finished Work call their routes.
-Next is the split into separate files. This slice has no OS work.
+Stage 6 is complete. The private service is a package: `model.py` for the
+shapes, `db.py` for the database and every SQL statement, and `lib/` for the
+rules. Routes stay in `__init__.py`. Step 7 is next: reconcile the client
+with the models. This slice has no OS work.
 
 `index.html` is the old page. Stage 1 deletes it. It is not a client, and no route
 stays open so that it can keep calling. The plan decides the windows and the routes.
@@ -36,11 +39,12 @@ the year's completed epics from Jira, one operator at a time.
 
 ### Private half
 
-- One module: [`private/app/io.bithead.lean-visualizer/__init__.py`](../../../../private/app/io.bithead.lean-visualizer/__init__.py),
+- Routes live in [`private/app/io.bithead.lean-visualizer/__init__.py`](../../../../private/app/io.bithead.lean-visualizer/__init__.py),
   exposing `router = APIRouter(prefix="/api/io.bithead.lean-visualizer")`, auto-discovered
   by `private/api.py`, served on 8082, proxied by nginx `location /api`.
-- The module is one file today. The plan splits it into `model.py`, `lib.py`, and `db.py`
-  when the rules are written.
+  Shapes are `model.py`. Statements are `db.py`. Rules are `lib/`.
+- Tests set `MODEL_DB_NAME` on the app module. `get_model_db_connection` reads
+  that attribute. A copy on `db` sends the suite at the live database.
 - Every route requires an Admin or an Employee. Paths that already exist keep their paths.
   Added routes are `GET /me`, `GET /schedule`, `GET /report`, and `PUT /checkpoints/{releaseId}`.
 - Storage: SQLite at `<db_path>/lean-visualizer.sqlite3`, where `db_path` comes from
