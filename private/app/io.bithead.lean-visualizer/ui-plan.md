@@ -25,7 +25,7 @@ Dependency first.
 
 | # | Flow | Spec | Must prove | Status |
 |---|---|---|---|---|
-| 1 | Who opens what | `lean-visualizer-access.spec.js` | An admin opens on the Board. Dashboards lists Board and Capacity report, and not Schedule. Board File lists Sync Feature Requests, Finished work, Releases, Save Checkpoint, and Schedule. An employee opens on the Capacity report. Dashboards lists Capacity report and Schedule, and not Board. An employee link to the board opens the report | Not started |
+| 1 | Who opens what | `lean-visualizer-access.spec.js` | An admin opens on the Board. Dashboards lists Board and Capacity report, and not Schedule. Board File lists Sync Feature Requests, Finished work, Releases, Save Checkpoint, and Schedule. An employee opens on the Capacity report. Dashboards lists Capacity report and Schedule, and not Board. An employee link to the board opens the report | **Done** — 2 specs |
 | 2 | The board saves and reads back | `lean-visualizer-board.spec.js` | An operator, a track, and a backlog feature saved with `PUT /model` show in those tables. The feature cell is the issue key, then the name. Renaming the operator and reopening the board shows the new name | Not started |
 | 3 | Capacity report | `lean-visualizer-report.spec.js` | Dashboards > Capacity report shows that operator. The rate row is Planned, Rate, Unplanned, Rate, Total Rate, and Weeks. The pillar table lists every pillar, including one with no features, with Open features and Distribution. An admin sees Save Checkpoint | Not started |
 | 4 | Schedule | `lean-visualizer-schedule.spec.js` | File > Schedule shows the track's name and the feature on it. A release dated inside the next 180 days shows its version on the chart. A release dated before today does not | Not started |
@@ -38,6 +38,7 @@ Defects and blockers UI testing turns up, so a later session can tell a gap in c
 | Flow | Finding | Fixed |
 |---|---|---|
 | — | `db.py` does not expose `get_db_path`, `delete_database`, and `start_database`, so `GET /api/debug/uitests/reset` skips this app. A spec run against the live file would replace the board the developer is using. Do not add `create_schema`. `bin/check-db --fix` deletes and rebuilds an app that has both `create_schema` and `get_db_path` | No |
+| 1 | Settings grants Employee with the license left off, because this app does not declare `licensed`. Access still requires the app in the session, so that account is refused and `GET /me` answers 401. The spec issues the license itself | No |
 | 3 | Weekly rates and pillar tags are written by the Jira sync. No route seeds either without calling Jira. Flow 3 proves the rows render, including zeros. The numbers themselves stay in the private suite | — |
 | 5 | Saving a checkpoint calls Jira. The spec opens the modal and reads the release. It does not click Save | — |
 
