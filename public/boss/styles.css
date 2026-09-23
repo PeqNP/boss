@@ -1960,11 +1960,14 @@ div.read-only.intrinsic {
   display: flex;
   align-items: center;
 }
-div.read-only.intrinsic label {
+div.read-only.intrinsic label,
+div.read-only label.intrinsic {
   display: inline-block;
-  width: auto;
+  width: max-content;
+  min-width: max-content;
   margin-right: 10px;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 div.read-only.intrinsic input {
   width: auto;
