@@ -2,21 +2,134 @@
   <script type="text/javascript">
     function $(this.id)(view) {
       function open() {
-        let select = view.ui.select("applications");
-        let bundleId = select.ui.selectedValue();
+        let bundleId = view.ui.select("applications").ui.selectedValue();
+        if (isEmpty(bundleId)) {
+          return;
+        }
         os.openApplication(bundleId);
       }
       this.open = open;
 
+      function addToDesktop() {
+        place("desktop");
+      }
+      this.addToDesktop = addToDesktop;
+
+      function addToDock() {
+        place("dock");
+      }
+      this.addToDock = addToDock;
+
       function viewDidLoad() {
-        let apps = os.installedApplications();
         let select = view.ui.select("applications");
+        select.ui.delegate = {
+          didSelectListBoxOption: function() {
+            refreshButtons();
+          },
+          didDeselectListBoxOption: function() {
+            refreshButtons();
+          },
+          didRemoveAllOptions: function() {
+            refreshButtons();
+          }
+        };
+        let apps = os.installedApplications();
         select.ui.addNewOptions(apps);
         view.querySelector(".num-apps").innerHTML = `${apps.length}`;
+        refreshButtons();
       }
       this.viewDidLoad = viewDidLoad;
 
       this.didHitEnter = open;
+
+      /**
+       * Enables Open, and each Add that the selection is not already on.
+       *
+       * A guest can open an app. Both adds stay disabled.
+       */
+      function refreshButtons() {
+        let select = view.ui.select("applications");
+        let openButton = view.ui.button("open");
+        let addDesktop = view.ui.button("add-desktop");
+        let addDock = view.ui.button("add-dock");
+        if (!select.ui.hasSelectedOption()) {
+          openButton.disabled = true;
+          addDesktop.disabled = true;
+          addDock.disabled = true;
+          return;
+        }
+        openButton.disabled = false;
+        if (os.isGuestUser(os.user)) {
+          addDesktop.disabled = true;
+          addDock.disabled = true;
+          return;
+        }
+        let bundleId = select.ui.selectedValue();
+        let workspace = os.workspace();
+        addDesktop.disabled = listed(workspace.desktop, bundleId);
+        addDock.disabled = listed(workspace.dock, bundleId);
+      }
+
+      /**
+       * Appends the selected app to one surface and saves the workspace.
+       *
+       * @param {string} surface - `desktop` or `dock`
+       */
+      function place(surface) {
+        if (os.isGuestUser(os.user)) {
+          return;
+        }
+        let bundleId = view.ui.select("applications").ui.selectedValue();
+        if (isEmpty(bundleId)) {
+          return;
+        }
+        let catalog = os.installedApplication(bundleId);
+        if (isEmpty(catalog) || catalog.system === true) {
+          return;
+        }
+        let workspace = os.workspace();
+        let icons = surface == "desktop" ? workspace.desktop : workspace.dock;
+        if (listed(icons, bundleId)) {
+          return;
+        }
+        let icon = catalog.icon;
+        if (isEmpty(icon)) {
+          icon = "icon.svg";
+        }
+        icons.push({
+          bundleId: bundleId,
+          name: catalog.name,
+          icon: icon
+        });
+        if (surface == "desktop") {
+          os.ui.desktop.removeAllApps();
+          os.ui.desktop.addApps(workspace.desktop);
+        }
+        else {
+          os.ui.repaintDock(workspace.dock);
+        }
+        os.saveWorkspace();
+        refreshButtons();
+      }
+
+      /**
+       * Reports whether `bundleId` is already in `icons`.
+       *
+       * @param {AppLink[]} icons - One surface of the workspace
+       * @param {string} bundleId - The bundle ID to find
+       * @returns {boolean}
+       */
+      function listed(icons, bundleId) {
+        if (isEmpty(icons)) {
+          return false;
+        }
+        for (let i = 0; i < icons.length; i++) {
+          if (icons[i].bundleId == bundleId) {
+            return true;
+          }
+        }
+        return false;
+      }
     }
   </script>
   <div class="top">
@@ -25,13 +138,19 @@
     <div class="zoom-button"></div>
   </div>
   <div class="metadata-boundary"><span class="num-apps">0</span> applications installed</div>
-  <div class="container hbox gap-10" style="width: 250px; height: 200px;">
+  <div class="container hbox gap-10" style="width: 340px; height: 200px;">
     <div class="ui-list-box icons">
       <select name="applications">
       </select>
     </div>
-    <div class="controls-right thin">
-      <button class="default" onclick="$(this.controller).open();">Open</button>
+    <div class="controls-right separated">
+      <div class="vbox gap-10">
+        <button name="add-desktop" class="primary" disabled onclick="$(this.controller).addToDesktop();">Add to Desktop</button>
+        <button name="add-dock" class="primary" disabled onclick="$(this.controller).addToDock();">Add to Dock</button>
+      </div>
+      <div class="vbox gap-10">
+        <button name="open" class="default" disabled onclick="$(this.controller).open();">Open</button>
+      </div>
     </div>
   </div>
 </div>

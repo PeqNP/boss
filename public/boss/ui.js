@@ -2423,6 +2423,100 @@ function UI(os) {
     }
     this.hideDock = hideDock;
 
+    let dockSelectedIcon = null;
+    let dockSelectedIndex = null;
+
+    /**
+     * Register drag-and-drop reordering on a dock icon.
+     *
+     * @param {HTMLElement} icon - The dock icon to attach drag events to
+     */
+    function registerDockDrag(icon) {
+        let isSameIcon = false;
+        let selectedHotSpot = icon.querySelector("img");
+
+        icon.addEventListener("dragstart", function(e) {
+            isSameIcon = true;
+            dockSelectedIcon = icon;
+            dockSelectedIndex = Array.from(icon.parentNode.children).indexOf(icon);
+            e.dataTransfer.setData("text/plain", "dragging");
+
+            icon.addEventListener("dragend", function() {
+                isSameIcon = false;
+            }, { once: true });
+        });
+
+        icon.addEventListener("dragenter", function(e) {
+            if (isSameIcon || icon.contains(e.relatedTarget) || isEmpty(dockSelectedIcon)) {
+                return;
+            }
+
+            e.stopPropagation();
+            e.preventDefault();
+
+            if (!selectedHotSpot.classList.contains("hovering")) {
+                selectedHotSpot.classList.add("hovering");
+            }
+        });
+
+        icon.addEventListener("dragover", function(e) {
+            e.preventDefault();
+        });
+
+        icon.addEventListener("dragleave", function(e) {
+            if (isSameIcon || icon.contains(e.relatedTarget) || isEmpty(dockSelectedIcon)) {
+                return;
+            }
+
+            e.stopPropagation();
+            e.preventDefault();
+
+            selectedHotSpot.classList.remove("hovering");
+        });
+
+        icon.addEventListener("drop", function(e) {
+            if (isSameIcon || isEmpty(dockSelectedIcon)) {
+                return;
+            }
+
+            e.stopPropagation();
+            e.preventDefault();
+
+            selectedHotSpot.classList.remove("hovering");
+            dockSelectedIcon.remove();
+
+            let index = Array.from(icon.parentNode.children).indexOf(icon);
+            if (dockSelectedIndex > index) {
+                icon.before(dockSelectedIcon);
+            }
+            else {
+                icon.after(dockSelectedIcon);
+            }
+
+            dockSelectedIcon = null;
+            syncDockOrder();
+        });
+    }
+
+    /**
+     * Writes the dock's DOM order onto the workspace and saves it.
+     */
+    function syncDockOrder() {
+        if (os.isGuestUser(os.user)) {
+            return;
+        }
+        let apps = [];
+        let icons = document.getElementById("os-dock").querySelector(".apps").children;
+        for (let i = 0; i < icons.length; i++) {
+            if (isEmpty(icons[i].data)) {
+                continue;
+            }
+            apps.push(icons[i].data);
+        }
+        os.workspace().dock = apps;
+        os.saveWorkspace();
+    }
+
     /**
      * Add application shortcut button to Dock.
      *
@@ -2433,13 +2527,39 @@ function UI(os) {
         let div = document.createElement("div");
         div.id = `DockButton_${bundleId}`;
         div.classList.add("app-icon");
+        div.data = app;
         let img = document.createElement("img");
         img.src = `${makeResourcePath(bundleId)}/${app.icon}`;
+        img.draggable = false;
         div.appendChild(img);
         let name = document.createElement("div");
         name.classList.add("app-name");
         name.innerHTML = app.name;
         div.appendChild(name);
+
+        if (os.isGuestUser(os.user)) {
+            div.draggable = false;
+        }
+        else {
+            div.draggable = true;
+            registerDockDrag(div);
+        }
+
+        div.addEventListener("contextmenu", function(e) {
+            e.preventDefault();
+            if (os.isGuestUser(os.user)) {
+                return;
+            }
+            let menu = new UIContextMenu([
+                {
+                    name: "Delete",
+                    action: function() {
+                        os.deleteDockApp(bundleId);
+                    }
+                }
+            ]);
+            menu.show(e);
+        });
 
         // `mouseenter` does NOT bubble, whereas `mouseover` does
         div.addEventListener("mouseenter", function() {
@@ -2470,8 +2590,34 @@ function UI(os) {
     }
     this.addAppsToDock = addAppsToDock;
 
+    /**
+     * Replaces the dock's icons with `apps` and leaves the dock visible.
+     *
+     * @param {[AppLink]} apps - The dock, in order
+     */
+    function repaintDock(apps) {
+        let icons = document.getElementById("os-dock").querySelectorAll(".app-icon");
+        for (let i = 0; i < icons.length; i++) {
+            icons[i].remove();
+        }
+        addAppsToDock(apps);
+        showDock();
+    }
+    this.repaintDock = repaintDock;
+
+    /**
+     * Remove an app from the dock.
+     *
+     * The dock stays visible when the last icon leaves.
+     *
+     * @param {string} bundleId - The bundle ID of the app to remove
+     */
     function removeAppFromDock(bundleId) {
-        // TODO: If no apps exist in dock, hide it
+        let icon = document.getElementById(`DockButton_${bundleId}`);
+        if (isEmpty(icon)) {
+            return;
+        }
+        icon.remove();
     }
     this.removeAppFromDock = removeAppFromDock;
 
@@ -4855,16 +5001,164 @@ function closeMenuType(className) {
         container.classList.add("ui-popup-inactive");
         // Reset arrow
         let choicesLabel = container.querySelector("." + className + "-label");
-        choicesLabel.classList.remove("ui-popup-arrow-active");
+        if (!isEmpty(choicesLabel)) {
+            choicesLabel.classList.remove("ui-popup-arrow-active");
+        }
     }
+}
+
+// The one context menu on screen. `closeAllMenus` removes it.
+let openContextMenu = null;
+
+/**
+ * Removes the open context menu, when one is open.
+ */
+function closeContextMenu() {
+    if (isEmpty(openContextMenu)) {
+        return;
+    }
+    openContextMenu.close();
 }
 
 /**
  * Close all popup menus.
  */
 function closeAllMenus() {
+    closeContextMenu();
     closeMenuType("ui-menu");
     closeMenuType("ui-popup");
+}
+
+/**
+ * A menu opened by a right-click.
+ *
+ * One is open at a time. A desktop icon, a dock icon, and a table row are
+ * the same kind of caller: each hands it the rows for that click.
+ *
+ * @param {[{name: string, action: function}]} items - The rows, in order.
+ */
+function UIContextMenu(items) {
+    let container = null;
+    let self = this;
+
+    /**
+     * Shows the menu at the pointer.
+     *
+     * Closes any menu already open. Shifts the menu back inside the viewport
+     * when it would otherwise sit outside it.
+     *
+     * @param {MouseEvent} event - The right-click that opened the menu.
+     */
+    function show(event) {
+        if (!isEmpty(event)) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        closeAllMenus();
+        if (isEmpty(items)) {
+            return;
+        }
+
+        container = document.createElement("div");
+        container.classList.add("ui-menu-container");
+        container.classList.add("ui-context-menu");
+        container.classList.add("ui-popup-active");
+
+        let sub = document.createElement("div");
+        sub.classList.add("sub-container");
+        let choices = document.createElement("div");
+        choices.classList.add("ui-popup-choices");
+
+        for (let i = 0; i < items.length; i++) {
+            let item = items[i];
+            let choice = document.createElement("div");
+            choice.classList.add("ui-popup-choice");
+            choice.innerHTML = item.name;
+            choice.addEventListener("click", function(e) {
+                e.stopPropagation();
+                let action = item.action;
+                close();
+                if (!isEmpty(action)) {
+                    action();
+                }
+            });
+            choices.appendChild(choice);
+        }
+
+        sub.appendChild(choices);
+        container.appendChild(sub);
+
+        let desktop = document.getElementById("desktop");
+        container.style.zIndex = os.ui.POPOVER_ZINDEX;
+        desktop.appendChild(container);
+        openContextMenu = self;
+
+        let left = 0;
+        let top = 0;
+        if (!isEmpty(event)) {
+            left = event.clientX;
+            top = event.clientY;
+        }
+        place(left, top);
+        document.addEventListener("pointerdown", onPointerDown);
+    }
+    this.show = show;
+
+    /**
+     * Removes the menu.
+     */
+    function close() {
+        document.removeEventListener("pointerdown", onPointerDown);
+        if (openContextMenu === self) {
+            openContextMenu = null;
+        }
+        if (!isEmpty(container)) {
+            container.remove();
+            container = null;
+        }
+    }
+    this.close = close;
+
+    // Private API
+
+    /**
+     * Puts the menu's top-left corner at `x`, `y`, then back inside the
+     * viewport when that corner would leave it clipped.
+     *
+     * @param {number} x - Pointer x, in viewport pixels.
+     * @param {number} y - Pointer y, in viewport pixels.
+     */
+    function place(x, y) {
+        container.style.left = `${x}px`;
+        container.style.top = `${y}px`;
+        let rect = container.querySelector(".sub-container").getBoundingClientRect();
+        if (rect.right > window.innerWidth) {
+            x = window.innerWidth - rect.width;
+        }
+        if (rect.bottom > window.innerHeight) {
+            y = window.innerHeight - rect.height;
+        }
+        if (x < 0) {
+            x = 0;
+        }
+        if (y < 0) {
+            y = 0;
+        }
+        container.style.left = `${x}px`;
+        container.style.top = `${y}px`;
+    }
+
+    /**
+     * Closes the menu when the press lands outside it.
+     *
+     * @param {PointerEvent} e - The press.
+     */
+    function onPointerDown(e) {
+        if (!isEmpty(container) && container.contains(e.target)) {
+            return;
+        }
+        close();
+    }
 }
 
 /**

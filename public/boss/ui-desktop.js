@@ -91,7 +91,27 @@ function UIDesktop(os) {
             }
 
             selectedIcon = null;
+            syncOrder();
         });
+    }
+
+    /**
+     * Writes the desktop's DOM order onto the workspace and saves it.
+     */
+    function syncOrder() {
+        if (os.isGuestUser(os.user)) {
+            return;
+        }
+        let apps = [];
+        let icons = container.children;
+        for (let i = 0; i < icons.length; i++) {
+            if (isEmpty(icons[i].data)) {
+                continue;
+            }
+            apps.push(icons[i].data);
+        }
+        os.workspace().desktop = apps;
+        os.saveWorkspace();
     }
 
     /**
@@ -114,7 +134,16 @@ function UIDesktop(os) {
 
         container.appendChild(icon);
 
-        registerDragEvents(icon, null);
+        let image = icon.querySelector("img");
+        image.draggable = false;
+
+        if (os.isGuestUser(os.user)) {
+            icon.draggable = false;
+        }
+        else {
+            icon.draggable = true;
+            registerDragEvents(icon);
+        }
 
         icon.addEventListener("click", () => {
             os.openApplication(app.bundleId);
@@ -122,10 +151,18 @@ function UIDesktop(os) {
 
         icon.addEventListener("contextmenu", (e) => {
             e.preventDefault();
-            // TODO: Display option to remove, open, etc.
-            // TODO: Remove the icon, update user preferences, etc.
-            // icon.remove();
-            console.log("Right-clicked");
+            if (os.isGuestUser(os.user)) {
+                return;
+            }
+            let menu = new UIContextMenu([
+                {
+                    name: "Delete",
+                    action: function() {
+                        os.deleteDesktopApp(app.bundleId);
+                    }
+                }
+            ]);
+            menu.show(e);
         });
     }
     this.addApp = addApp;
@@ -163,7 +200,11 @@ function UIDesktop(os) {
      * @param {string} bundleId - The bundle ID of the app to remove
      */
     function removeApp(bundleId) {
-        console.log("removeApp - not implemented");
+        let icon = document.getElementById(`desktop-icon-${bundleId}`);
+        if (isEmpty(icon)) {
+            return;
+        }
+        icon.remove();
     }
     this.removeApp = removeApp;
 }

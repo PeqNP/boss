@@ -1462,6 +1462,23 @@ disabled .ui-popup-choice,
   box-shadow: 1px 1px 0px 0px #000;
 }
 
+/* A context menu has no label. The open list is the menu itself, in flow,
+ * so the box at the pointer is the rows. The row and the hover are the
+ * popup's. */
+.ui-context-menu {
+  position: absolute;
+  font-family: "ChicagoFLF";
+  font-size: 12px;
+}
+.ui-context-menu.ui-popup-active .sub-container {
+  position: static;
+  display: block;
+  border: 1px solid #000;
+  box-shadow: 1px 1px 0px 0px #000;
+  background-color: #fff;
+  width: max-content;
+}
+
 /* Hide select options when closed */
 .ui-popup-inactive {
   z-index: 0;

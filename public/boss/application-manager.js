@@ -111,6 +111,26 @@ function ApplicationManager(os) {
     this.installedApplications = installedApplications;
 
     /**
+     * Returns one installed application's catalog entry.
+     *
+     * @param {string} bundleId - The bundle ID to look up
+     * @returns {{name: string, icon: string, system: boolean}|null} `null`
+     *  when the bundle is not installed.
+     */
+    function installedApplication(bundleId) {
+        let app = registeredApps[bundleId];
+        if (isEmpty(app)) {
+            return null;
+        }
+        return {
+            name: app.name,
+            icon: app.icon,
+            system: app.system === true
+        };
+    }
+    this.installedApplication = installedApplication;
+
+    /**
      * Returns bundle ID's application instance.
      *
      * @returns UIApplication?

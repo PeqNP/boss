@@ -115,6 +115,20 @@ function OS() {
     let user = null;
     property(this, "user", function() { return user }, function(value) { });
 
+    // The last workspace loadWorkspace painted. Add, reorder, and delete
+    // edit this object. Stage 5 sends it to the server.
+    let workspace = { desktop: [], dock: [] };
+
+    /**
+     * Returns the workspace on screen.
+     *
+     * @returns {{desktop: AppLink[], dock: AppLink[]}}
+     */
+    function currentWorkspace() {
+        return workspace;
+    }
+    this.workspace = currentWorkspace;
+
     let environment = Environment("unknown");
     property(this, "environment", function() { return environment }, function(value) { });
 
@@ -295,7 +309,6 @@ function OS() {
         os.ui.desktop.removeAllApps();
         os.ui.closeDock();
 
-        let workspace;
         try {
             if (isGuestUser(user)) {
                 workspace = await os.network.get(`/api/io.bithead.boss/workspace/guest`);
@@ -307,7 +320,15 @@ function OS() {
         catch (exc) {
             console.error(exc);
             console.error("Is the /os service started?");
+            workspace = { desktop: [], dock: [] };
             return;
+        }
+
+        if (isEmpty(workspace.desktop)) {
+            workspace.desktop = [];
+        }
+        if (isEmpty(workspace.dock)) {
+            workspace.dock = [];
         }
 
         os.ui.desktop.addApps(workspace.desktop);
@@ -317,6 +338,78 @@ function OS() {
         // Also, this requires the Settings app to add a `Show Dock` bit.
         os.ui.showDock();
     }
+
+    /**
+     * Saves the workspace in memory.
+     *
+     * A guest is left unchanged.
+     *
+     * @returns {Promise<{desktop: AppLink[], dock: AppLink[]}>}
+     */
+    async function saveWorkspace() {
+        if (isGuestUser(user)) {
+            return workspace;
+        }
+        // Stage 5 replaces this body with
+        // PUT /api/io.bithead.boss/workspace/${user.id}.
+        return workspace;
+    }
+    this.saveWorkspace = saveWorkspace;
+
+    /**
+     * Removes one app from the desktop.
+     *
+     * Leaves the dock copy in place. A guest is left unchanged.
+     *
+     * @param {string} bundleId - The bundle ID to remove
+     * @returns {Promise<{desktop: AppLink[], dock: AppLink[]}>}
+     */
+    async function deleteDesktopApp(bundleId) {
+        if (isGuestUser(user)) {
+            return workspace;
+        }
+        let remaining = [];
+        for (let i = 0; i < workspace.desktop.length; i++) {
+            if (workspace.desktop[i].bundleId == bundleId) {
+                continue;
+            }
+            remaining.push(workspace.desktop[i]);
+        }
+        workspace.desktop = remaining;
+        os.ui.desktop.removeApp(bundleId);
+        // Stage 5 replaces this body with
+        // DELETE /api/io.bithead.boss/workspace/desktop/${user.id}/${bundleId}.
+        return workspace;
+    }
+    this.deleteDesktopApp = deleteDesktopApp;
+
+    /**
+     * Removes one app from the dock.
+     *
+     * Leaves the desktop copy in place. The dock stays visible when the last
+     * icon leaves. A guest is left unchanged.
+     *
+     * @param {string} bundleId - The bundle ID to remove
+     * @returns {Promise<{desktop: AppLink[], dock: AppLink[]}>}
+     */
+    async function deleteDockApp(bundleId) {
+        if (isGuestUser(user)) {
+            return workspace;
+        }
+        let remaining = [];
+        for (let i = 0; i < workspace.dock.length; i++) {
+            if (workspace.dock[i].bundleId == bundleId) {
+                continue;
+            }
+            remaining.push(workspace.dock[i]);
+        }
+        workspace.dock = remaining;
+        os.ui.removeAppFromDock(bundleId);
+        // Stage 5 replaces this body with
+        // DELETE /api/io.bithead.boss/workspace/dock/${user.id}/${bundleId}.
+        return workspace;
+    }
+    this.deleteDockApp = deleteDockApp;
 
     // Original reference to console.log
     let originalLogger;
@@ -840,6 +933,17 @@ function OS() {
         return app.installedApplications();
     }
     this.installedApplications = installedApplications;
+
+    /**
+     * Returns one installed application's catalog entry.
+     *
+     * @param {string} bundleId - The bundle ID to look up
+     * @returns {{name: string, icon: string, system: boolean}|null}
+     */
+    function installedApplication(bundleId) {
+        return app.installedApplication(bundleId);
+    }
+    this.installedApplication = installedApplication;
 
     /**
      * Open application deep link.
