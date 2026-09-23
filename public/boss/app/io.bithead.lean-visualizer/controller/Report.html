@@ -51,8 +51,8 @@
             row.operatorName,
             row.plannedTotal,
             row.unplannedTotal,
-            row.plannedPerWeek,
-            row.unplannedPerWeek,
+            twoPlaces(row.plannedPerWeek),
+            twoPlaces(row.unplannedPerWeek),
             row.weeksCounted
           ];
         }));
@@ -76,6 +76,10 @@
             + "<td>" + change.movedDays + "</td>";
           changes.appendChild(tr);
         }
+      }
+
+      function twoPlaces(value) {
+        return (Number(value) || 0).toFixed(2);
       }
 
       function fill(table, rows) {

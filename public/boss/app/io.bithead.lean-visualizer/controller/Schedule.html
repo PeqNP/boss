@@ -78,10 +78,14 @@
             ? "—"
             : escapeHtml(current.name) + (waiting > 0 ? " · " + waiting + " queued" : "");
           tr.innerHTML = "<td>" + escapeHtml(track.name) + "</td>"
-            + "<td>" + track.capacity + "</td>"
+            + "<td>" + twoPlaces(track.capacity) + "</td>"
             + "<td>" + work + "</td>";
           body.appendChild(tr);
         }
+      }
+
+      function twoPlaces(value) {
+        return (Number(value) || 0).toFixed(2);
       }
 
       function visibleReleases() {

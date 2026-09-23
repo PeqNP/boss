@@ -250,7 +250,7 @@
         const capacity = tracks.reduce(function(sum, track) {
           return sum + (track.enabled ? trackRate(track.id) : 0);
         }, 0);
-        view.ui.span("capacity-note").textContent = "Total enabled capacity: " + capacity + " units/week";
+        view.ui.span("capacity-note").textContent = "Total enabled capacity: " + rateText(capacity) + " units/week";
       }
 
       function renderOperators() {
@@ -300,7 +300,7 @@
             : "<td>" + featureTitle(feature, true) + "</td>"
               + narrow(feature.units)
               + narrow(feature.completedUnits)
-              + narrow(trackRate(track.id))
+              + narrow(rateText(trackRate(track.id)))
               + narrow(weeksCell(weeksById[feature.id]))
               + "<td>" + estWeeksLabel(feature, "track") + "</td>"
               + narrow(isEmpty(feature.finishOn) ? "—" : escapeHtml(feature.finishOn));
