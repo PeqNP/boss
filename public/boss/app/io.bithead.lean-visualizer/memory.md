@@ -6,9 +6,9 @@ is [plan.md](../../../../private/app/io.bithead.lean-visualizer/plan.md). Every 
 requires a role. The routes are live and the board, schedule, report, and
 checkpoint call them. The rate, the schedule, pillars, the board save, the
 fourteen-day change, who may call a route, and checkpoint credits are tested.
-Next is connecting a checkpoint save to the Jira pull, then Tasks, Finished
-Work, and Prepare Release. The private module stays one file until that pull
-is in. This slice has no OS work.
+A checkpoint save pulls the issues the weekly sync would count for that
+release window. Next is Tasks, Finished Work, and Prepare Release. The private
+module stays one file until those windows are live. This slice has no OS work.
 
 `index.html` is the old page. Stage 1 deletes it. It is not a client, and no route
 stays open so that it can keep calling. The plan decides the windows and the routes.
@@ -107,9 +107,9 @@ Prepare Release still use sample rows.
 
 1. Schema changes need their own migration patch plus a DB version bump. Do not delete or
    recreate the database to apply one.
-2. `save_checkpoint` credits issues it is handed. The route still hands it none, so a
-   checkpoint saved from the board has `issueCount` 0 until that save runs the same
-   pull as the weekly sync. Do not call Jira from the test.
+2. `PUT /checkpoints/{releaseId}` calls `fetch_checkpoint_issues`, the same Jira query
+   as the weekly sync, for the release window. The test substitutes that function.
+   Do not call Jira from a test.
 
 ## Running it
 

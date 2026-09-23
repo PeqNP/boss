@@ -552,6 +552,59 @@ def test_checkpoint_issues():
         conn.close()
 
 
+def test_checkpoint_pull(monkeypatch):
+    today = date.today()
+    state = lv.default_visualizer_state()
+    state["operators"] = [operator("Ada")]
+    state["releases"] = [release("rel", "1.0.0", today)]
+    conn, _saved = open_board(state)
+    conn.close()
+    seen = {}
+    issue = done_issue("FR-20", today, "Ada", parent="FR-1")
+    del issue["changelog"]
+
+    def fake(names, start, end):
+        seen["names"] = list(names)
+        seen["start"] = start
+        seen["end"] = end
+        return [issue], "developers"
+
+    config = get_config()
+    previous_login = config.login_enabled
+    config.login_enabled = True
+
+    async def verify(request, bundle_id, feature):
+        if feature != "checkpoint.w":
+            raise HTTPException(status_code=403, detail="refused")
+        return User(
+            id=2,
+            system=0,
+            fullName="Pat",
+            email="pat@example.com",
+            verified=True,
+            enabled=True,
+        )
+
+    monkeypatch.setattr("lib.server.verify_user", verify)
+    monkeypatch.setattr(lv, "fetch_checkpoint_issues", fake)
+    try:
+        # describe: a checkpoint is saved from the board
+        saved = asyncio.run(lv.put_checkpoint(release_id="rel", request=http_request()))
+        assert seen["end"] == today.isoformat(), "it: the pull ends on the release date"
+        assert seen["start"] == iso(today - timedelta(days=13)), "it: the first release uses the fourteen day window"
+        assert seen["names"] == ["Ada"], "it: the pull names the board's operators"
+        assert saved.issueCount == 1, "it: an issue the weekly query returns is credited"
+        read = lv.get_model_db_connection()
+        try:
+            rows = lv.read_checkpoint_issues(read, "rel")
+        finally:
+            read.close()
+        assert rows[0].issueKey == "FR-20", "it: the credited issue is the one Jira returned"
+        assert rows[0].planned is True, "it: a parent still makes the credit planned"
+    finally:
+        config.login_enabled = previous_login
+
+
 def http_request():
     return Request({
         "type": "http",
