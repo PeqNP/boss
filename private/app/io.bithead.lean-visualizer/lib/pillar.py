@@ -74,8 +74,17 @@ def pillar_groups(features: List[Dict[str, Any]]) -> List[PillarOpen]:
             bucket["remaining"] += remaining
             bucket["count"] += 1
     order = list(PILLAR_NAMES) + sorted(name for name in grouped if name not in PILLAR_NAMES)
+    unique = len(features)
     return [
-        PillarOpen(pillar=name, remainingUnits=grouped[name]["remaining"], featureCount=grouped[name]["count"])
+        PillarOpen(
+            pillar=name,
+            remainingUnits=grouped[name]["remaining"],
+            featureCount=grouped[name]["count"],
+            share=(
+                0.0 if unique == 0
+                else round(grouped[name]["count"] * 100 / unique, 2)
+            ),
+        )
         for name in order
     ]
 

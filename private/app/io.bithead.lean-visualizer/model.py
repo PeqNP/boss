@@ -94,6 +94,7 @@ class PillarOpen(BaseModel):
     pillar: str
     remainingUnits: int
     featureCount: int
+    share: float = 0
 
 
 class PillarFinished(BaseModel):

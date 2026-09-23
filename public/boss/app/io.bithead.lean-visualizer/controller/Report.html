@@ -47,17 +47,20 @@
         view.ui.span("as-of").textContent = report.asOf;
         view.ui.span("rate-window").textContent = report.rates.windowStart + " – " + report.rates.windowEnd;
         fill(view.ui.table("rates"), report.rates.operators.map(function(row) {
+          const plannedRate = Number(row.plannedPerWeek) || 0;
+          const unplannedRate = Number(row.unplannedPerWeek) || 0;
           return [
             row.operatorName,
             row.plannedTotal,
+            twoPlaces(plannedRate),
             row.unplannedTotal,
-            twoPlaces(row.plannedPerWeek),
-            twoPlaces(row.unplannedPerWeek),
+            twoPlaces(unplannedRate),
+            twoPlaces(plannedRate + unplannedRate),
             row.weeksCounted
           ];
         }));
         fill(view.ui.table("open-pillars"), report.pillars.open.map(function(row) {
-          return [row.pillar, row.remainingUnits, row.featureCount];
+          return [row.pillar, row.featureCount, percentText(row.share)];
         }));
         const changes = view.ui.table("changes").querySelector("tbody");
         changes.innerHTML = "";
@@ -80,6 +83,11 @@
 
       function twoPlaces(value) {
         return (Number(value) || 0).toFixed(2);
+      }
+
+      function percentText(value) {
+        const rounded = Math.round((Number(value) || 0) * 100) / 100;
+        return String(rounded) + "%";
       }
 
       function fill(table, rows) {
@@ -127,9 +135,10 @@
             <tr>
               <th title="Operator">Operator</th>
               <th title="Planned tasks in these weeks">Planned</th>
+              <th title="Planned tasks per week">Rate</th>
               <th title="Unplanned tasks in these weeks">Unplanned</th>
-              <th title="Average planned tasks per week">Planned / week</th>
-              <th title="Average unplanned tasks per week">Unplanned / week</th>
+              <th title="Unplanned tasks per week">Rate</th>
+              <th title="Planned rate plus unplanned rate">Total Rate</th>
               <th title="Weeks in the average">Weeks</th>
             </tr>
           </thead>
@@ -143,7 +152,7 @@
       <div class="vbox gap-10">
         <table name="open-pillars">
           <thead>
-            <tr><th title="Pillar">Pillar</th><th title="Remaining units">Remaining</th><th title="Features">Features</th></tr>
+            <tr><th title="Pillar">Pillar</th><th title="Open features in this pillar">Open features</th><th title="Share of open features">Distribution</th></tr>
           </thead>
           <tbody></tbody>
         </table>

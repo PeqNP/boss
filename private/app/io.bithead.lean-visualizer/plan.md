@@ -223,7 +223,7 @@ Audience: Admin and Employee. Read only, except the Admin's Save Checkpoint.
 Three sections, in this order:
 
 1. Planned versus unplanned, per operator, for the last eight complete weeks, and for every stored week from 28 December 2025.
-2. Allocation by strategic pillar. Open remaining units. Every pillar is a row, including a pillar with nothing open: Growth / Acquisition, New Features / Retention, Tech Debt / Stability, Process Efficiency / Cost Savings, and Unassigned. A feature with two pillars counts in each. Virtual features are not in this section. Finished feature requests are the Finished Work window.
+2. Allocation by strategic pillar. Each row is the open feature count and that count's share of the open features. Every pillar is a row, including a pillar with nothing open: Growth / Acquisition, New Features / Retention, Tech Debt / Stability, Process Efficiency / Cost Savings, and Unassigned. A feature with two pillars counts in each share. Virtual features are not in this section. Finished feature requests are the Finished Work window.
 3. Material changes since the last checkpoint: features whose forecasted finish moved by fourteen days or more. Empty until a checkpoint exists.
 
 Save Checkpoint opens `Checkpoint`. After it saves, the report reloads.
@@ -456,7 +456,7 @@ A bar: `featureId`, `issueKey`, `name`, `color`, `startOn`, `finishOn`. `issueKe
 | pillars | `open`, `finished` |
 | changes | array of `featureId`, `name`, `color`, `previousFinishOn`, `finishOn`, `movedDays` |
 
-A rate operator: `operatorName`, `plannedTotal`, `unplannedTotal`, `plannedPerWeek`, `unplannedPerWeek`, `weeksCounted`. The totals are the tasks in the weeks that make the average. A history row: `weekStart`, `weekEnd`, `operators` of `operatorName`, `planned`, `unplanned`. A pillar row: `pillar`, `remainingUnits`, `featureCount`. A finished pillar row: `pillar`, `featureCount`.
+A rate operator: `operatorName`, `plannedTotal`, `unplannedTotal`, `plannedPerWeek`, `unplannedPerWeek`, `weeksCounted`. The totals are the tasks in the weeks that make the average. A history row: `weekStart`, `weekEnd`, `operators` of `operatorName`, `planned`, `unplanned`. A pillar row: `pillar`, `remainingUnits`, `featureCount`, `share`. `share` is that pillar's features as a percent of the open features. A finished pillar row: `pillar`, `featureCount`.
 
 `Checkpoint`
 

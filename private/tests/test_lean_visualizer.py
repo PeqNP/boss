@@ -430,7 +430,9 @@ def test_pillar():
 
         # describe: a sync returns two pillars on one feature and none on another
         assert rows["Growth / Acquisition"].remainingUnits == 6, "it: the first counts in both groups"
+        assert rows["Growth / Acquisition"].share == 50, "it: half of the open features are in that pillar"
         assert rows["New Features / Retention"].remainingUnits == 6, "it: the second pillar counts the same units"
+        assert rows["Tech Debt / Stability"].share == 0, "it: a pillar with no features is zero percent"
         assert rows["Unassigned"].remainingUnits == 3, "it: the second is Unassigned"
         assert rows["Unassigned"].featureCount == 1, "it: a virtual feature is not in this section"
         assert rows["Tech Debt / Stability"].featureCount == 0, "it: a pillar with no work is still listed"
