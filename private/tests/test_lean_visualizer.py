@@ -303,7 +303,8 @@ def test_schedule():
     state = lv.default_visualizer_state()
     state["operators"] = [operator("Ada", "track_a")]
     state["tracks"] = [track("track_a", "Platform", held=feature(
-        "feat", "Billing", units=14, completedUnits=7, color="#112233"
+        "feat", "Billing", units=14, completedUnits=7, color="#112233",
+        issueKey="FR-9"
     ))]
     conn, saved = open_board(state)
     try:
@@ -316,6 +317,7 @@ def test_schedule():
 
         # describe: a feature has a color
         assert bar.color == "#112233", "it: the schedule bar uses that color"
+        assert bar.issueKey == "FR-9", "it: the bar carries the issue key"
 
         # describe: manualEstWeeks is set and units are set
         held = feature(

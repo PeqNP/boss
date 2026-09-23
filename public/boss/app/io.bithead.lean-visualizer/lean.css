@@ -151,6 +151,11 @@ a.jira-key {
   color: #000;
 }
 
+/* The help balloon is inline-flex. A bar keeps the width the chart gave it. */
+.gantt-bar.ui-help-balloon {
+  display: block;
+}
+
 .gantt-grid > .release-pole {
   position: absolute;
   top: 0;

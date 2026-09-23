@@ -214,6 +214,7 @@ class ReleaseOptionsResponse(BaseModel):
 
 class ScheduleBar(BaseModel):
     featureId: str
+    issueKey: str
     name: str
     color: str
     startOn: str
@@ -2505,6 +2506,7 @@ def schedule_bar(feature: Dict[str, Any], start: date, capacity: float) -> Sched
         finish = (start + timedelta(days=round(span))).isoformat()
     return ScheduleBar(
         featureId=str(feature.get("id") or ""),
+        issueKey=str(feature.get("issueKey") or "").strip(),
         name=str(feature.get("name") or ""),
         color=str(feature.get("color") or ""),
         startOn=start.isoformat(),

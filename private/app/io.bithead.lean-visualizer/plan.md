@@ -464,7 +464,7 @@ A task: `issueKey`, `description`, `parentTask`, `planned`, `releaseVersion`.
 | queue | array of `featureId`, `name`, `color`, `trackId`, `trackName`, `startOn`, `finishOn`, `weeks` |
 | releases | array of `id`, `version`, `date` |
 
-A bar: `featureId`, `name`, `color`, `startOn`, `finishOn`. `finishOn` is empty when the duration is infinite.
+A bar: `featureId`, `issueKey`, `name`, `color`, `startOn`, `finishOn`. `issueKey` is empty when the feature has none. `finishOn` is empty when the duration is infinite. The chart balloon reads `issueKey: name`.
 
 `Report`
 

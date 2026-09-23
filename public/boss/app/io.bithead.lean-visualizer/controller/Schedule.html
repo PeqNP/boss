@@ -55,10 +55,15 @@
             + "</div><div class=\"gantt-grid\" style=\"width:" + width + "px;\">"
             + bars + poleMarkup(releases) + "</div></div>";
         }).join("");
-        view.ui.div("gantt").innerHTML = "<div class=\"gantt-header\"><div class=\"gantt-track-label\">Track</div>"
+        const chart = view.ui.div("gantt");
+        chart.innerHTML = "<div class=\"gantt-header\"><div class=\"gantt-track-label\">Track</div>"
           + "<div class=\"gantt-grid\" style=\"width:" + width + "px;\">" + ticks.join("")
           + flagMarkup(releases) + poleMarkup(releases) + "</div></div>"
           + rows;
+        // The bars are drawn after the window is styled, so wire each balloon here.
+        chart.querySelectorAll(".gantt-bar").forEach(function(bar) {
+          new UIPopOver(bar, new UIPopOverSide("left", "below"), escapeHtml(bar.dataset.summary));
+        });
       }
 
       function renderTracks() {
@@ -126,9 +131,11 @@
         const duration = Math.max(finish - start, 0.5);
         const left = Math.max(start, 0) * PX_PER_DAY;
         const width = Math.max(6, Math.min(duration, DAY_SPAN - Math.max(start, 0)) * PX_PER_DAY);
-        return "<div class=\"gantt-bar\" title=\"" + escapeHtml(bar.name) + "\" style=\"left:"
-          + left + "px;width:" + width + "px;background:" + bar.color + ";\">"
-          + escapeHtml(bar.name) + "</div>";
+        const key = String(bar.issueKey || "").trim();
+        const summary = key === "" ? bar.name : key + ": " + bar.name;
+        return "<div class=\"gantt-bar ui-help-balloon\" data-summary=\"" + escapeHtml(summary)
+          + "\" style=\"left:" + left + "px;width:" + width + "px;background:" + bar.color + ";\">"
+          + escapeHtml(summary) + "</div>";
       }
 
       function daysFromToday(iso) {
