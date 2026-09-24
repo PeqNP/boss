@@ -402,17 +402,30 @@ public func registerAccount(_ app: Application) {
         group.post("app-license") { req in
             let form = try req.content.decode(AccountForm.CheckAppAccess.self)
             guard let appAclId = try await api.acl.aclApp(bundleId: form.bundleId) else {
-                // The app has no ACL. Therefore, it does not require a license
-                let fragment = Fragment.AppLicense(valid: true, license: nil)
-                return fragment
+                // No ACL record means no license is required.
+                return Fragment.AppLicense(valid: true, license: nil)
             }
-            
-            let auth = try await verifyAccess(req, refreshToken: false)
+
+            let auth: AuthenticatedUser
+            do {
+                auth = try await verifyAccess(req, refreshToken: false)
+            }
+            catch is api.error.GuestUserAccessDenied {
+                return Fragment.AppLicense(valid: false, license: nil)
+            }
+            catch {
+                // No session has no access. A rejected token still fails.
+                let token = req.cookies["accessToken"]?.string ?? ""
+                if token.isEmpty {
+                    return Fragment.AppLicense(valid: false, license: nil)
+                }
+                throw error
+            }
+
             if auth.isSuperUser {
-                let fragment = Fragment.AppLicense(valid: true, license: nil)
-                return fragment
+                return Fragment.AppLicense(valid: true, license: nil)
             }
-            
+
             let license: bosslib.AppLicense?
             do {
                 license = try await api.acl.appLicense(id: appAclId, user: auth.user)
@@ -420,11 +433,10 @@ public func registerAccount(_ app: Application) {
             catch {
                 license = nil
             }
-            let fragment = Fragment.AppLicense(valid: license != nil, license: license)
-            return fragment
+            return Fragment.AppLicense(valid: license != nil, license: license)
         }.openAPI(
             summary: "Check if user has a license to use a BOSS app",
-            description: "This is an open route that checks if a user has a license to use a BOSS app. This is called for all apps, even those that do not require a license to use and may be called as a Guest user.",
+            description: "Check if the user has access to the application.",
             body: .type(AccountForm.CheckAppAccess.self),
             contentType: .application(.json),
             response: .type(Fragment.AppLicense.self),

@@ -723,6 +723,17 @@ runs none`, which are the right names, and never caught one worth changing.
 
 A comment says what the code does. It does not say why.
 
+A function comment, and the public description of an API, say what the call
+does. They do not say when to call it, which screen is about to use it, or
+what the caller was doing. The caller already knows that. "Check if the user
+has access to the application" is the description. "Called before a licensed
+app opens" is a scene, and it does not belong there.
+
+Say it in the fewest words that still leave a reader, who has not seen the
+call site, knowing what happens. A sentence that has to list every caller, or
+every way the call can fail, has gone past that. A sentence so short that the
+reader cannot tell what comes back has not arrived yet.
+
 The reason belongs in the commit message, in the app's plan, or nowhere. A
 comment that argues is where the writing slips: the sentence stops describing
 and starts explaining, the subject drops out of it, and the point ends up in a
