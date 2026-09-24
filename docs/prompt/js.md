@@ -970,9 +970,9 @@ When `main` is set to `"Application"` in `application.json`, the file `controlle
       function applicationDidStop() { }
       this.applicationDidStop = applicationDidStop;
 
-      // `userDidSignIn` and `userDidSignOut` do NOT belong here. The OS sends
-      // them to launched windows and modals, never to the application
-      // controller — see "Signing in and out" below.
+      // `userDidSignIn` arrives here as well as at open windows. Use it when
+      // the app was opened by a guest and must read who just signed in.
+      // See "Signing in and out" below.
 
       // Listen to OS/app events
       this.events = {
@@ -1094,10 +1094,10 @@ Rules:
 
 ### Signing in and out
 
-`userDidSignIn(user)` and `userDidSignOut()` are **window** callbacks.
-`applicationWillSignIn` walks the app's launched windows and its modals and
-calls each one, so a screen reacting to a sign-in implements the handler on
-itself.
+`userDidSignIn(user)` and `userDidSignOut()` are sent to launched windows and
+modals. `userDidSignIn` is also sent to the application controller, so an app
+that a guest opened — and that therefore has no window yet — can read who just
+signed in. `applicationWillSignIn` is what walks them.
 
 `userDidSignIn` arrives for a real account, and says "somebody just arrived".
 
@@ -1123,6 +1123,10 @@ Decide what a guest sees with `os.isGuestUser(os.user)` in `applicationDidStart`
 That call is the whole test: no user is a guest. A guest is nobody yet, so an
 app whose routes require a session should ask this before it calls any of them
 rather than showing a screen full of failures.
+
+Who may open a page is decided in
+[`process.md` § Say who reaches each page](process.md#say-who-reaches-each-page).
+A menu item or a deep link opens the controller it names.
 
 ### Universal links
 

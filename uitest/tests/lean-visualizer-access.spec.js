@@ -10,7 +10,7 @@
 
 import { test, expect } from "@playwright/test";
 import { signInAsAdmin, signInAs, bootBOSS, openApplication, windowByTitle,
-         account, ensureAccount, closeAll } from "../lib/boss.js";
+         clickMenuItem, account, ensureAccount, closeAll } from "../lib/boss.js";
 
 const BUNDLE = "io.bithead.lean-visualizer";
 const EMPLOYEE = account("lean-employee");
@@ -115,7 +115,33 @@ test.describe("who opens what @window", () => {
     await page.evaluate(async (bundleId) => {
       await os.application(bundleId).proxy.openDeepLink({ path: "/board" });
     }, BUNDLE);
+    await expect(windowByTitle(page, "Board")).toBeVisible();
+  });
+
+  test("board opens after a guest signs in", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForFunction(() => {
+      try {
+        return os.isLoaded() === true;
+      }
+      catch {
+        return false;
+      }
+    });
+    await openApplication(page, BUNDLE);
     await expect(windowByTitle(page, "Board")).toHaveCount(0);
-    await expect(windowByTitle(page, "Capacity report")).toBeVisible();
+
+    await signInAsAdmin(page);
+    const accountResponse = await page.request.get("/account/user");
+    const accountText = await accountResponse.text();
+    expect(accountResponse.ok(), accountText).toBe(true);
+    const accountBody = JSON.parse(accountText);
+    await page.evaluate((user) => os.signIn(user), accountBody.user || accountBody);
+    await page.locator(".ui-modal", { hasText: "Sign In" }).getByRole("button", { name: "Cancel" }).first().click();
+
+    await expect(windowByTitle(page, "Board")).toBeVisible();
+    await clickMenuItem(page, "go-menu", "Board");
+    await expect(windowByTitle(page, "Board")).toBeVisible();
+    await expect(windowByTitle(page, "Capacity report")).toHaveCount(0);
   });
 });

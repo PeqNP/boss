@@ -3193,6 +3193,12 @@ function UIApplication(id, config) {
     function applicationWillSignIn(user) {
         applyMenuVisibility();
 
+        // The application controller hears this too. A guest can open the app
+        // before anyone has signed in, and no window exists yet to receive it.
+        if (!isEmpty(main?.userDidSignIn)) {
+            main.userDidSignIn(user);
+        }
+
         for (windowId in launchedControllers) {
             launchedControllers[windowId].ui.userDidSignIn(user);
         }

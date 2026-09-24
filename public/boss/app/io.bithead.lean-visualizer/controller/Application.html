@@ -2,7 +2,10 @@
   <script type="text/javascript">
     function $(this.id)() {
 
-      let signedInRole = "Employee";
+      let signedInRole = null;
+      let sessionPromise = null;
+      let openingHome = null;
+      let askedToSignIn = false;
 
       function quit() {
         os.closeApplication("$(app.bundleId)");
@@ -10,10 +13,44 @@
       this.quit = quit;
 
       /**
-       * Opens the board. An Employee lands on the report.
+       * Read who is signed in, once.
+       *
+       * Opening as a guest returns before this runs. The role must not stay
+       * at a default, or Board keeps opening the report after they sign in.
+       *
+       * @returns {Promise<boolean>}
+       */
+      function ensureSession() {
+        if (os.isGuestUser(os.user)) {
+          if (!askedToSignIn) {
+            askedToSignIn = true;
+            os.ui.showSignIn();
+          }
+          return Promise.resolve(false);
+        }
+        askedToSignIn = false;
+        if (sessionPromise !== null) {
+          return sessionPromise;
+        }
+        sessionPromise = os.network.get("/api/io.bithead.lean-visualizer/me").then(function(me) {
+          signedInRole = me.role;
+          applyRoleMenu();
+          return true;
+        }).catch(function(error) {
+          sessionPromise = null;
+          throw error;
+        });
+        return sessionPromise;
+      }
+
+      /**
+       * Opens the board.
        */
       async function showBoard() {
-        await open(role() === "Employee" ? "Report" : "Board");
+        if (!await ensureSession()) {
+          return;
+        }
+        await open("Board");
       }
       this.showBoard = showBoard;
 
@@ -38,32 +75,63 @@
 
       async function applicationDidStart() {
         await os.network.stylesheet("$(app.resourcePath)/lean.css");
-        if (os.isGuestUser(os.user)) {
-          os.ui.showSignIn();
-          return;
-        }
-        const me = await os.network.get("/api/io.bithead.lean-visualizer/me");
-        signedInRole = me.role;
-        applyRoleMenu();
-        await open(home());
+        await openHome();
       }
       this.applicationDidStart = applicationDidStart;
 
-      this.openDeepLink = async function(deepLink) {
-        if (os.isGuestUser(os.user)) {
-          os.ui.showSignIn();
+      /**
+       * Somebody signed in after this app was opened as a guest.
+       *
+       * The role from that earlier moment is discarded and `/me` is read again.
+       */
+      async function userDidSignIn() {
+        sessionPromise = null;
+        signedInRole = null;
+        openingHome = null;
+        await openHome();
+      }
+      this.userDidSignIn = userDidSignIn;
+
+      /**
+       * A second tap focuses an app that started as a guest and never opened
+       * a window. Sign-in does not start it again, so this is when home opens.
+       */
+      async function applicationDidFocus() {
+        const container = document.getElementById(os.ui.appContainerId("$(app.bundleId)"));
+        if (!isEmpty(container) && container.querySelector(".ui-window, .ui-modal")) {
           return;
         }
-        applyRoleMenu();
+        await openHome();
+      }
+      this.applicationDidFocus = applicationDidFocus;
+
+      function openHome() {
+        if (openingHome !== null) {
+          return openingHome;
+        }
+        openingHome = doOpenHome();
+        return openingHome;
+      }
+
+      async function doOpenHome() {
+        if (!await ensureSession()) {
+          openingHome = null;
+          return;
+        }
+        await open(home());
+      }
+
+      this.openDeepLink = async function(deepLink) {
+        if (!await ensureSession()) {
+          return;
+        }
         await open(screenFor(deepLink.path));
       };
 
       this.openUniversalLink = async function(link) {
-        if (os.isGuestUser(os.user)) {
-          os.ui.showSignIn();
+        if (!await ensureSession()) {
           return;
         }
-        applyRoleMenu();
         await open(screenFor(link.path));
       };
 
@@ -84,7 +152,7 @@
           return "Report";
         }
         if (name === "board") {
-          return home();
+          return "Board";
         }
         return home();
       }

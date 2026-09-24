@@ -7,6 +7,7 @@ Read the index, then the sections that apply. Do not ingest the rest.
 | Size, kind, what to load | [Classify the work](#classify-the-work) |
 | Interview and spec | [Phase 0](#phase-0--design-interview) |
 | `plan.md` | [Phase 1](#phase-1--write-the-plan) |
+| Keeping a role off a page | [Say who reaches each page](#say-who-reaches-each-page) |
 | A slice on an app whose stages are already done | [Iteration](#iteration--a-slice-on-a-finished-plan) |
 | Layers, Python vs Swift, localhost bridge | [System Layers](#system-layers) |
 | Domain vs network models | [Network and Domain Models](#network-and-domain-models) |
@@ -203,6 +204,14 @@ is a lot; more than that is a sign two actors have been written as one.
 Every page and every endpoint below is consistent with this table. A page
 reaching records its actor's row does not is a question to settle here, before
 Stage 1 names a route.
+
+**Keep a role off a page in two places, and nowhere else.** Leave the opener
+off that role's menu, so they are not offered a controller they must not open.
+If the controller is opened anyway — a deep link, a leftover item — open that
+controller. The route then refuses the query with 401 or 403. Do not open a
+different controller because of who is signed in. The window the app opens on
+start is one that role may open, and it is not a stand-in for a request that
+named another page.
 
 From `io.bithead.scheduler`, whose scope is a business:
 

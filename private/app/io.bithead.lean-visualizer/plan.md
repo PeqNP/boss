@@ -84,7 +84,7 @@ class Role(str, Enum):
 | `Schedule` | Admin, Employee | the forecast of the one board |
 | `Report` | Admin, Employee | the capacity report of the one board |
 
-An Employee deep link to `Board`, `Notes`, `VirtualFeature`, or `Checkpoint` opens `Report`.
+A menu item or a deep link opens the controller it names. An Employee does not see Board on Dashboards. `GET /model` answers 403 for that role. See [`process.md`](../../../docs/prompt/process.md) § Say who reaches each page.
 
 ## Deep-link routing
 
@@ -93,7 +93,7 @@ Scheme `lean`. No `configure()` payload on the windows. `Checkpoint`, `Notes`, a
 | URL | `configure()` | Opens |
 |---|---|---|
 | `lean:` | none | `Board` for an Admin, `Report` for an Employee |
-| `lean:board` | none | `Board`, or `Report` when the caller is an Employee |
+| `lean:board` | none | `Board` |
 | `lean:schedule` | none | `Schedule` |
 | `lean:report` | none | `Report` |
 
