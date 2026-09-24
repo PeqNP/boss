@@ -8,7 +8,6 @@ import asyncio
 import aiodbm
 import httpx
 import logging
-import json
 
 from lib import get_config
 from lib.model import User
@@ -16,11 +15,13 @@ from lib.model import User
 from lib.server import get_dbm_path, require_user
 from fastapi import APIRouter, HTTPException, Request
 from . import db
+from . import lib as workspace
 from .fonts import SystemFonts, get_system_fonts
-from .model import AppLink, Workspace
+from .lib import ValidationError
+from .model import Workspace
 from pydantic import BaseModel
 from starlette.responses import Response
-from starlette.status import HTTP_403_FORBIDDEN
+from starlette.status import HTTP_400_BAD_REQUEST, HTTP_403_FORBIDDEN
 from typing import Any, Optional
 
 HEARTBEAT_ENDPOINT = "http://127.0.0.1:8081/heartbeat"
@@ -54,6 +55,17 @@ def check_user(user_id, user):
         raise HTTPException(
             status_code=HTTP_403_FORBIDDEN,
             detail="Can not access another user's resource"
+        )
+
+
+def present(call):
+    """Run a workspace rule, and turn its refusal into HTTP 400."""
+    try:
+        return call()
+    except ValidationError as refused:
+        raise HTTPException(
+            status_code=HTTP_400_BAD_REQUEST,
+            detail=refused.message
         )
 
 # MARK: API
@@ -138,117 +150,65 @@ async def set_default(default: Default, boss_user: User, request: Request):
         await db.set(db_key, default.value)
 
 @router.get("/workspace/guest", response_model=Workspace)
-async def get_default(request: Request):
-    """ Returns the default, guest, workspace. """
-    value = {
-        "desktop": [
-            AppLink(
-                bundleId="io.bithead.json-formatter",
-                name="JSON Formatter",
-                icon="icon.svg"
-            ),
-            AppLink(
-                bundleId="io.bithead.tutorial",
-                name="Tutorial",
-                icon="icon.svg"
-            ),
-            AppLink(
-                bundleId="io.bithead.scheduler",
-                name="Scheduler",
-                icon="icon.svg"
-            ),
-            AppLink(bundleId="io.bithead.wordy", name="Wordy", icon="icon.svg")
-        ],
-        "dock": [
-            AppLink(
-                bundleId="io.bithead.scheduler",
-                name="Scheduler",
-                icon="icon.svg"
-            )
-        ]
-    }
+async def get_guest_workspace(request: Request):
+    """The guest desktop and dock."""
+    return workspace.guest_workspace()
 
-    return Workspace(
-        desktop=value.get("desktop", []),
-        dock=value.get("dock", [])
-    )
 
 @router.get("/workspace/{user_id}", response_model=Workspace)
 @require_user()
-async def get_default(user_id: int, boss_user: User, request: Request):
-    """ Returns user's workspace, which contains app links to open installed apps
-    for both the dock and desktop (WIP). """
+async def get_workspace(
+    user_id: int,
+    boss_user: User,
+    request: Request
+):
+    """The signed-in user's desktop and dock."""
     check_user(user_id, boss_user)
+    return present(lambda: workspace.get_workspace(user_id))
 
-    # TODO: Read user preferences
-    db_key = f"desktop/{user_id}"
-    async with aiodbm.open(get_dbm_path(), "c") as db:
-        value = await db.get(db_key)
-    if value:
-        value = json.loads(value)
-    else:
-        value = {
-            "desktop": [
-                AppLink(
-                    bundleId="io.bithead.json-formatter",
-                    name="JSON Formatter",
-                    icon="icon.svg"
-                ),
-                AppLink(
-                    bundleId="io.bithead.tutorial",
-                    name="Tutorial",
-                    icon="icon.svg"
-                ),
-                AppLink(
-                    bundleId="io.bithead.scheduler",
-                    name="Scheduler",
-                    icon="icon.svg"
-                ),
-                AppLink(
-                    bundleId="io.bithead.wordy",
-                    name="Wordy",
-                    icon="icon.svg"
-                )
-            ],
-            "dock": [
-                AppLink(
-                    bundleId="io.bithead.scheduler",
-                    name="Scheduler",
-                    icon="icon.svg"
-                )
-            ]
-        }
 
-    return Workspace(
-        desktop=value.get("desktop", []),
-        dock=value.get("dock", [])
-    )
+@router.put("/workspace/{user_id}", response_model=Workspace)
+@require_user()
+async def save_workspace(
+    user_id: int,
+    body: Workspace,
+    boss_user: User,
+    request: Request
+):
+    """Replace the signed-in user's desktop and dock."""
+    check_user(user_id, boss_user)
+    return present(lambda: workspace.save_workspace(user_id, body))
 
-@router.get(
-    "/workspace/desktop/{user_id}/{bundle_id}",
-    response_model=Workspace
-)
-async def set_desktop_link(user_id: int, bundle_id: str, request: Request):
-    """ Add app link to desktop. """
-    pass
 
 @router.delete(
     "/workspace/desktop/{user_id}/{bundle_id}",
     response_model=Workspace
 )
-async def delete_desktop_link(user_id: int, bundle_id: str, request: Request):
-    """ Delete app link from desktop. """
-    pass
+@require_user()
+async def remove_desktop(
+    user_id: int,
+    bundle_id: str,
+    boss_user: User,
+    request: Request
+):
+    """Remove one app from the signed-in user's desktop."""
+    check_user(user_id, boss_user)
+    return present(
+        lambda: workspace.remove_desktop(user_id, bundle_id)
+    )
 
-@router.get("/workspace/dock/{user_id}/{bundle_id}", response_model=Workspace)
-async def set_dock_link(user_id: int, bundle_id: str, request: Request):
-    """ Add app link to dock. """
-    pass
 
 @router.delete(
     "/workspace/dock/{user_id}/{bundle_id}",
     response_model=Workspace
 )
-async def delete_dock_link(user_id: int, bundle_id: str, request: Request):
-    """ Delete app link from dock. """
-    pass
+@require_user()
+async def remove_dock(
+    user_id: int,
+    bundle_id: str,
+    boss_user: User,
+    request: Request
+):
+    """Remove one app from the signed-in user's dock."""
+    check_user(user_id, boss_user)
+    return present(lambda: workspace.remove_dock(user_id, bundle_id))
