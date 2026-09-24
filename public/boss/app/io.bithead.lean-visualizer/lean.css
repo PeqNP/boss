@@ -17,6 +17,34 @@ th.narrow .column-name {
   max-width: 4em;
 }
 
+table[name="tracks"] th.feature,
+table[name="tracks"] td.feature {
+  width: 20ch;
+  max-width: 20ch;
+}
+
+table[name="tracks"] th.feature .column-name {
+  max-width: 20ch;
+}
+
+table[name="tracks"] th.finish,
+table[name="tracks"] td.finish {
+  width: 11ch;
+  min-width: 11ch;
+  white-space: nowrap;
+}
+
+table[name="tracks"] th.finish .column-name {
+  max-width: 11ch;
+}
+
+table[name="tracks"] td.feature .feature-name {
+  display: block;
+  max-width: 20ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 tr.totals td {
   border-top: 1px solid #000;
 }

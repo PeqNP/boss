@@ -303,16 +303,15 @@
           const tr = document.createElement("tr");
           tr.dataset.index = String(index);
           const featureCells = isEmpty(feature)
-            ? "<td class=\"muted\">No active feature</td>"
+            ? "<td class=\"feature muted\">No active feature</td>"
               + narrow("—") + narrow("—") + narrow("—") + narrow("—")
-              + "<td>—</td>" + narrow("—")
-            : "<td>" + featureTitle(feature, true) + "</td>"
+              + "<td class=\"finish\">—</td>"
+            : "<td class=\"feature\">" + featureTitle(feature, 20) + "</td>"
               + narrow(feature.units)
               + narrow(feature.completedUnits)
               + narrow(rateText(trackRate(track.id)))
               + narrow(weeksCell(weeksById[feature.id]))
-              + "<td>" + estWeeksLabel(feature, "track") + "</td>"
-              + narrow(isEmpty(feature.finishOn) ? "—" : escapeHtml(feature.finishOn));
+              + "<td class=\"finish\">" + trackFinishDate(feature, track.id) + "</td>";
           tr.innerHTML = "<td draggable=\"true\" data-drag=\"" + index + "\" style=\"cursor:grab\">⠿</td>"
             + "<td>" + editLabel("track-name", track.id, track.name) + "</td>"
             + "<td>" + operatorInitials(track.id) + "</td>"
@@ -343,7 +342,7 @@
               ? ""
               : "<button type=\"button\" class=\"primary delete\" aria-label=\"Delete\" data-action=\"delete-backlog\" data-id=\"" + item.id + "\"></button>";
             tr.innerHTML = "<td draggable=\"true\" data-drag=\"" + index + "\" style=\"cursor:grab\">⠿</td>"
-              + "<td colspan=\"10\"><span class=\"row-actions\">" + dot(item.color) + name + remove + "</span></td>";
+              + "<td colspan=\"9\"><span class=\"row-actions\">" + dot(item.color) + name + remove + "</span></td>";
             body.appendChild(tr);
             return;
           }
@@ -354,7 +353,6 @@
             + narrow(item.completedUnits)
             + narrow(weeksCell(weeksById[item.id]))
             + "<td>" + estWeeksLabel(item, "backlog") + "</td>"
-            + narrow(isEmpty(item.finishOn) ? "—" : escapeHtml(item.finishOn))
             + "<td data-cell=\"pin\"></td>"
             + "<td data-cell=\"move\"></td>"
             + "<td><button type=\"button\" class=\"primary delete\" aria-label=\"Delete\" data-action=\"delete-backlog\" data-id=\"" + item.id + "\"></button></td>";
@@ -802,6 +800,26 @@
         return weeks.toFixed(2);
       }
 
+      /**
+       * The day the feature on a track finishes. Remaining units divided by
+       * the track's weekly rate, the same span the schedule draws.
+       */
+      function trackFinishDate(feature, trackId) {
+        const remaining = Math.max(0, Number(feature.units || 0) - Number(feature.completedUnits || 0));
+        const capacity = trackRate(trackId);
+        if (remaining === 0) {
+          return isoDate(new Date());
+        }
+        if (!(capacity > 0)) {
+          return "—";
+        }
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const finish = new Date(today);
+        finish.setDate(today.getDate() + Math.round((remaining / capacity) * 7));
+        return isoDate(finish);
+      }
+
       function isoDate(value) {
         const month = String(value.getMonth() + 1).padStart(2, "0");
         const day = String(value.getDate()).padStart(2, "0");
@@ -863,10 +881,11 @@
 
       function featureTitle(feature, clip) {
         const full = String(feature.name || "");
+        const limit = clip === true ? 30 : Number(clip);
         let name = escapeHtml(full);
-        if (clip && full.length > 30) {
+        if (limit > 0 && full.length > limit) {
           name = "<span class=\"feature-label\" title=\"" + escapeHtml(full) + "\">"
-            + escapeHtml(full.slice(0, 30)) + "…</span>";
+            + escapeHtml(full.slice(0, limit)) + "…</span>";
         }
         const key = featureLink(feature);
         const label = isEmpty(key) ? name : key + ": " + name;
@@ -1010,16 +1029,16 @@
       <legend>Operators</legend>
       <div class="vbox gap-10">
         <div class="hbox gap-10">
-          <button class="primary" onclick="$(this.controller).syncMetrics();">Sync Task Metrics</button>
-          <button class="primary" onclick="$(this.controller).copyQuery(this);">Copy Jira Query</button>
-        </div>
-        <div class="hbox gap-10" style="padding-top: 10px;">
           <button name="previous-week" class="primary" onclick="$(this.controller).previousWeek();">Previous Week</button>
           <div class="read-only">
             <label>Week</label>
             <span name="week-label"></span>
           </div>
           <button name="next-week" class="primary" onclick="$(this.controller).nextWeek();">Next Week</button>
+        </div>
+        <div class="hbox gap-10" style="padding-top: 10px;">
+          <button class="primary" onclick="$(this.controller).syncMetrics();">Sync Task Metrics</button>
+          <button class="primary" onclick="$(this.controller).copyQuery(this);">Copy Jira Query</button>
         </div>
         <div class="hbox gap-10">
           <button class="primary" onclick="$(this.controller).addOperator();">Add Operator</button>
@@ -1048,7 +1067,7 @@
         <table name="tracks">
           <thead>
             <tr>
-              <th></th><th title="Track"><span class="column-name">Track</span></th><th title="Operators"><span class="column-name">Operators</span></th><th title="State"><span class="column-name">State</span></th><th title="Feature"><span class="column-name">Feature</span></th><th class="narrow" title="Total Units"><span class="column-name">Total Units</span></th><th class="narrow" title="Completed Units"><span class="column-name">Completed Units</span></th><th class="narrow" title="Units Applied / Week"><span class="column-name">Units Applied / Week</span></th><th class="narrow" title="Remaining Weeks"><span class="column-name">Remaining Weeks</span></th><th title="Est. Weeks"><span class="column-name">Est. Weeks</span></th><th class="narrow" title="Est. Date"><span class="column-name">Est. Date</span></th><th title="Actions"><span class="column-name">Actions</span></th>
+              <th></th><th title="Track"><span class="column-name">Track</span></th><th title="Operators"><span class="column-name">Operators</span></th><th title="State"><span class="column-name">State</span></th><th class="feature" title="Feature"><span class="column-name">Feature</span></th><th class="narrow" title="Total units"><span class="column-name">Total</span></th><th class="narrow" title="Completed units"><span class="column-name">Completed</span></th><th class="narrow" title="Units applied per week"><span class="column-name">Units Applied / Week</span></th><th class="narrow" title="Remaining weeks"><span class="column-name">Remaining Weeks</span></th><th class="finish" title="Estimated finish"><span class="column-name">Est. Date</span></th><th title="Actions"><span class="column-name">Actions</span></th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -1076,7 +1095,7 @@
         <table name="backlog">
           <thead>
             <tr>
-              <th></th><th title="#"><span class="column-name">#</span></th><th title="Feature"><span class="column-name">Feature</span></th><th class="narrow" title="Total Units"><span class="column-name">Total Units</span></th><th class="narrow" title="Completed Units"><span class="column-name">Completed Units</span></th><th class="narrow" title="Remaining Weeks"><span class="column-name">Remaining Weeks</span></th><th title="Est. Weeks"><span class="column-name">Est. Weeks</span></th><th class="narrow" title="Est. Date"><span class="column-name">Est. Date</span></th><th title="Pinned Track"><span class="column-name">Pinned Track</span></th><th title="Move To Track"><span class="column-name">Move To Track</span></th><th></th>
+              <th></th><th title="#"><span class="column-name">#</span></th><th title="Feature"><span class="column-name">Feature</span></th><th class="narrow" title="Total Units"><span class="column-name">Total Units</span></th><th class="narrow" title="Completed Units"><span class="column-name">Completed Units</span></th><th class="narrow" title="Remaining Weeks"><span class="column-name">Remaining Weeks</span></th><th title="Est. Weeks"><span class="column-name">Est. Weeks</span></th><th title="Pinned Track"><span class="column-name">Pinned Track</span></th><th title="Move To Track"><span class="column-name">Move To Track</span></th><th></th>
             </tr>
           </thead>
           <tbody></tbody>
