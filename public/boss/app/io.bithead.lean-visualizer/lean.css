@@ -78,6 +78,18 @@ td:has(> .edit-label) {
   color: #b42318;
 }
 
+.note-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.note-field textarea {
+  flex: 1;
+  min-height: 0;
+}
+
 /* A feature's color sits on the same line as its name. */
 .feature-name {
   white-space: nowrap;

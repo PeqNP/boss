@@ -5,6 +5,7 @@
       const WINDOW = 5;
       const COLORS = ["#1f4b99", "#b42318", "#0f7b4c", "#8a4b08", "#6b3fa0", "#0e7490", "#9a3412", "#365314"];
       let windowData = null;
+      let mode = "operators";
 
       function close() {
         view.ui.close();
@@ -31,6 +32,19 @@
       this.nextWindow = nextWindow;
 
       async function viewDidLoad() {
+        const tabs = view.ui.select("view").ui;
+        tabs.delegate = {
+          didSelectTab: function(option) {
+            mode = option.value;
+            render();
+          },
+          didCloseTab: function() {}
+        };
+        tabs.addNewTabs([
+          new UITabChoice("operators", "Operators"),
+          new UITabChoice("totals", "Totals")
+        ]);
+        tabs.selectTab("operators");
         await load(null);
       }
       this.viewDidLoad = viewDidLoad;
@@ -53,6 +67,9 @@
       }
 
       function render() {
+        if (isEmpty(windowData)) {
+          return;
+        }
         const weeks = windowData.weeks || [];
         const label = weeks.length === 0
           ? ""
@@ -64,17 +81,13 @@
       }
 
       function chart(weeks) {
-        const names = operatorNames(weeks);
-        if (names.length === 0 || weeks.length === 0) {
+        if (weeks.length === 0) {
           return "<p>Sync task metrics to see each operator's output.</p>";
         }
-        const series = names.map(function(name, index) {
-          return {
-            name: name,
-            color: COLORS[index % COLORS.length],
-            values: weeks.map(function(week) { return unitsFor(week, name); })
-          };
-        });
+        const series = mode === "totals" ? [totalSeries(weeks)] : operatorSeries(weeks);
+        if (series.length === 0) {
+          return "<p>Sync task metrics to see each operator's output.</p>";
+        }
         const maxUnits = Math.max(1, ...series.flatMap(function(entry) { return entry.values; }));
         const width = 720;
         const height = 300;
@@ -116,13 +129,37 @@
           return "<span class=\"metrics-legend\"><span class=\"metrics-swatch\" style=\"background:"
             + entry.color + "\"></span>" + escapeHtml(entry.name) + "</span>";
         }).join("");
-        return "<svg class=\"metrics-graph\" viewBox=\"0 0 " + width + " " + height + "\" role=\"img\" aria-label=\"Completed tasks per operator\">"
+        const label = mode === "totals" ? "Completed tasks in total" : "Completed tasks per operator";
+        return "<svg class=\"metrics-graph\" viewBox=\"0 0 " + width + " " + height + "\" role=\"img\" aria-label=\"" + label + "\">"
           + grid.join("")
           + "<line x1=\"" + left + "\" y1=\"" + (top + plotHeight) + "\" x2=\"" + (width - right) + "\" y2=\"" + (top + plotHeight) + "\" stroke=\"#000\"/>"
           + "<line x1=\"" + left + "\" y1=\"" + top + "\" x2=\"" + left + "\" y2=\"" + (top + plotHeight) + "\" stroke=\"#000\"/>"
           + lines
           + labels
           + "</svg><div class=\"metrics-legend-row\">" + legend + "</div>";
+      }
+
+      function operatorSeries(weeks) {
+        return operatorNames(weeks).map(function(name, index) {
+          return {
+            name: name,
+            color: COLORS[index % COLORS.length],
+            values: weeks.map(function(week) { return unitsFor(week, name); })
+          };
+        });
+      }
+
+      function totalSeries(weeks) {
+        return {
+          name: "Total",
+          color: COLORS[0],
+          values: weeks.map(function(week) {
+            return (week.operators || []).reduce(function(sum, operator) {
+              const units = Number(operator.unitsWeek);
+              return sum + (isNumeric(units) ? units : 0);
+            }, 0);
+          })
+        };
       }
 
       function operatorNames(weeks) {
@@ -177,6 +214,9 @@
     <div class="read-only">
       <label>Weeks</label>
       <span name="window-label"></span>
+    </div>
+    <div class="ui-tabs">
+      <select name="view"></select>
     </div>
     <p>Completed tasks each week. The dashed segment is the current week.</p>
     <div name="graph"></div>

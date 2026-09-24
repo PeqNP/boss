@@ -21,12 +21,12 @@ Every controller is `public/boss/app/io.bithead.lean-visualizer/controller/<Name
 | Group | Windows | Modals |
 |---|---|---|
 | Entry | `Application` | |
-| Board | `Board`, `Schedule` | `Notes`, `VirtualFeature`, `Checkpoint`, `TaskMetrics`, `Tasks`, `FinishedWork`, `Releases` |
+| Board | `Board`, `Schedule`, `Notes` | `VirtualFeature`, `Checkpoint`, `TaskMetrics`, `Tasks`, `FinishedWork`, `Releases` |
 | Report | `Report` | |
 
 ### Documents
 
-None of these windows is a document. `bin/validate-app` would expect `this.document` on a controls row whose Save writes a record. The rows below are why each window is the other kind. No control is labeled Cancel, Delete, or Save as a document action.
+`Notes` is a document. The other windows are not. `bin/validate-app` would expect `this.document` on a controls row whose Save writes a record. The rows below are why each of the others is the other kind.
 
 | Window | Kind | Controls beyond a plain close |
 |---|---|---|
@@ -34,7 +34,7 @@ None of these windows is a document. `bin/validate-app` would expect `this.docum
 | `Schedule` | View of the forecast | — |
 | `Report` | Report | Save Checkpoint, and only for an Admin |
 | `Checkpoint` | Modal. Pick a release and store it. | Cancel, Save Checkpoint. Save Checkpoint is this action, not a document Save. |
-| `Notes` | Modal over one week of the board. Save writes that week into the board and the board save runs. | Cancel, Save |
+| `Notes` | Document over one week of the board. Save writes that week into the board and the board save runs. | Cancel, Save |
 | `VirtualFeature` | Modal over one backlog item. Save writes it into the board and the board save runs. | Cancel, Save |
 
 ### Drafts
@@ -252,7 +252,7 @@ PUT /checkpoints/{releaseId} -> Checkpoint
 
 ### `Notes`
 
-Audience: Admin. Modal. `configure({ weekStart })`.
+Audience: Admin. Document window, 420 by 360. `configure({ weekStart, note })`.
 
 One text for that week. Cancel closes without a save. Save sets `weeklyNotes[weekStart]` and `PUT /model`.
 

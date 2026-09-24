@@ -22,7 +22,7 @@
         "Schedule": { "singleton": true },
         "Report": { "singleton": true },
         "Checkpoint": { "modal": true },
-        "Notes": { "modal": true },
+        "Notes": {},
         "VirtualFeature": { "modal": true },
         "TaskMetrics": { "modal": true },
         "Tasks": { "modal": true },

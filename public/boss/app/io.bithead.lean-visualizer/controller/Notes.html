@@ -1,29 +1,36 @@
-<div class="ui-modal">
+<div class="ui-window">
   <script type="text/javascript">
-    function $(this.id)(view) {
+    function $(this.id)(view, win) {
 
       let weekStart = "";
       let note = "";
 
+      this.document = new UIDocument(null, null);
+
       /**
-       * Writes the week's note onto the board and closes.
+       * Writes the week's note onto the board.
+       *
+       * @returns {boolean} `true` when the note was written
        */
       async function save() {
         const text = view.ui.textarea("note").value;
         if (!isEmpty(this.delegate)) {
           this.delegate.didSaveNotes(weekStart, text);
         }
-        view.ui.close();
+        return true;
       }
       this.save = save;
 
+      /**
+       * Closes. The window has already asked when the note is dirty.
+       */
       function cancel() {
-        view.ui.close();
+        win.close();
       }
       this.cancel = cancel;
 
       /**
-       * @param {{weekStart: string}} options - The week the note belongs to
+       * @param {{weekStart: string, note: string}} options - The week the note belongs to
        */
       function configure(options) {
         weekStart = options && options.weekStart ? options.weekStart : "";
@@ -36,22 +43,32 @@
         view.ui.textarea("note").value = note;
       }
       this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.textarea("note").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
     }
   </script>
 
-  <div class="title">Notes</div>
-  <div class="container vbox gap-10" style="width: 420px;">
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Notes</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-10 resizable" style="width: 420px; height: 360px;">
     <div class="read-only">
       <label>Week</label>
       <span name="week"></span>
     </div>
-    <div class="textarea-field">
+    <div class="textarea-field note-field">
       <label for="note">Note</label>
       <textarea name="note"></textarea>
     </div>
     <div class="controls">
-      <button class="primary" onclick="$(this.controller).cancel();">Cancel</button>
-      <button class="default" onclick="$(this.controller).save();">Save</button>
+      <button class="primary" doc-action="cancel">Cancel</button>
+      <button class="default" doc-action="save">Save</button>
     </div>
   </div>
 </div>
