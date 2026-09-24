@@ -115,8 +115,8 @@ function OS() {
     let user = null;
     property(this, "user", function() { return user }, function(value) { });
 
-    // The last workspace loadWorkspace painted. Add, reorder, and delete
-    // edit this object. Stage 5 sends it to the server.
+    // The workspace on screen. Add, reorder, and delete edit it, then the
+    // server's answer replaces it.
     let workspace = { desktop: [], dock: [] };
 
     /**
@@ -305,44 +305,73 @@ function OS() {
      * Load current user's workspace.
      */
     async function loadWorkspace() {
-        // Reset desktop and dock state. Necessary when signed in as a Guest.
-        os.ui.desktop.removeAllApps();
-        os.ui.closeDock();
-
         try {
             if (isGuestUser(user)) {
-                workspace = await os.network.get(`/api/io.bithead.boss/workspace/guest`);
+                workspace = await os.network.get(
+                    `/api/io.bithead.boss/workspace/guest`
+                );
             }
             else {
-                workspace = await os.network.get(`/api/io.bithead.boss/workspace/${user.id}`);
+                workspace = await os.network.get(
+                    `/api/io.bithead.boss/workspace/${user.id}`
+                );
             }
         }
         catch (exc) {
             console.error(exc);
             console.error("Is the /os service started?");
             workspace = { desktop: [], dock: [] };
+            os.ui.desktop.removeAllApps();
+            os.ui.closeDock();
             return;
         }
 
+        paintWorkspace();
+    }
+
+    /**
+     * Paints the workspace held in memory.
+     *
+     * The dock stays visible when it has no icons.
+     */
+    function paintWorkspace() {
         if (isEmpty(workspace.desktop)) {
             workspace.desktop = [];
         }
         if (isEmpty(workspace.dock)) {
             workspace.dock = [];
         }
-
+        os.ui.desktop.removeAllApps();
         os.ui.desktop.addApps(workspace.desktop);
-        os.ui.addAppsToDock(workspace.dock);
-        // TODO: Only show dock if dock is enabled. This requires a backend change
-        // to provide a boolean. For now, the dock is shown, even if it's empty.
-        // Also, this requires the Settings app to add a `Show Dock` bit.
-        os.ui.showDock();
+        os.ui.repaintDock(workspace.dock);
     }
 
     /**
-     * Saves the workspace in memory.
+     * Stores a workspace the server returned and paints it.
      *
-     * A guest is left unchanged.
+     * Shows the error and loads the workspace again when the request fails.
+     *
+     * @param {function} request - The call that returns a workspace
+     * @returns {Promise<{desktop: AppLink[], dock: AppLink[]}>}
+     */
+    async function storeWorkspace(request) {
+        try {
+            workspace = await request();
+            paintWorkspace();
+            return workspace;
+        }
+        catch (error) {
+            await os.ui.showError(error);
+            await loadWorkspace();
+            return workspace;
+        }
+    }
+
+    /**
+     * Saves the workspace.
+     *
+     * A guest is left unchanged. A failed save shows the error and puts the
+     * icons back.
      *
      * @returns {Promise<{desktop: AppLink[], dock: AppLink[]}>}
      */
@@ -350,16 +379,20 @@ function OS() {
         if (isGuestUser(user)) {
             return workspace;
         }
-        // Stage 5 replaces this body with
-        // PUT /api/io.bithead.boss/workspace/${user.id}.
-        return workspace;
+        return storeWorkspace(function() {
+            return os.network.put(
+                `/api/io.bithead.boss/workspace/${user.id}`,
+                workspace
+            );
+        });
     }
     this.saveWorkspace = saveWorkspace;
 
     /**
      * Removes one app from the desktop.
      *
-     * Leaves the dock copy in place. A guest is left unchanged.
+     * Leaves the dock copy in place. A guest is left unchanged. A failed
+     * delete shows the error and puts the icon back.
      *
      * @param {string} bundleId - The bundle ID to remove
      * @returns {Promise<{desktop: AppLink[], dock: AppLink[]}>}
@@ -368,18 +401,11 @@ function OS() {
         if (isGuestUser(user)) {
             return workspace;
         }
-        let remaining = [];
-        for (let i = 0; i < workspace.desktop.length; i++) {
-            if (workspace.desktop[i].bundleId == bundleId) {
-                continue;
-            }
-            remaining.push(workspace.desktop[i]);
-        }
-        workspace.desktop = remaining;
-        os.ui.desktop.removeApp(bundleId);
-        // Stage 5 replaces this body with
-        // DELETE /api/io.bithead.boss/workspace/desktop/${user.id}/${bundleId}.
-        return workspace;
+        return storeWorkspace(function() {
+            return os.network.delete(
+                `/api/io.bithead.boss/workspace/desktop/${user.id}/${bundleId}`
+            );
+        });
     }
     this.deleteDesktopApp = deleteDesktopApp;
 
@@ -387,7 +413,8 @@ function OS() {
      * Removes one app from the dock.
      *
      * Leaves the desktop copy in place. The dock stays visible when the last
-     * icon leaves. A guest is left unchanged.
+     * icon leaves. A guest is left unchanged. A failed delete shows the error
+     * and puts the icon back.
      *
      * @param {string} bundleId - The bundle ID to remove
      * @returns {Promise<{desktop: AppLink[], dock: AppLink[]}>}
@@ -396,18 +423,11 @@ function OS() {
         if (isGuestUser(user)) {
             return workspace;
         }
-        let remaining = [];
-        for (let i = 0; i < workspace.dock.length; i++) {
-            if (workspace.dock[i].bundleId == bundleId) {
-                continue;
-            }
-            remaining.push(workspace.dock[i]);
-        }
-        workspace.dock = remaining;
-        os.ui.removeAppFromDock(bundleId);
-        // Stage 5 replaces this body with
-        // DELETE /api/io.bithead.boss/workspace/dock/${user.id}/${bundleId}.
-        return workspace;
+        return storeWorkspace(function() {
+            return os.network.delete(
+                `/api/io.bithead.boss/workspace/dock/${user.id}/${bundleId}`
+            );
+        });
     }
     this.deleteDockApp = deleteDockApp;
 

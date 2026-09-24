@@ -453,7 +453,7 @@ function Network(os) {
             if (!isEmpty(fn)) {
                 fn(data);
             }
-            return;
+            return data;
         }
         os.ui.showDelete(msg, null, async function () {
             let data = await __delete(url, body);
