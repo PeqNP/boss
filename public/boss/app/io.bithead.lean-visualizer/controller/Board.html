@@ -67,11 +67,9 @@
       }
       this.syncMetrics = syncMetrics;
 
-      /**
-       * @param {HTMLElement} button
-       */
-      function copyQuery(button) {
-        os.copyToClipboard(button, jiraQuery);
+      function copyQuery() {
+        navigator.clipboard.writeText(jiraQuery);
+        view.ui.showMessage("Copied!");
       }
       this.copyQuery = copyQuery;
 
@@ -178,7 +176,31 @@
       }
       this.openSchedule = openSchedule;
 
+      function wireActions() {
+        const select = view.ui.select("actions");
+        select.onchange = function() {
+          const value = select.ui.selectedValue();
+          if (isEmpty(value)) {
+            return;
+          }
+          select.ui.selectOption(0);
+          if (value === "sync-metrics") {
+            syncMetrics();
+          }
+          else if (value === "copy-query") {
+            copyQuery();
+          }
+          else if (value === "view-metrics") {
+            openTaskMetrics();
+          }
+          else if (value === "view-tasks") {
+            openTasks();
+          }
+        };
+      }
+
       async function viewDidLoad() {
+        wireActions();
         const root = view.querySelector(".container");
         root.addEventListener("click", onClick);
         root.addEventListener("change", onChange);
@@ -1037,14 +1059,17 @@
           <button name="next-week" class="primary" onclick="$(this.controller).nextWeek();">Next Week</button>
         </div>
         <div class="hbox gap-10" style="padding-top: 10px;">
-          <button class="primary" onclick="$(this.controller).syncMetrics();">Sync Task Metrics</button>
-          <button class="primary" onclick="$(this.controller).copyQuery(this);">Copy Jira Query</button>
-        </div>
-        <div class="hbox gap-10">
           <button class="primary" onclick="$(this.controller).addOperator();">Add Operator</button>
-          <button class="primary" onclick="$(this.controller).openTaskMetrics();">View Task Metrics</button>
-          <button class="primary" onclick="$(this.controller).openTasks();">View Tasks</button>
           <button class="primary" onclick="$(this.controller).openNotes();">Add Notes</button>
+          <div class="ui-popup-menu" style="--popup-width: 180px;">
+            <select name="actions">
+              <option value="">Actions</option>
+              <option value="sync-metrics">Sync Task Metrics</option>
+              <option value="copy-query">Copy Jira Query</option>
+              <option value="view-metrics">View Task Metrics</option>
+              <option value="view-tasks">View Tasks</option>
+            </select>
+          </div>
         </div>
         <table name="operators">
           <thead>
