@@ -1,6 +1,6 @@
 # Open an app — license check
 
-Stage 1 is in review. Stage 2 is next.
+Stage 2 is in review. Stage 3 is next.
 
 The OS refuses to open an app that requires a license when this person does not hold one. It says so by the app's name, and it says so before the app opens. Swift decides whether the license is held. The app asks for that check with `licensed` in `application.json`. Absent, or anything other than `true`, means the check does not run.
 

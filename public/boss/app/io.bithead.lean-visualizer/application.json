@@ -13,6 +13,7 @@
         "author": "Eric Chamberlain",
         "copyright": "2026 Bithead LLC. All rights reserved.",
         "secure": true,
+        "licensed": true,
         "quitAutomatically": false
     },
     "controllers": {
