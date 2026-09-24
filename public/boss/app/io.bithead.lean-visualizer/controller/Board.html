@@ -41,17 +41,29 @@
       this.addDivider = addDivider;
 
       async function syncFeatures() {
-        await os.network.get(API + "/sync-jira");
-        await loadBoard();
-        view.ui.showMessage("Synced feature requests.");
+        const bar = await os.ui.showProgressBar("Syncing feature requests...", null, true);
+        try {
+          await os.network.get(API + "/sync-jira");
+          await loadBoard();
+          view.ui.showMessage("Synced feature requests.");
+        }
+        finally {
+          bar?.ui.close();
+        }
       }
       this.syncFeatures = syncFeatures;
 
       async function syncMetrics() {
-        await os.network.post(API + "/sync-task-metrics?week_start=" + isoDate(viewedWeek));
-        await loadWeek();
-        render();
-        view.ui.showMessage("Synced " + weekLabel + ".");
+        const bar = await os.ui.showProgressBar("Syncing task metrics...", null, true);
+        try {
+          await os.network.post(API + "/sync-task-metrics?week_start=" + isoDate(viewedWeek));
+          await loadWeek();
+          render();
+          view.ui.showMessage("Synced " + weekLabel + ".");
+        }
+        finally {
+          bar?.ui.close();
+        }
       }
       this.syncMetrics = syncMetrics;
 

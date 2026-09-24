@@ -70,6 +70,8 @@ def without_pillar_fields(items: Any) -> List[Any]:
         cleaned.append(item)
     return cleaned
 
+ISSUE_KEY_PATTERN = re.compile(r"^[A-Z][A-Z0-9]+-\d+$")
+
 def normalize_issue_key(value: Any) -> str | None:
     if not isinstance(value, str):
         return None

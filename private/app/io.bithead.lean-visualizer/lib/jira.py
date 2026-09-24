@@ -41,9 +41,9 @@ DEVELOPERS_FIELD_NAME = "Developers"
 
 DEVELOPERS_JQL_NAME = "Developers[User Picker (multiple users)]"
 
-ISSUE_KEY_PATTERN = re.compile(r"^[A-Z][A-Z0-9]+-\d+$")
-
 SEMVER_PATTERN = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
+
+DEVELOPERS_FIELD_ID = None
 
 def next_jira_feature_color() -> str:
     hue = random.randint(0, 359)
