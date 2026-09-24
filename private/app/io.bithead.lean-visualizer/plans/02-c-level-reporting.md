@@ -1,6 +1,6 @@
 # 02 — C-level reporting
 
-Status: confirmed. Stage 4 is done. Next is Stage 5.
+Status: confirmed. Stage 5 is done. Next is Stage 6.
 
 This plan tells a reader why a tracked feature's place in the pipeline changed. It does not amend [01-plan.md](01-plan.md). The built app stays as that plan describes it, including the fourteen-day material change, until this plan ships.
 
@@ -49,7 +49,7 @@ POST /snapshots -> Report, Board
            403 for an Employee.
 ```
 
-Until Stage 5 the client stubs both calls. The stub log has one feature with more than five entries, including a blockage, so the modal can be judged. The stub posts nothing.
+The report loads `GET /material-log`. Save Snapshot on the report and the board sends `POST /snapshots`. Saving a checkpoint reloads the log, because that save writes a snapshot too.
 
 ### `MaterialLog`
 

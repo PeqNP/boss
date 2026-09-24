@@ -2,18 +2,22 @@
   <script type="text/javascript">
     function $(this.id)(view) {
 
+      const API = "/api/io.bithead.lean-visualizer";
       let callerRole = "Admin";
       let jiraRootUrl = "";
+      let materialLog = { features: [] };
 
       /**
-       * Opens the checkpoint modal.
+       * Records a priority snapshot and shows the diff it produced.
        */
-      /**
-       * Records a priority snapshot. Stubbed until the route exists.
-       */
-      function saveSnapshot() {
+      async function saveSnapshot() {
+        const log = await os.network.post(API + "/snapshots");
+        if (isEmpty(log)) {
+          return;
+        }
+        materialLog = log;
+        renderLog(log);
         view.ui.showMessage("Snapshot saved.");
-        renderLog(stubMaterialLog());
       }
       this.saveSnapshot = saveSnapshot;
 
@@ -23,7 +27,7 @@
        * @param {string} featureId
        */
       async function openLog(featureId) {
-        const feature = stubMaterialLog().features.find(function(item) {
+        const feature = (materialLog.features || []).find(function(item) {
           return item.featureId === featureId;
         });
         if (isEmpty(feature)) {
@@ -72,7 +76,10 @@
         const model = await os.network.get("/api/io.bithead.lean-visualizer/model");
         jiraRootUrl = model.config && model.config.jiraRootUrl ? model.config.jiraRootUrl : "";
         render(report);
-        renderLog(stubMaterialLog());
+        materialLog = await os.network.get(API + "/material-log");
+        if (!isEmpty(materialLog)) {
+          renderLog(materialLog);
+        }
         const writing = callerRole !== "Admin";
         view.ui.button("checkpoint").hidden = writing;
         view.ui.button("snapshot").hidden = writing;
@@ -97,77 +104,6 @@
         fill(view.ui.table("open-pillars"), report.pillars.open.map(function(row) {
           return [row.pillar, row.featureCount, percentText(row.share)];
         }));
-      }
-
-      /**
-       * Sample log so the section can be judged before the route exists.
-       */
-      function stubMaterialLog() {
-        return {
-          savedAt: "2026-09-24",
-          previousSavedAt: "2026-09-10",
-          features: [
-            {
-              featureId: "fr-badge",
-              issueKey: "BDG-120",
-              name: "Badge Mobile check-in for the lobby kiosk and the overnight reprint queue",
-              color: "#336699",
-              entries: [
-                {
-                  kind: "blockage",
-                  startedOn: "2026-09-18",
-                  endedOn: "",
-                  createdOn: "2026-09-24",
-                  note: "Waiting on the vendor beta signup.",
-                  days: 6
-                },
-                {
-                  kind: "sequence",
-                  startedOn: "2026-09-22",
-                  createdOn: "2026-09-22",
-                  note: "Reprioritized behind Upgrade MariaDB.",
-                  days: 0
-                },
-                {
-                  kind: "units",
-                  startedOn: "2026-09-20",
-                  createdOn: "2026-09-20",
-                  note: "Added 8 units.",
-                  days: 4
-                },
-                {
-                  kind: "rate",
-                  startedOn: "2026-09-17",
-                  createdOn: "2026-09-17",
-                  note: "The lane's rate changed from 8.5 to 6.",
-                  days: 3
-                },
-                {
-                  kind: "sequence",
-                  startedOn: "2026-09-15",
-                  createdOn: "2026-09-15",
-                  note: "Reprioritized behind Badge printing.",
-                  days: 0
-                },
-                {
-                  kind: "entered",
-                  startedOn: "2026-09-12",
-                  createdOn: "2026-09-12",
-                  note: "Entered the queue.",
-                  days: 0
-                },
-                {
-                  kind: "blockage",
-                  startedOn: "2026-09-01",
-                  endedOn: "2026-09-08",
-                  createdOn: "2026-09-08",
-                  note: "Waiting on a third-party beta.",
-                  days: 7
-                }
-              ]
-            }
-          ]
-        };
       }
 
       function renderLog(log) {

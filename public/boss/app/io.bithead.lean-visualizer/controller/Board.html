@@ -142,9 +142,13 @@
       this.openTasks = openTasks;
 
       /**
-       * Records a priority snapshot. Stubbed until the route exists.
+       * Records a priority snapshot.
        */
-      function saveSnapshot() {
+      async function saveSnapshot() {
+        const log = await os.network.post(API + "/snapshots");
+        if (isEmpty(log)) {
+          return;
+        }
         view.ui.showMessage("Snapshot saved.");
       }
       this.saveSnapshot = saveSnapshot;
