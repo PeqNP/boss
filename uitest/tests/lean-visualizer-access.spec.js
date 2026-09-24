@@ -10,7 +10,7 @@
 
 import { test, expect } from "@playwright/test";
 import { signInAsAdmin, signInAs, bootBOSS, openApplication, windowByTitle,
-         clickMenuItem, account, ensureAccount, closeAll } from "../lib/boss.js";
+         account, ensureAccount, closeAll } from "../lib/boss.js";
 
 const BUNDLE = "io.bithead.lean-visualizer";
 const EMPLOYEE = account("lean-employee");
@@ -32,10 +32,9 @@ async function menuLabels(page, name) {
  * Grant this app's Employee role, and the license that puts the app on
  * the session.
  *
- * A role by itself is refused: access still requires the app in the token,
- * and Settings does not issue that license because this app does not
- * declare `licensed`. The grant has to happen before `signInAs`, because
- * the token is minted at sign-in.
+ * A role by itself is refused: access still requires the app in the token.
+ * The grant has to happen before `signInAs`, because the token is minted
+ * at sign-in.
  *
  * @param {import('@playwright/test').Page} page - An admin's page
  * @param {string|number} userId
@@ -118,7 +117,7 @@ test.describe("who opens what @window", () => {
     await expect(windowByTitle(page, "Board")).toBeVisible();
   });
 
-  test("board opens after a guest signs in", async ({ page }) => {
+  test("a guest is refused", async ({ page }) => {
     await page.goto("/");
     await page.waitForFunction(() => {
       try {
@@ -128,20 +127,12 @@ test.describe("who opens what @window", () => {
         return false;
       }
     });
-    await openApplication(page, BUNDLE);
-    await expect(windowByTitle(page, "Board")).toHaveCount(0);
+    await page.evaluate((id) => os.openApplication(id), BUNDLE);
 
-    await signInAsAdmin(page);
-    const accountResponse = await page.request.get("/account/user");
-    const accountText = await accountResponse.text();
-    expect(accountResponse.ok(), accountText).toBe(true);
-    const accountBody = JSON.parse(accountText);
-    await page.evaluate((user) => os.signIn(user), accountBody.user || accountBody);
-    await page.locator(".ui-modal", { hasText: "Sign In" }).getByRole("button", { name: "Cancel" }).first().click();
-
-    await expect(windowByTitle(page, "Board")).toBeVisible();
-    await clickMenuItem(page, "go-menu", "Board");
-    await expect(windowByTitle(page, "Board")).toBeVisible();
-    await expect(windowByTitle(page, "Capacity report")).toHaveCount(0);
+    await expect(page.locator(".ui-modal .message")).toHaveText(
+      "You do not have a license to use Lean Visualizer."
+    );
+    await expect(page.locator("#app-container-io\\.bithead\\.lean-visualizer"))
+      .toHaveCount(0);
   });
 });
