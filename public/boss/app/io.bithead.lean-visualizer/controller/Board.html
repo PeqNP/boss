@@ -343,7 +343,7 @@
               ? ""
               : "<button type=\"button\" class=\"primary delete\" aria-label=\"Delete\" data-action=\"delete-backlog\" data-id=\"" + item.id + "\"></button>";
             tr.innerHTML = "<td draggable=\"true\" data-drag=\"" + index + "\" style=\"cursor:grab\">⠿</td>"
-              + "<td colspan=\"11\"><span class=\"row-actions\">" + dot(item.color) + name + remove + "</span></td>";
+              + "<td colspan=\"10\"><span class=\"row-actions\">" + dot(item.color) + name + remove + "</span></td>";
             body.appendChild(tr);
             return;
           }
@@ -356,7 +356,6 @@
             + "<td>" + estWeeksLabel(item, "backlog") + "</td>"
             + narrow(isEmpty(item.finishOn) ? "—" : escapeHtml(item.finishOn))
             + "<td data-cell=\"pin\"></td>"
-            + "<td>—</td>"
             + "<td data-cell=\"move\"></td>"
             + "<td><button type=\"button\" class=\"primary delete\" aria-label=\"Delete\" data-action=\"delete-backlog\" data-id=\"" + item.id + "\"></button></td>";
           body.appendChild(tr);
@@ -1077,7 +1076,7 @@
         <table name="backlog">
           <thead>
             <tr>
-              <th></th><th title="#"><span class="column-name">#</span></th><th title="Feature"><span class="column-name">Feature</span></th><th class="narrow" title="Total Units"><span class="column-name">Total Units</span></th><th class="narrow" title="Completed Units"><span class="column-name">Completed Units</span></th><th class="narrow" title="Remaining Weeks"><span class="column-name">Remaining Weeks</span></th><th title="Est. Weeks"><span class="column-name">Est. Weeks</span></th><th class="narrow" title="Est. Date"><span class="column-name">Est. Date</span></th><th title="Pinned Track"><span class="column-name">Pinned Track</span></th><th title="Predicted Track"><span class="column-name">Predicted Track</span></th><th title="Move To Track"><span class="column-name">Move To Track</span></th><th></th>
+              <th></th><th title="#"><span class="column-name">#</span></th><th title="Feature"><span class="column-name">Feature</span></th><th class="narrow" title="Total Units"><span class="column-name">Total Units</span></th><th class="narrow" title="Completed Units"><span class="column-name">Completed Units</span></th><th class="narrow" title="Remaining Weeks"><span class="column-name">Remaining Weeks</span></th><th title="Est. Weeks"><span class="column-name">Est. Weeks</span></th><th class="narrow" title="Est. Date"><span class="column-name">Est. Date</span></th><th title="Pinned Track"><span class="column-name">Pinned Track</span></th><th title="Move To Track"><span class="column-name">Move To Track</span></th><th></th>
             </tr>
           </thead>
           <tbody></tbody>
