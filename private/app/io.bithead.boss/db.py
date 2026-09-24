@@ -10,7 +10,8 @@ import logging
 import os
 import sqlite3
 
-from typing import Optional
+from pydantic import BaseModel
+from typing import List, Optional, Sequence
 
 from lib import get_config
 
@@ -59,6 +60,89 @@ def get_conn() -> sqlite3.Connection:
     The caller closes it, in a `finally`.
     """
     return sqlite3.connect(get_db_path())
+
+
+class LinkRow(BaseModel):
+    """One stored icon, spelled as the columns are."""
+
+    user_id: int
+    surface: str
+    position: int
+    bundle_id: str
+
+
+def links(user_id: int) -> List[LinkRow]:
+    """Every icon for one user, desktop first, then the dock, in order."""
+    conn = get_conn()
+    try:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT user_id, surface, position, bundle_id FROM link"
+            " WHERE user_id = ?"
+            " ORDER BY surface, position",
+            (user_id,)
+        ).fetchall()
+        return [LinkRow(**dict(row)) for row in rows]
+    finally:
+        conn.close()
+
+
+def replace_links(
+    user_id: int,
+    desktop: Sequence[str],
+    dock: Sequence[str]
+) -> None:
+    """Replace both surfaces for one user, in one transaction."""
+    conn = get_conn()
+    try:
+        conn.execute("DELETE FROM link WHERE user_id = ?", (user_id,))
+        _insert(conn, user_id, "desktop", desktop)
+        _insert(conn, user_id, "dock", dock)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def remove_link(user_id: int, surface: str, bundle_id: str) -> bool:
+    """Delete one icon and close up the positions after it.
+
+    Returns whether a row was removed. The other surface is left as it was.
+    """
+    conn = get_conn()
+    try:
+        cursor = conn.execute(
+            "DELETE FROM link"
+            " WHERE user_id = ? AND surface = ? AND bundle_id = ?",
+            (user_id, surface, bundle_id)
+        )
+        if cursor.rowcount == 0:
+            return False
+        rows = conn.execute(
+            "SELECT bundle_id FROM link"
+            " WHERE user_id = ? AND surface = ?"
+            " ORDER BY position",
+            (user_id, surface)
+        ).fetchall()
+        conn.execute(
+            "DELETE FROM link WHERE user_id = ? AND surface = ?",
+            (user_id, surface)
+        )
+        _insert(conn, user_id, surface, [row[0] for row in rows])
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+
+def _insert(conn, user_id: int, surface: str, bundle_ids: Sequence[str]):
+    conn.executemany(
+        "INSERT INTO link (user_id, surface, position, bundle_id)"
+        " VALUES (?, ?, ?, ?)",
+        [
+            (user_id, surface, position, bundle_id)
+            for position, bundle_id in enumerate(bundle_ids)
+        ]
+    )
 
 
 def get_db_version(conn) -> Optional[tuple]:
