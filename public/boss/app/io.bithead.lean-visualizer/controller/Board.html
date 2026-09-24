@@ -300,10 +300,6 @@
         renderOperators();
         renderTracks(weeksById);
         renderBacklog(weeksById);
-        const capacity = tracks.reduce(function(sum, track) {
-          return sum + (track.enabled ? trackRate(track.id) : 0);
-        }, 0);
-        view.ui.span("capacity-note").textContent = "Total enabled capacity: " + rateText(capacity) + " units/week";
       }
 
       function renderOperators() {
@@ -1119,7 +1115,6 @@
           </thead>
           <tbody></tbody>
         </table>
-        <div class="read-only"><span name="capacity-note"></span></div>
       </div>
     </fieldset>
 
