@@ -1,6 +1,6 @@
 # Open an app — license check
 
-Stage 3 is in review. `uitest/tests/boss-open-license.spec.js` covers the four proofs. Lean Visualizer is the bundle that sets `licensed`.
+The three stages are done. `uitest/tests/boss-open-license.spec.js` covers the four proofs. Lean Visualizer is the bundle that sets `licensed`.
 
 The OS refuses to open an app that requires a license when this person does not hold one. It says so by the app's name, and it says so before the app opens. Swift decides whether the license is held. The app asks for that check with `licensed` in `application.json`. Absent, or anything other than `true`, means the check does not run.
 
@@ -75,9 +75,9 @@ Otherwise the OS loads `application.json` and does not yet show the progress bar
 
 `config.application?.licensed === true` is the only reason to call `POST /account/app-license`. Any other value skips the call and opens the app.
 
-A `valid: false` response shows "You do not have a license to use {name}." and returns. The function does not throw a second error on top of that dialog. The app is not loaded.
+A `valid: false` response shows "You do not have a license to use {name}." and `openApplication` returns. The app is not loaded.
 
-A failed request shows "Failed to load license for application ({name}). Please try again later." and returns the same way.
+A failed request goes through `showError`, which shows "Failed to load license for application ({name}). Please try again later." and throws.
 
 Only a `valid: true` response, or a skipped check, continues into the progress bar and the rest of the open.
 
