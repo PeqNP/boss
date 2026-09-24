@@ -121,6 +121,100 @@ def migrate_to_1_0_0(conn: sqlite3.Connection, version: tuple | None) -> tuple:
     conn.commit()
     return (1, 0, 0)
 
+def migrate_to_1_1_0(conn: sqlite3.Connection, version: tuple | None) -> tuple:
+    if version is not None and version >= (1, 1, 0):
+        return version
+
+    logging.info("Lean Visualizer: applying db migration v1.1.0")
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS priority_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            saved_at TEXT NOT NULL,
+            source TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS priority_snapshot_features (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            snapshot_id INTEGER NOT NULL,
+            feature_id TEXT NOT NULL,
+            issue_key TEXT,
+            name TEXT NOT NULL,
+            color TEXT NOT NULL,
+            placement TEXT NOT NULL,
+            track_id TEXT,
+            track_name TEXT,
+            position INTEGER NOT NULL,
+            ahead_feature_id TEXT,
+            ahead_name TEXT,
+            remaining_units INTEGER NOT NULL,
+            finish_on TEXT,
+            weekly_rate REAL NOT NULL,
+            UNIQUE(snapshot_id, feature_id)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_priority_snapshot_features_snapshot
+        ON priority_snapshot_features(snapshot_id)
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS priority_log_entries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            snapshot_id INTEGER NOT NULL,
+            feature_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            color TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            ahead_feature_id TEXT,
+            ahead_name TEXT,
+            units_added INTEGER,
+            blockage_id TEXT,
+            began_on TEXT,
+            ended_on TEXT,
+            note TEXT,
+            days INTEGER,
+            previous_rate REAL,
+            rate REAL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_priority_log_entries_snapshot
+        ON priority_log_entries(snapshot_id)
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_priority_log_entries_blockage
+        ON priority_log_entries(blockage_id)
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS priority_snapshot_finished (
+            snapshot_id INTEGER NOT NULL,
+            feature_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            color TEXT NOT NULL,
+            PRIMARY KEY (snapshot_id, feature_id)
+        )
+        """
+    )
+    conn.execute(
+        "INSERT INTO versions (version, created_at) VALUES (?, datetime('now'))",
+        ("1.1.0",),
+    )
+    conn.commit()
+    return (1, 1, 0)
+
 def start() -> None:
     logging.info("Starting Lean Visualizer...")
     cfg = get_config()
@@ -130,6 +224,7 @@ def start() -> None:
         ver = get_db_version(conn)
         logging.info("Lean Visualizer: db version (%s)", ver)
         ver = migrate_to_1_0_0(conn, ver)
+        ver = migrate_to_1_1_0(conn, ver)
     finally:
         conn.close()
 

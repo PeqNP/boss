@@ -1,6 +1,6 @@
 # 02 — C-level reporting
 
-Status: confirmed. Stage 1 is the current stage.
+Status: confirmed. Stage 2 is done. Next is Stage 3.
 
 This plan tells a reader why a tracked feature's place in the pipeline changed. It does not amend [01-plan.md](01-plan.md). The built app stays as that plan describes it, including the fourteen-day material change, until this plan ships.
 
@@ -128,6 +128,8 @@ CREATE TABLE IF NOT EXISTS priority_snapshot_finished (
 ```
 
 `placement = below` is stored so the next diff can tell a feature that dropped under the sync line from one that left the board. It is not a log row.
+
+`snapshot_id` is indexed on `priority_snapshot_features` and `priority_log_entries`. `blockage_id` is indexed on `priority_log_entries`. `priority_snapshot_finished` is looked up by its leading key, `snapshot_id`.
 
 ### Rules the columns exist for
 
