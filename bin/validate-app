@@ -58,7 +58,7 @@ TEMPLATE = [
 # `--rules` so no document has to restate the list and then drift from it.
 RULES = [
     ("registration", "error", "Controllers match application.json and installed.json", "shared.md §3, §4"),
-    ("plan", "error", "Every controller plan.md describes is built", "process.md § Development Order"),
+    ("plan", "error", "Every controller the built plan describes is built", "process.md § Development Order"),
     ("syntax", "error", "Controller JavaScript parses", "—"),
     ("handlers", "error", "Every onclick resolves to an exported this.*", "shared.md: Controller method naming"),
     ("boss-api", "error", "Every BOSS method called exists on that component", "js-api.md"),
@@ -1355,6 +1355,8 @@ def check_plan_controllers(bundle, report):
     """
     plan = os.path.join(PRIVATE_DIR, bundle, "plan.md")
     if not os.path.exists(plan):
+        plan = os.path.join(PRIVATE_DIR, bundle, "plans", "01-plan.md")
+    if not os.path.exists(plan):
         return
     text = open(plan).read()
 
@@ -1385,7 +1387,7 @@ def check_plan_controllers(bundle, report):
         if name not in registered:
             report.error(
                 "plan",
-                f"plan.md describes controller ({name}), which is not registered"
+                f"the built plan describes controller ({name}), which is not registered"
                 f" in application.json"
             )
             continue
@@ -1393,7 +1395,7 @@ def check_plan_controllers(bundle, report):
         if not os.path.exists(markup):
             report.error(
                 "plan",
-                f"plan.md describes controller ({name}), which has no"
+                f"the built plan describes controller ({name}), which has no"
                 f" controller/{name}.html"
             )
 

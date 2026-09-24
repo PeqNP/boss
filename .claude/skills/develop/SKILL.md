@@ -13,8 +13,8 @@ This skill is the procedure. Do not restate those sections here.
 ## Do this, in order
 
 1. Classify size. If Classify says **small**, this skill does not apply: load the layer index, then the section that applies, and stop reading this file.
-2. Read the app's `description.md`, `plan.md`, and `memory.md`. If `memory.md` is missing and a stage is open, create it.
-3. A medium or large change that needs new decisions: Phase 0 for **those questions only**, amend `description.md` where the answers changed, then the relevant `plan.md` sections. Stop for confirmation before writing code.
+2. Read the app's `description.md`, its plan, and `memory.md`. The plan is `plan.md`, or `plans/01-plan.md` once that folder exists, plus the open `plans/NN-name.md` named in `memory.md`. If `memory.md` is missing and a stage is open, create it.
+3. A medium or large change that needs new decisions: Phase 0 for **those questions only**. A second feature is a new `plans/NN-name.md`, per [`process.md` § Numbered plans](../../../docs/prompt/process.md#numbered-plans). Do not append it to the original plan. Amend `description.md` when the feature ships. Stop for confirmation before writing code.
 4. Walk the **current** stage from [`process.md` § Development Order](../../../docs/prompt/process.md#development-order). After a confirmed plan, that is Stage 1 — the UI — even when every earlier stage of the app is done. See [`process.md` § Iteration](../../../docs/prompt/process.md#iteration--a-slice-on-a-finished-plan). For a medium slice, only the screens and routes that slice names. Load each layer document from its index, then the sections that apply. Do not write schema, routes, or private tests in the same turn as the first UI.
 5. Step 4 of Development Order uses the `private-service-tests` skill. Step 8 writes `ui-plan.md` first.
 6. Run what the stage names (`bin/validate-app` at the end of Stage 1 and again before step 3; the stage's tests at the end of steps 4–5 and 8).

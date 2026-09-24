@@ -1,0 +1,97 @@
+<div class="ui-modal">
+  <script type="text/javascript">
+    function $(this.id)(view) {
+
+      let featureName = "";
+      let entries = [];
+
+      function close() {
+        view.ui.close();
+      }
+      this.close = close;
+
+      /**
+       * @param {{name: string, entries: Array}} options - The feature and its log
+       */
+      function configure(options) {
+        const given = options || {};
+        featureName = given.name || "";
+        entries = Array.isArray(given.entries) ? given.entries : [];
+      }
+      this.configure = configure;
+
+      function viewDidLoad() {
+        view.ui.span("feature").textContent = featureName;
+        render();
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function render() {
+        const rows = entries.slice().sort(function(a, b) {
+          return String(b.createdOn || "").localeCompare(String(a.createdOn || ""));
+        });
+        const showEnd = rows.some(function(entry) { return entry.kind === "blockage"; });
+        const head = view.ui.table("logs").querySelector("thead tr");
+        const body = view.ui.table("logs").querySelector("tbody");
+        head.innerHTML = "<th class=\"when\">Date</th>"
+          + (showEnd ? "<th class=\"when\">End</th>" : "")
+          + "<th class=\"note\">Note</th><th class=\"days\">Days</th>";
+        body.innerHTML = "";
+        let total = 0;
+        for (const entry of rows) {
+          const days = Number(entry.days) || 0;
+          total += days;
+          const note = String(entry.note || "");
+          const tr = document.createElement("tr");
+          tr.innerHTML = "<td class=\"when\">" + escapeHtml(entry.createdOn || "") + "</td>"
+            + (showEnd ? "<td class=\"when\">" + escapeHtml(endText(entry)) + "</td>" : "")
+            + "<td class=\"note\"><span class=\"log-note\">" + escapeHtml(note) + "</span></td>"
+            + "<td class=\"days\">" + days + "</td>";
+          body.appendChild(tr);
+          const label = tr.querySelector(".log-note");
+          if (!isEmpty(note)) {
+            new UIPopOver(label, new UIPopOverSide("left", "below"), escapeHtml(note));
+          }
+        }
+        const totalRow = view.ui.table("logs").querySelector("tfoot tr");
+        const span = showEnd ? 3 : 2;
+        totalRow.innerHTML = "<td colspan=\"" + span + "\">Total impacted days</td><td>" + total + "</td>";
+      }
+
+      function endText(entry) {
+        if (entry.kind !== "blockage") {
+          return "\u2014";
+        }
+        if (isEmpty(entry.endedOn)) {
+          return "TBD";
+        }
+        return entry.endedOn;
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+      }
+    }
+  </script>
+
+  <div class="title">Log</div>
+  <div class="container vbox gap-10" style="width: 640px;">
+    <div class="read-only">
+      <label>Feature</label>
+      <span name="feature"></span>
+    </div>
+    <div class="five-rows">
+      <table name="logs">
+        <thead><tr></tr></thead>
+        <tbody></tbody>
+        <tfoot><tr class="totals"></tr></tfoot>
+      </table>
+    </div>
+    <div class="controls">
+      <button class="default" onclick="$(this.controller).close();">Close</button>
+    </div>
+  </div>
+</div>

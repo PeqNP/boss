@@ -3,10 +3,39 @@
     function $(this.id)(view) {
 
       let callerRole = "Admin";
+      let jiraRootUrl = "";
 
       /**
        * Opens the checkpoint modal.
        */
+      /**
+       * Records a priority snapshot. Stubbed until the route exists.
+       */
+      function saveSnapshot() {
+        view.ui.showMessage("Snapshot saved.");
+        renderLog(stubMaterialLog());
+      }
+      this.saveSnapshot = saveSnapshot;
+
+      /**
+       * Opens the log for one feature.
+       *
+       * @param {string} featureId
+       */
+      async function openLog(featureId) {
+        const feature = stubMaterialLog().features.find(function(item) {
+          return item.featureId === featureId;
+        });
+        if (isEmpty(feature)) {
+          return;
+        }
+        const child = await $(app.controller).loadController("MaterialLog");
+        child.ui.show(function(ctrl) {
+          ctrl.configure({ name: feature.name, entries: feature.entries });
+        });
+      }
+      this.openLog = openLog;
+
       async function saveCheckpoint() {
         const win = await $(app.controller).loadController("Checkpoint");
         win.ui.show(function(ctrl) {
@@ -39,8 +68,14 @@
       this.viewDidLoad = viewDidLoad;
 
       async function reload() {
-        render(await os.network.get("/api/io.bithead.lean-visualizer/report"));
-        view.ui.button("checkpoint").hidden = callerRole !== "Admin";
+        const report = await os.network.get("/api/io.bithead.lean-visualizer/report");
+        const model = await os.network.get("/api/io.bithead.lean-visualizer/model");
+        jiraRootUrl = model.config && model.config.jiraRootUrl ? model.config.jiraRootUrl : "";
+        render(report);
+        renderLog(stubMaterialLog());
+        const writing = callerRole !== "Admin";
+        view.ui.button("checkpoint").hidden = writing;
+        view.ui.button("snapshot").hidden = writing;
       }
 
       function render(report) {
@@ -62,23 +97,136 @@
         fill(view.ui.table("open-pillars"), report.pillars.open.map(function(row) {
           return [row.pillar, row.featureCount, percentText(row.share)];
         }));
+      }
+
+      /**
+       * Sample log so the section can be judged before the route exists.
+       */
+      function stubMaterialLog() {
+        return {
+          savedAt: "2026-09-24",
+          previousSavedAt: "2026-09-10",
+          features: [
+            {
+              featureId: "fr-badge",
+              issueKey: "BDG-120",
+              name: "Badge Mobile check-in for the lobby kiosk and the overnight reprint queue",
+              color: "#336699",
+              entries: [
+                {
+                  kind: "blockage",
+                  startedOn: "2026-09-18",
+                  endedOn: "",
+                  createdOn: "2026-09-24",
+                  note: "Waiting on the vendor beta signup.",
+                  days: 6
+                },
+                {
+                  kind: "sequence",
+                  startedOn: "2026-09-22",
+                  createdOn: "2026-09-22",
+                  note: "Reprioritized behind Upgrade MariaDB.",
+                  days: 0
+                },
+                {
+                  kind: "units",
+                  startedOn: "2026-09-20",
+                  createdOn: "2026-09-20",
+                  note: "Added 8 units.",
+                  days: 4
+                },
+                {
+                  kind: "rate",
+                  startedOn: "2026-09-17",
+                  createdOn: "2026-09-17",
+                  note: "The lane's rate changed from 8.5 to 6.",
+                  days: 3
+                },
+                {
+                  kind: "sequence",
+                  startedOn: "2026-09-15",
+                  createdOn: "2026-09-15",
+                  note: "Reprioritized behind Badge printing.",
+                  days: 0
+                },
+                {
+                  kind: "entered",
+                  startedOn: "2026-09-12",
+                  createdOn: "2026-09-12",
+                  note: "Entered the queue.",
+                  days: 0
+                },
+                {
+                  kind: "blockage",
+                  startedOn: "2026-09-01",
+                  endedOn: "2026-09-08",
+                  createdOn: "2026-09-08",
+                  note: "Waiting on a third-party beta.",
+                  days: 7
+                }
+              ]
+            }
+          ]
+        };
+      }
+
+      function renderLog(log) {
         const changes = view.ui.table("changes").querySelector("tbody");
         changes.innerHTML = "";
-        if (report.changes.length === 0) {
+        if (isEmpty(log.previousSavedAt)) {
           const tr = document.createElement("tr");
-          tr.innerHTML = "<td colspan=\"4\">No checkpoint yet.</td>";
+          tr.innerHTML = "<td colspan=\"2\">A snapshot is the baseline.</td>";
           changes.appendChild(tr);
           return;
         }
-        for (const change of report.changes) {
+        if (log.features.length === 0) {
           const tr = document.createElement("tr");
-          tr.innerHTML = "<td><span style=\"display:inline-block;width:12px;height:12px;border-radius:50%;background:"
-            + change.color + "\"></span> " + escapeHtml(change.name) + "</td>"
-            + "<td>" + escapeHtml(change.previousFinishOn || "—") + "</td>"
-            + "<td>" + escapeHtml(change.finishOn || "—") + "</td>"
-            + "<td>" + change.movedDays + "</td>";
+          tr.innerHTML = "<td colspan=\"2\">No changes since the last snapshot.</td>";
+          changes.appendChild(tr);
+          return;
+        }
+        for (const feature of log.features) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = "<td class=\"change-feature\"><span class=\"feature-name\">"
+            + dot(feature.color) + featureLine(feature) + "</span></td>"
+            + "<td class=\"log\"><button type=\"button\" class=\"primary\" data-log=\"" + feature.featureId + "\">Log</button></td>";
           changes.appendChild(tr);
         }
+        changes.onclick = function(event) {
+          const button = event.target.closest("[data-log]");
+          if (isEmpty(button)) {
+            return;
+          }
+          openLog(button.dataset.log);
+        };
+      }
+
+      function featureLine(feature) {
+        const name = "<span class=\"feature-desc\">" + escapeHtml(feature.name) + "</span>";
+        const key = featureKey(feature);
+        if (isEmpty(key)) {
+          return " " + name;
+        }
+        return "<span class=\"key-part\"> " + key + "</span><span class=\"feature-desc\">: "
+          + escapeHtml(feature.name) + "</span>";
+      }
+
+      function featureKey(feature) {
+        const key = String(feature.issueKey || "").trim();
+        if (isEmpty(key)) {
+          return "";
+        }
+        const root = String(jiraRootUrl || "").replace(/\/$/, "");
+        if (isEmpty(root)) {
+          return escapeHtml(key);
+        }
+        return "<a class=\"jira-key\" href=\"" + root + "/browse/" + encodeURIComponent(key)
+          + "\" target=\"_blank\" rel=\"noopener noreferrer\">" + escapeHtml(key) + "</a>";
+      }
+
+      function dot(color) {
+        return "<span style=\"display:inline-block;width:12px;height:12px;border-radius:50%;background:"
+          + color + ";vertical-align:middle\"></span>";
       }
 
       function twoPlaces(value) {
@@ -122,6 +270,7 @@
         <label>As of</label>
         <span name="as-of"></span>
       </div>
+      <button name="snapshot" class="primary" onclick="$(this.controller).saveSnapshot();">Save Snapshot</button>
       <button name="checkpoint" class="default" onclick="$(this.controller).saveCheckpoint();">Save Checkpoint</button>
     </div>
 
@@ -162,7 +311,7 @@
       <div class="vbox gap-10">
         <table name="changes">
           <thead>
-            <tr><th title="Feature"><span class="column-name">Feature</span></th><th title="Was"><span class="column-name">Was</span></th><th title="Now"><span class="column-name">Now</span></th><th title="Days"><span class="column-name">Days</span></th></tr>
+            <tr><th title="Feature"><span class="column-name">Feature</span></th><th class="log" title="Log"><span class="column-name">Log</span></th></tr>
           </thead>
           <tbody></tbody>
         </table>

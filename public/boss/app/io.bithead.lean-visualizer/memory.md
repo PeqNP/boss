@@ -1,8 +1,13 @@
 # Lean Visualizer Memory
 
 Lean Multi-Track Production Simulator: a release-forecasting board backed by Jira.
-Shipped and in daily use. The spec is [description.md](description.md). The contract
-is [plan.md](../../../../private/app/io.bithead.lean-visualizer/plan.md). Every route
+Shipped and in daily use. The spec is [description.md](description.md). The built
+contract is [01-plan.md](../../../../private/app/io.bithead.lean-visualizer/plans/01-plan.md).
+The open feature plan is [02-c-level-reporting.md](../../../../private/app/io.bithead.lean-visualizer/plans/02-c-level-reporting.md).
+Stage 1 is built: the Report material-changes section and the Blockage document,
+with `POST /snapshots` and `GET /material-log` stubbed. The database version
+for the snapshot tables is `1.1.0`, recorded in that plan and not migrated yet.
+Next is the developer's look at those two windows, then Stage 2. Every route
 requires a role. The routes are live and the board, schedule, report, and
 checkpoint call them. The rate, the schedule, pillars, the board save, the
 fourteen-day change, who may call a route, and checkpoint credits are tested.

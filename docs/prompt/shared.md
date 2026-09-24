@@ -78,7 +78,7 @@ All BOSS app bundles live under `/public/boss/app/<bundle_id>/`.
   image/                Optional. Images referenced in controllers.
 ```
 
-The implementation contract is `private/app/<bundle_id>/plan.md`, not in the public bundle. See [`process.md`](process.md).
+The implementation contract is `private/app/<bundle_id>/plan.md`, not in the public bundle. A second feature is `plans/NN-name.md`. See [`process.md` § Numbered plans](process.md#numbered-plans).
 
 Every new app must also be registered in `/public/boss/app/installed.json`:
 ```json

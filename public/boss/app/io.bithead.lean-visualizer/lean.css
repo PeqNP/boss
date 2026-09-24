@@ -121,6 +121,66 @@ td:has(> .edit-label) {
   z-index: 1;
 }
 
+table[name="logs"] tfoot td {
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  z-index: 1;
+}
+
+table[name="logs"] th.when,
+table[name="logs"] td.when,
+table[name="logs"] th.days,
+table[name="logs"] td.days {
+  width: 7em;
+  white-space: nowrap;
+}
+
+table[name="logs"] td.note {
+  max-width: 0;
+  overflow: hidden;
+}
+
+table[name="logs"] .log-note {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+table[name="changes"] {
+  table-layout: fixed;
+  width: 100%;
+}
+
+table[name="changes"] th.log,
+table[name="changes"] td.log {
+  width: 5em;
+}
+
+table[name="changes"] td.change-feature {
+  overflow: hidden;
+}
+
+table[name="changes"] .feature-name {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+}
+
+table[name="changes"] .key-part {
+  flex: none;
+  white-space: pre;
+}
+
+table[name="changes"] .feature-desc {
+  flex: 1;
+  overflow: hidden;
+  white-space: pre;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
 .task-scroll table,
 .five-rows table {
   table-layout: fixed;

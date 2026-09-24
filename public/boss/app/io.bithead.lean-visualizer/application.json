@@ -23,6 +23,8 @@
         "Report": { "singleton": true },
         "Checkpoint": { "modal": true },
         "Notes": {},
+        "Blockage": {},
+        "MaterialLog": { "modal": true },
         "VirtualFeature": { "modal": true },
         "TaskMetrics": { "modal": true },
         "Tasks": { "modal": true },

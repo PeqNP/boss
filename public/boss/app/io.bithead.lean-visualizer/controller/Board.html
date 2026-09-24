@@ -141,6 +141,14 @@
       }
       this.openTasks = openTasks;
 
+      /**
+       * Records a priority snapshot. Stubbed until the route exists.
+       */
+      function saveSnapshot() {
+        view.ui.showMessage("Snapshot saved.");
+      }
+      this.saveSnapshot = saveSnapshot;
+
       async function openNotes() {
         const win = await $(app.controller).loadController("Notes");
         const weekStart = isoDate(viewedWeek);
@@ -155,6 +163,55 @@
         });
       }
       this.openNotes = openNotes;
+
+      /**
+       * Opens the blockage document for a tracked feature.
+       *
+       * @param {string} owner - `track` or `backlog`
+       * @param {string} featureId - The feature the span belongs to
+       */
+      async function openBlockage(owner, featureId) {
+        const feature = findFeature(featureId, owner);
+        if (isEmpty(feature)) {
+          return;
+        }
+        const spans = Array.isArray(feature.blockages) ? feature.blockages : [];
+        const open = spans.find(function(span) { return isEmpty(span.endedOn); });
+        const child = await $(app.controller).loadController("Blockage");
+        child.ui.show(function(ctrl) {
+          ctrl.configure({
+            featureId: feature.id,
+            featureName: feature.name,
+            blockageId: isEmpty(open) ? "" : open.id,
+            beganOn: isEmpty(open) ? isoDate(new Date()) : open.beganOn,
+            endedOn: isEmpty(open) ? "" : open.endedOn,
+            note: isEmpty(open) ? "" : open.note,
+            spans: spans
+          });
+          ctrl.delegate = {
+            didSaveBlockage: function(span) {
+              if (!Array.isArray(feature.blockages)) {
+                feature.blockages = [];
+              }
+              const index = feature.blockages.findIndex(function(item) { return item.id === span.id; });
+              if (index < 0) {
+                feature.blockages.push(span);
+              }
+              else {
+                feature.blockages[index] = span;
+              }
+              saved();
+            },
+            didDeleteBlockage: function(id, blockageId) {
+              feature.blockages = (feature.blockages || []).filter(function(item) {
+                return item.id !== blockageId;
+              });
+              saved();
+            }
+          };
+        });
+      }
+      this.openBlockage = openBlockage;
 
       async function openVirtual(id) {
         const win = await $(app.controller).loadController("VirtualFeature");
@@ -209,6 +266,7 @@
         file.removeOption("sync-features");
         file.removeOption("releases");
         file.removeOption("checkpoint");
+        file.removeOption("snapshot");
         view.ui.select("actions").ui.addNewOptions([
           { id: "copy-query", name: "Copy Jira Query" },
           { id: "view-metrics", name: "View Task Metrics" },
@@ -357,7 +415,8 @@
             + "<td>" + operatorInitials(track.id) + "</td>"
             + "<td><label class=\"checkbox\"><input type=\"checkbox\" data-role=\"track-enabled\" data-id=\"" + track.id + "\"" + (track.enabled ? " checked" : "") + (readOnly ? " disabled" : "") + "> " + (track.enabled ? "Enabled" : "Disabled") + "</label></td>"
             + featureCells
-            + "<td><span class=\"row-actions\"><button type=\"button\" class=\"primary\" data-action=\"move-to-backlog\" data-id=\"" + track.id + "\"" + (isEmpty(feature) ? " disabled" : "") + ">Backlog →</button>"
+            + "<td><span class=\"row-actions\">" + blockedButton(feature, "track")
+            + "<button type=\"button\" class=\"primary\" data-action=\"move-to-backlog\" data-id=\"" + track.id + "\"" + (isEmpty(feature) ? " disabled" : "") + ">Backlog →</button>"
             + "<button type=\"button\" class=\"primary delete\" aria-label=\"Delete\" data-action=\"delete-feature\" data-id=\"" + track.id + "\"" + (isEmpty(feature) ? " disabled" : "") + "></button></span></td>";
           body.appendChild(tr);
           tr.querySelectorAll(".operator-initials").forEach(function(item) {
@@ -395,7 +454,8 @@
             + "<td>" + estWeeksLabel(item, "backlog") + "</td>"
             + "<td data-cell=\"pin\"></td>"
             + "<td data-cell=\"move\"></td>"
-            + "<td><button type=\"button\" class=\"primary delete\" aria-label=\"Delete\" data-action=\"delete-backlog\" data-id=\"" + item.id + "\"></button></td>";
+            + "<td>" + (isTrackedBacklog(index) ? blockedButton(item, "backlog") : "")
+            + "<button type=\"button\" class=\"primary delete\" aria-label=\"Delete\" data-action=\"delete-backlog\" data-id=\"" + item.id + "\"></button></td>";
           body.appendChild(tr);
           if (!readOnly) {
             tr.querySelector("[data-cell='pin']").appendChild(pinMenu(item));
@@ -445,6 +505,9 @@
             track.feature = null;
             saved();
           }
+        }
+        if (button.dataset.action === "block") {
+          openBlockage(button.dataset.owner, button.dataset.id);
         }
         if (button.dataset.action === "delete-backlog") {
           backlog = backlog.filter(function(item) { return item.id !== id; });
@@ -614,6 +677,22 @@
           }
         }
         saved();
+      }
+
+      function blockedButton(feature, owner) {
+        if (readOnly || isEmpty(feature)) {
+          return "";
+        }
+        return "<button type=\"button\" class=\"primary\" data-action=\"block\" data-owner=\""
+          + owner + "\" data-id=\"" + feature.id + "\">Blocked</button>";
+      }
+
+      function isTrackedBacklog(index) {
+        const at = backlog.findIndex(function(item) { return item.kind === "system-divider"; });
+        if (at < 0) {
+          return true;
+        }
+        return index < at;
       }
 
       function findTrack(id) {
@@ -1071,6 +1150,7 @@
         <option value="finished-work" onclick="$(this.controller).openFinishedWork();">Finished work</option>
         <option value="releases" onclick="$(this.controller).openReleases();">Releases</option>
         <option value="checkpoint" onclick="$(this.controller).openCheckpoint();">Save Checkpoint</option>
+        <option value="snapshot" onclick="$(this.controller).saveSnapshot();">Save Snapshot</option>
         <option value="schedule" onclick="$(this.controller).openSchedule();">Schedule</option>
       </select>
     </div>

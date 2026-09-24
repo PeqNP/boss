@@ -276,11 +276,14 @@ def main():
                    and not n.startswith("__"))
     problems = []
     for name in names:
-        # An app that is planned and not yet written. `plan.md` comes before
-        # the service does — that is the development order — so a directory
-        # holding one and no code is a state, not a fault.
+        # An app that is planned and not yet written. The built plan comes
+        # before the service does — that is the development order — so a
+        # directory holding one and no code is a state, not a fault.
         if not os.path.isfile(os.path.join(APP_DIR, name, "__init__.py")):
-            if os.path.isfile(os.path.join(APP_DIR, name, "plan.md")):
+            planned = os.path.isfile(os.path.join(APP_DIR, name, "plan.md")) or os.path.isfile(
+                os.path.join(APP_DIR, name, "plans", "01-plan.md")
+            )
+            if planned:
                 problems.append(f"  warning {name}: planned, not yet written")
                 continue
 

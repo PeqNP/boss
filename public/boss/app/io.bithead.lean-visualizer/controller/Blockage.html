@@ -1,0 +1,175 @@
+<div class="ui-window">
+  <script type="text/javascript">
+    function $(this.id)(view, win) {
+
+      let featureId = "";
+      let featureName = "";
+      let blockageId = "";
+      let spans = [];
+
+      this.document = new UIDocument("Delete this blockage?", null);
+
+      /**
+       * Writes the span onto the feature.
+       *
+       * @returns {boolean} `true` when the span was written
+       */
+      function save() {
+        const beganOn = view.ui.input("began").value;
+        const endedOn = view.ui.input("ended").value;
+        const note = view.ui.textarea("note").value.trim();
+        if (isEmpty(beganOn)) {
+          win.showMessage("A blockage needs a begin date.", { error: true });
+          return false;
+        }
+        if (!isEmpty(endedOn) && endedOn < beganOn) {
+          win.showMessage("The end date is before the begin date.", { error: true });
+          return false;
+        }
+        if (isEmpty(note)) {
+          win.showMessage("Describe why this feature is blocked.", { error: true });
+          return false;
+        }
+        if (isEmpty(blockageId)) {
+          blockageId = "b" + Date.now().toString(36);
+        }
+        if (!isEmpty(this.delegate)) {
+          this.delegate.didSaveBlockage({
+            id: blockageId,
+            featureId: featureId,
+            beganOn: beganOn,
+            endedOn: endedOn,
+            note: note
+          });
+        }
+        return true;
+      }
+      this.save = save;
+
+      /**
+       * Removes the span. The window has already asked.
+       */
+      async function _delete() {
+        if (!isEmpty(blockageId) && !isEmpty(this.delegate)) {
+          this.delegate.didDeleteBlockage(featureId, blockageId);
+        }
+        win.close();
+      }
+      this.delete = _delete;
+
+      /**
+       * Closes. The window has already asked when the span is dirty.
+       */
+      function cancel() {
+        win.close();
+      }
+      this.cancel = cancel;
+
+      /**
+       * @param {{featureId: string, featureName: string, blockageId: string, beganOn: string, endedOn: string, note: string, spans: Array}} options - The span to edit
+       */
+      function configure(options) {
+        const given = options || {};
+        featureId = given.featureId || "";
+        featureName = given.featureName || "";
+        blockageId = given.blockageId || "";
+        spans = Array.isArray(given.spans) ? given.spans : [];
+        beganOn = given.beganOn || "";
+        endedOn = given.endedOn || "";
+        note = given.note || "";
+      }
+      this.configure = configure;
+
+      let beganOn = "";
+      let endedOn = "";
+      let note = "";
+
+      function viewDidLoad() {
+        if (isEmpty(blockageId)) {
+          this.document.creating = true;
+        }
+        view.ui.span("feature").textContent = featureName;
+        view.ui.input("began").value = beganOn;
+        view.ui.input("ended").value = endedOn;
+        view.ui.textarea("note").value = note;
+        renderSpans();
+        const controller = this;
+        view.querySelector("[name=spans]").addEventListener("click", function(event) {
+          const button = event.target.closest("[data-span]");
+          if (isEmpty(button)) {
+            return;
+          }
+          controller.selectSpan(button.dataset.span);
+        });
+      }
+      this.viewDidLoad = viewDidLoad;
+
+      function viewDidAppear() {
+        view.ui.textarea("note").focus();
+      }
+      this.viewDidAppear = viewDidAppear;
+
+      function selectSpan(id) {
+        const span = spans.find(function(item) { return item.id === id; });
+        if (isEmpty(span)) {
+          return;
+        }
+        blockageId = span.id;
+        this.document.creating = false;
+        view.ui.input("began").value = span.beganOn || "";
+        view.ui.input("ended").value = span.endedOn || "";
+        view.ui.textarea("note").value = span.note || "";
+      }
+      this.selectSpan = selectSpan;
+
+      function renderSpans() {
+        const list = view.querySelector("[name=spans]");
+        list.innerHTML = "";
+        const ended = spans.filter(function(span) { return !isEmpty(span.endedOn); });
+        if (ended.length === 0) {
+          list.textContent = "No earlier spans.";
+          return;
+        }
+        for (const span of ended) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "primary";
+          button.dataset.span = span.id;
+          button.textContent = span.beganOn + " – " + span.endedOn;
+          list.appendChild(button);
+        }
+      }
+    }
+  </script>
+
+  <div class="top">
+    <div class="close-button"></div>
+    <div class="title"><span>Blocked</span></div>
+    <div class="zoom-button"></div>
+  </div>
+
+  <div class="container vbox gap-10 resizable" style="width: 420px; height: 420px;">
+    <div class="read-only">
+      <label>Feature</label>
+      <span name="feature"></span>
+    </div>
+    <div name="spans" class="hbox gap-10"></div>
+    <div class="text-field">
+      <label for="began">Begin</label>
+      <input type="date" name="began">
+    </div>
+    <div class="text-field">
+      <label for="ended">End</label>
+      <input type="date" name="ended">
+    </div>
+    <div class="textarea-field note-field">
+      <label for="note">Note</label>
+      <textarea name="note"></textarea>
+    </div>
+    <div class="controls">
+      <button class="primary" doc-action="cancel">Cancel</button>
+      <button class="primary" doc-action="delete">Delete</button>
+      <button class="default" doc-action="save">Save</button>
+    </div>
+  </div>
+</div>

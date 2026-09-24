@@ -1,5 +1,7 @@
 # Lean Visualizer — Implementation Plan
 
+Plan 01. Later features are numbered files in this folder.
+
 ## Identity
 
 - **Bundle ID:** `io.bithead.lean-visualizer`
@@ -86,7 +88,7 @@ class Role(str, Enum):
 | `Schedule` | Admin, Employee | the forecast of the one board |
 | `Report` | Admin, Employee | the capacity report of the one board |
 
-A menu item or a deep link opens the controller it names. An Employee sees Board on Dashboards. `GET /model` is allowed. `PUT /model` answers 403. See [`process.md`](../../../docs/prompt/process.md) § Say who reaches each page.
+A menu item or a deep link opens the controller it names. An Employee sees Board on Dashboards. `GET /model` is allowed. `PUT /model` answers 403. See [`process.md`](../../../../docs/prompt/process.md) § Say who reaches each page.
 
 ## Deep-link routing
 

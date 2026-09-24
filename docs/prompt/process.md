@@ -9,6 +9,7 @@ Read the index, then the sections that apply. Do not ingest the rest.
 | `plan.md` | [Phase 1](#phase-1--write-the-plan) |
 | Keeping a role off a page | [Say who reaches each page](#say-who-reaches-each-page) |
 | A slice on an app whose stages are already done | [Iteration](#iteration--a-slice-on-a-finished-plan) |
+| A second feature plan | [Numbered plans](#numbered-plans) |
 | Layers, Python vs Swift, localhost bridge | [System Layers](#system-layers) |
 | Domain vs network models | [Network and Domain Models](#network-and-domain-models) |
 | Private tests vs UI tests | [When to Write Tests](#when-to-write-tests) |
@@ -36,20 +37,21 @@ Name the kind and the size before reading a layer document or writing anything. 
 
 | Size | What it is | Process |
 |---|---|---|
-| Small | Copy, one control, a bug, a field whose contract does not change | No interview. Load the layer index, then the section that applies. Amend `plan.md` only if a signature, actor, or window kind changes. |
-| Medium | A screen, a rule, an endpoint group, a new window on an existing actor | Interview only the new questions. Amend the spec where the answers changed, then the relevant `plan.md` sections. Walk the stages for that slice only, still top-down. Stop after the current stage. A finished plan is still this path — [Iteration](#iteration--a-slice-on-a-finished-plan). |
+| Small | Copy, one control, a bug, a field whose contract does not change | No interview. Load the layer index, then the section that applies. Amend the built plan only if a signature, actor, or window kind changes. |
+| Medium | A screen, a rule, an endpoint group, a new window on an existing actor | Interview only the new questions. A second feature is a numbered plan — [Numbered plans](#numbered-plans). Walk the stages for that file only, still top-down. Stop after the current stage. A finished plan is still this path — [Iteration](#iteration--a-slice-on-a-finished-plan). |
 | Large | A new app, a new actor, a new public surface, a data-model change other screens hang off | Full interview → spec → plan → stages, with a stop after each. |
 
-Do not load this file whole for a small change. Do not use the generic design-doc skill or Grok plan mode for a BOSS app: they write the wrong artifact. The spec is `description.md`; the contract is `private/app/<bundle_id>/plan.md`.
+Do not load this file whole for a small change. Do not use the generic design-doc skill or Grok plan mode for a BOSS app: they write the wrong artifact. The spec is `description.md`. The contract of the built app is `plan.md`, or `plans/01-plan.md` once a second plan exists. A later feature is `plans/NN-name.md` — [Numbered plans](#numbered-plans).
 
 ---
 
 ## Iteration — a slice on a finished plan
 
-Every stage of `plan.md` being done is not permission to skip them. A new
+Every stage of the built plan being done is not permission to skip them. A new
 tab, a new screen, a new field whose contract changes, is a **slice**: the
 same eight steps, the same stop after each, only the surfaces that slice
-names.
+names. A new feature is a numbered plan, not a section of the finished one —
+[Numbered plans](#numbered-plans).
 
 **UI first. The developer looks at it. Then the rest.** Stage 1 of the slice
 is the tactile surface. `bin/validate-app` at the end of it. Then stop.
@@ -75,6 +77,30 @@ it had. The new fields do not ride that write until Stage 3 replaces the stub
 Small work still skips this: copy, one control, a bug, a field whose contract
 does not change. Small still skips interview, not a new client rule — see
 [When to Write Tests](#when-to-write-tests).
+
+### Numbered plans
+
+A second feature does not get appended to a finished `plan.md`. The folder is
+`private/app/<bundle_id>/plans/`. Move `plan.md` to `plans/01-plan.md` and
+leave no stub behind. Each later feature is `plans/NN-name.md`. `NN` is the
+order the plans were opened, two digits, starting at `01`. The rest of the
+name is the feature. Lean Visualizer is the pattern: `01-plan.md`, then
+`02-c-level-reporting.md`.
+
+`01-plan.md` is the contract of the app that is already built. A later file is
+the contract of that feature, and it carries the same stages. Its first lines
+say where it stands, such as specified or which stage is next. Writing it
+does not confirm it. `memory.md` names the open file. `description.md` changes
+when the feature ships. A later plan does not edit `01-plan.md` until a
+standing route or role has to change because the feature shipped.
+
+`ui-plan.md` stays in the app directory, beside the `plans/` folder. It does
+not move inside that folder. `bin/validate-app` reads the built plan:
+`plan.md`, or `plans/01-plan.md` when the folder exists. It does not read a
+later plan, whose controllers are not registered yet.
+
+An app that still has a single `plan.md` keeps that file. Small work amends
+the built plan and does not open a numbered file.
 
 ### After the UI is approved
 
@@ -151,7 +177,7 @@ The primary flow, in English, in the order a person meets it.
 What the first version does not do.
 ```
 
-A change to an existing app amends the spec where the answers changed, and only then the plan.
+A change to an existing app amends the spec where the answers changed, and only then the plan. A second feature writes `plans/NN-name.md` instead, and leaves `description.md` until that feature ships. See [Numbered plans](#numbered-plans).
 
 ---
 
@@ -162,6 +188,8 @@ After `description.md` is confirmed, write a `plan.md` to:
 ```
 private/app/<bundle_id>/plan.md
 ```
+
+That path is the first plan. A later feature is `plans/NN-name.md`. See [Numbered plans](#numbered-plans).
 
 **Format:** Markdown structured for machine readability. The plan is the implementation contract — it is referenced during every subsequent development stage.
 
@@ -541,11 +569,14 @@ See [Iteration](#iteration--a-slice-on-a-finished-plan).
    **Finish the step before leaving it.** A screen agreed on part-way through
    — one that arrives from a conversation about something else — belongs to
    this step whatever else has already been called complete. Add it to the plan
-   and build it now, so the plan and the app describe the same thing.
+   for this work and build it now, so the plan and the app describe the same
+   thing. The plan is `plan.md`, `plans/01-plan.md`, or the open
+   `plans/NN-name.md`.
 
-   `bin/validate-app` reports every controller `plan.md` describes and the app
-   has yet to register. Run it before calling this step finished, and again
-   before step 3.
+   `bin/validate-app` reports every controller the built plan describes and the
+   app has yet to register. The built plan is `plan.md`, or `plans/01-plan.md`
+   when that folder exists. Run it before calling this step finished, and
+   again before step 3.
 
    **The confirmation for this step is visual.** The developer opens the
    window. Schema, routes, and tests are the next steps, not this one.
@@ -589,7 +620,7 @@ See [Iteration](#iteration--a-slice-on-a-finished-plan).
 
 8. **Write UI tests** — Only once the app runs against a live service and a first pass has confirmed the screens draw.
 
-   Write a `ui-plan.md` beside the app's `plan.md` first. `plan.md` is the implementation contract; `ui-plan.md` is the coverage contract — the flows to cover, in order, each saying what it must prove, plus a status table. UI testing is long and interruptible, so the plan is what lets it stop and resume: the table says what is done, and no one has to remember a conversation.
+   Write a `ui-plan.md` in the app directory first, beside `plan.md` or beside the `plans/` folder. It does not go inside `plans/`. The built plan is the implementation contract; `ui-plan.md` is the coverage contract — the flows to cover, in order, each saying what it must prove, plus a status table. UI testing is long and interruptible, so the plan is what lets it stop and resume: the table says what is done, and no one has to remember a conversation.
 
    Each flow becomes one spec file. The spec does not name the flow or its place in the plan. The file says what it tests. The order and the status stay in `ui-plan.md`, and they change without the spec changing. Update its status in the same commit as the spec, and record any defect it turns up under **Findings**, so the next session can tell a gap in coverage from a gap in the app.
 

@@ -16,7 +16,7 @@ Name the **kind** and the **size** before reading a layer document or writing an
 
 A layer document is read from its **index**, then the sections that apply — never whole. [`js-api.md`](docs/prompt/js-api.md) is a lookup: consult the component's own entry before calling a method you have not used.
 
-Do not use the generic design-doc skill or Grok plan mode for a BOSS app. The spec is `description.md`; the contract is `private/app/<bundle_id>/plan.md`.
+Do not use the generic design-doc skill or Grok plan mode for a BOSS app. The spec is `description.md`. The contract is `plan.md`, and a later feature is a numbered file under `plans/`. See [`process.md` § Numbered plans](docs/prompt/process.md#numbered-plans).
 
 ## General Guidelines
 - When making technical decisions, weigh quality, simplicity, robustness, scalability, and long term maintainability above development cost.
