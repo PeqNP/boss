@@ -3452,6 +3452,10 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
     // gates initialization logic from being called twice.
     let loaded = false;
 
+    // The first show is still in init. A second show waits for it.
+    // Running init again clamps a fullscreen window that already zoomed.
+    let showing = null;
+
     // Reference to the element that contains this window's `UIMenu`s that
     // are shown in the OS bar. This is necessary when a window wishes to
     // make changes to the menu after the view is loaded.
@@ -4094,29 +4098,46 @@ function UIWindow(bundleId, id, container, cfg, menuId, isSystem) {
             }
             return controller;
         }
+        if (!isEmpty(showing)) {
+            await showing;
+            if (!isEmpty(fn)) {
+                fn(controller);
+            }
+            return controller;
+        }
 
-        // NOTE: `container` must be added to DOM before controller can be
-        // instantiated.
-        let context = document.getElementById(os.ui.appContainerId(bundleId));
-        context.appendChild(container);
-
-        // Awaited so that a controller which throws inside an `async
-        // viewDidLoad` is caught here. Left unawaited, the throw becomes a
-        // rejected promise that this `catch` has already stopped watching for,
-        // and the window sits there broken with nothing said about it.
+        showing = open();
         try {
-            await init(fn);
+            return await showing;
         }
-        catch (error) {
-            // Show in window, and console, so that the error is obvious and can be
-            // be better inspected.
-            console.error(error);
-            os.ui.showAlert(`Failed to initialize window. Controller raised error (${error}).`);
+        finally {
+            showing = null;
         }
 
-        loaded = true;
+        async function open() {
+            // NOTE: `container` must be added to DOM before controller can be
+            // instantiated.
+            let context = document.getElementById(os.ui.appContainerId(bundleId));
+            context.appendChild(container);
 
-        return controller;
+            // Awaited so that a controller which throws inside an `async
+            // viewDidLoad` is caught here. Left unawaited, the throw becomes a
+            // rejected promise that this `catch` has already stopped watching for,
+            // and the window sits there broken with nothing said about it.
+            try {
+                await init(fn);
+            }
+            catch (error) {
+                // Show in window, and console, so that the error is obvious and can be
+                // be better inspected.
+                console.error(error);
+                os.ui.showAlert(`Failed to initialize window. Controller raised error (${error}).`);
+            }
+
+            loaded = true;
+
+            return controller;
+        }
     }
     this.show = show;
 
