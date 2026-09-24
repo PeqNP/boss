@@ -22,47 +22,10 @@ from ..db import *
 from .time import *
 from .board import *
 from .rate import *
-from .schedule import *
 from .pillar import *
 
 
 HISTORY_START = date(2025, 12, 28)
-
-def material_changes(conn: sqlite3.Connection, schedule: ScheduleResponse) -> List[MaterialChange]:
-    ensure_checkpoint_tables(conn)
-    row = latest_checkpoint_row(conn)
-    if row is None:
-        return []
-    stored = {
-        str(item["feature_id"]): item
-        for item in checkpoint_forecast_rows(conn, int(row["id"]))
-    }
-    live: Dict[str, ScheduleBar] = {}
-    for track in schedule.tracks:
-        for bar in track.bars:
-            live[bar.featureId] = bar
-    changes: List[MaterialChange] = []
-    for feature_id in sorted(set(stored) | set(live)):
-        before = stored.get(feature_id)
-        after = live.get(feature_id)
-        previous = str(before["finish_on"]) if before and before["finish_on"] else ""
-        current = after.finishOn if after else ""
-        if previous == current:
-            continue
-        moved = 0
-        if previous and current:
-            moved = abs((date.fromisoformat(current) - date.fromisoformat(previous)).days)
-            if moved < 14:
-                continue
-        changes.append(MaterialChange(
-            featureId=feature_id,
-            name=(after.name if after else str(before["name"])),
-            color=(after.color if after else str(before["color"] or "")),
-            previousFinishOn=previous,
-            finishOn=current,
-            movedDays=moved,
-        ))
-    return changes
 
 def read_stored_weeks(conn: sqlite3.Connection, earliest: date) -> List[HistoryWeek]:
     """Weeks actually stored on or after `earliest`, oldest first."""
@@ -109,7 +72,6 @@ def build_report(conn: sqlite3.Connection) -> ReportResponse:
                 unplannedPerWeek=0,
                 weeksCounted=0,
             )
-    schedule = build_schedule(conn)
     history = merge_history(window_history, read_stored_weeks(conn, HISTORY_START))
     return ReportResponse(
         asOf=today.isoformat(),
@@ -123,5 +85,4 @@ def build_report(conn: sqlite3.Connection) -> ReportResponse:
             open=pillar_groups(open_features_for_pillars(state, pillars_by_issue(conn))),
             finished=[],
         ),
-        changes=material_changes(conn, schedule),
     )

@@ -152,38 +152,7 @@ def test_checkpoint():
     save_board([release("rel_open", "1.0.0", today)])
     conn = lv.get_model_db_connection()
     try:
-        assert lv.build_report(conn).changes == [], "it: the change list is empty"
-    finally:
-        conn.close()
-
-
-def test_forecast_change():
-    today = date.today()
-    sunday = week_sunday(today) - timedelta(days=7)
-
-    def state_for(units):
-        state = lv.default_visualizer_state()
-        state["operators"] = [operator("Ada", "track_a")]
-        state["tracks"] = [track("track_a", "Platform", held=feature(
-            "feat", "Billing", units=units, color="#112233"
-        ))]
-        state["releases"] = [release("rel", "1.0.0", today)]
-        return state
-
-    conn, saved = open_board(state_for(0))
-    try:
-        lv.record_operator_week(conn, "Ada", sunday, 7, 0)
-        lv.save_checkpoint(conn, "rel")
-
-        # describe: the live finish is fourteen days after the checkpoint
-        saved = lv.upsert_model_row(conn, state_for(14), saved.revision)
-        changes = lv.build_report(conn).changes
-        assert [item.featureId for item in changes] == ["feat"], "it: the feature is in the change list"
-        assert changes[0].movedDays == 14, "it: counts a move of fourteen days"
-
-        # describe: the live finish is thirteen days after the checkpoint
-        lv.upsert_model_row(conn, state_for(13), saved.revision)
-        assert lv.build_report(conn).changes == [], "it: a move of thirteen days is not a change"
+        assert lv.build_report(conn).asOf == iso(today), "it: the report returns without a change list"
     finally:
         conn.close()
 

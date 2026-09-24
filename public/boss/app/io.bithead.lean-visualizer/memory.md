@@ -8,8 +8,9 @@ Stage 1 is built: the Report material-changes section and the Blockage document,
 with `POST /snapshots` and `GET /material-log` stubbed. Stage 2 is done:
 migration `1.1.0` creates the priority snapshot tables. The model schema
 version stays `1`. Stage 3 is done: `test_snapshot` covers the diff, and
-`take_snapshot` implements it. Next is Stage 4, which retires the fourteen-day
-list from `GET /report`. Every route
+`take_snapshot` implements it. Stage 4 is done: `GET /report` no longer
+returns the fourteen-day change list. Next is Stage 5, pointing the report
+and Save Snapshot at the live routes. Every route
 requires a role. The routes are live and the board, schedule, report, and
 checkpoint call them. The rate, the schedule, pillars, the board save, the
 fourteen-day change, who may call a route, and checkpoint credits are tested.

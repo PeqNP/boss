@@ -103,15 +103,6 @@ class PillarFinished(BaseModel):
     featureCount: int
 
 
-class MaterialChange(BaseModel):
-    featureId: str
-    name: str
-    color: str
-    previousFinishOn: str
-    finishOn: str
-    movedDays: int
-
-
 class ReportPillars(BaseModel):
     open: List[PillarOpen]
     finished: List[PillarFinished]
@@ -121,7 +112,6 @@ class ReportResponse(BaseModel):
     asOf: str
     rates: ReportRates
     pillars: ReportPillars
-    changes: List[MaterialChange]
 
 
 class CheckpointResponse(BaseModel):
