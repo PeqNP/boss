@@ -25,9 +25,14 @@ async def sync_jira(boss_user: User, request: Request) -> JiraSyncResponse:
     root_url = jira_root_url(config)
     headers = jira_headers(config)
     board_id = get_fr_board_id(config)
+    pillar_field_id = get_custom_field_id(
+        config,
+        headers,
+        STRATEGIC_PILLAR_FIELD_NAME,
+    )
     board_query = urlencode(
         {
-            "fields": "summary,issuetype,status,assignee,fixVersions,updated",
+            "fields": "summary,issuetype,status,assignee,fixVersions,updated," + pillar_field_id,
             "jql": "issuetype = Epic AND statusCategory != Done ORDER BY Rank ASC",
         }
     )
@@ -70,13 +75,23 @@ async def sync_jira(boss_user: User, request: Request) -> JiraSyncResponse:
         for issue in issues:
             issue_key = normalize_issue_key(issue.get("key"))
             include_counts = bool(issue_key is not None and issue_key in count_refresh_issue_keys)
-            work_unit = to_work_unit(issue, headers, root_url, include_counts)
+            work_unit = to_work_unit(
+                issue,
+                headers,
+                root_url,
+                include_counts,
+                pillar_field_id,
+            )
             if work_unit is None:
                 continue
             work_units.append(work_unit)
             processed_epics += 1
 
         updated_state, sync_stats = apply_jira_sync_to_state(state, work_units)
+        store_pillars(conn, [
+            {"issueKey": unit.issueKey, "pillars": unit.pillars}
+            for unit in work_units
+        ])
 
         virtual_updated = sync_virtual_features(
             updated_state,

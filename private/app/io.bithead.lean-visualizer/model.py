@@ -24,6 +24,7 @@ class JiraWorkUnit(BaseModel):
     issueType: str
     releaseVersion: str = ""
     countsFresh: bool = False
+    pillars: List[str] = []
 
 
 class JiraSyncResponse(BaseModel):

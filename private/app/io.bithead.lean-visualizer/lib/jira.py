@@ -38,6 +38,7 @@ COMPLETED_STATUSES = {
 COMPLETED_TRANSITION_STATUSES = COMPLETED_STATUSES
 
 DEVELOPERS_FIELD_NAME = "Developers"
+STRATEGIC_PILLAR_FIELD_NAME = "Strategic Pillar"
 
 DEVELOPERS_JQL_NAME = "Developers[User Picker (multiple users)]"
 
@@ -365,6 +366,36 @@ def get_jira_field_map(
         if field_name and field_id and field_name not in field_map:
             field_map[field_name] = field_id
     return field_map
+
+def get_custom_field_id(
+    config: Dict[str, Any],
+    headers: Dict[str, str],
+    field_name: str,
+) -> str:
+    field_id = get_jira_field_map(config, headers).get(field_name)
+    if not field_id:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Jira has no field named ({field_name})."
+        )
+    return field_id
+
+def pillar_names(field_value: Any) -> List[str]:
+    if isinstance(field_value, dict):
+        values = [field_value]
+    elif isinstance(field_value, list):
+        values = field_value
+    else:
+        return []
+    names: List[str] = []
+    for item in values:
+        if isinstance(item, dict):
+            text = str(item.get("value") or "").strip()
+        else:
+            text = str(item or "").strip()
+        if text != "":
+            names.append(text)
+    return names
 
 def get_developers_field_id(
     config: Dict[str, Any],
@@ -695,7 +726,8 @@ def to_work_unit(
     issue: Dict[str, Any],
     headers: Dict[str, str],
     root_url: str,
-    include_counts: bool
+    include_counts: bool,
+    pillar_field_id: str = "",
 ) -> JiraWorkUnit | None:
     started = time.monotonic()
     fields = issue.get("fields", {})
@@ -741,6 +773,7 @@ def to_work_unit(
         issueType=issue_type,
         countsFresh=include_counts,
         releaseVersion=release_version,
+        pillars=pillar_names(fields.get(pillar_field_id)) if pillar_field_id else [],
     )
 
 def system_divider_index(backlog: List[Any]) -> int | None:

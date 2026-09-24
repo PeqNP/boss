@@ -6,6 +6,7 @@
 # are the ones the routes use.
 
 import os
+import sys
 
 import asyncio
 from datetime import date, datetime, timedelta
@@ -398,6 +399,57 @@ def test_schedule_distribution():
         assert names["DevOps"] == ["SOC", "Pipeline"], "it: that track receives only the features pinned to it"
     finally:
         conn.close()
+
+
+def test_feature_sync_saves_pillars(monkeypatch):
+    fresh_database()
+    issues = [{
+        "key": "FR-1",
+        "fields": {
+            "summary": "Grow",
+            "issuetype": {"name": "Epic"},
+            "fixVersions": [],
+            "customfield_1": [
+                {"value": "Growth / Acquisition"},
+                {"value": "Tech Debt / Stability"},
+            ],
+        },
+    }, {
+        "key": "FR-2",
+        "fields": {
+            "summary": "Plain",
+            "issuetype": {"name": "Epic"},
+            "fixVersions": [],
+        },
+    }]
+
+    def field_map(config, headers):
+        return {"Strategic Pillar": "customfield_1"}
+
+    jira = sys.modules[lv.get_jira_field_map.__module__]
+    monkeypatch.setattr(jira, "get_jira_field_map", field_map)
+    monkeypatch.setattr(lv, "fetch_all_issues", lambda url, headers: issues)
+
+    async def verify(request, bundle_id, feature):
+        return User(
+            id=1, system=1, fullName="Ada", email="ada@example.com",
+            verified=True, enabled=True,
+        )
+
+    monkeypatch.setattr("lib.server.verify_user", verify)
+
+    # describe: a feature sync reads the Strategic Pillar field
+    asyncio.run(lv.sync_jira(request=http_request()))
+    conn = lv.get_model_db_connection()
+    try:
+        saved = lv.pillars_by_issue(conn)
+    finally:
+        conn.close()
+    assert saved["FR-1"] == [
+        "Growth / Acquisition",
+        "Tech Debt / Stability",
+    ], "it: both pillars on the issue are stored"
+    assert saved["FR-2"] == [], "it: an issue with no pillar is stored as none"
 
 
 def test_pillar():
