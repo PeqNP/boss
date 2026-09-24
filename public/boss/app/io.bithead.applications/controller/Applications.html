@@ -96,11 +96,7 @@
         if (isEmpty(icon)) {
           icon = "icon.svg";
         }
-        icons.push({
-          bundleId: bundleId,
-          name: catalog.name,
-          icon: icon
-        });
+        icons.push(new AppLink(bundleId, catalog.name, icon));
         if (surface == "desktop") {
           os.ui.desktop.removeAllApps();
           os.ui.desktop.addApps(workspace.desktop);

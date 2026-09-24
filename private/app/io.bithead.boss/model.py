@@ -1,11 +1,26 @@
 #
 # Network models for the BOSS private service.
 #
-# Default and ServerInfo stay on the routes. These two are the workspace.
+# Default and ServerInfo stay on the routes. The font catalog and the
+# workspace are the shapes the client reads.
 #
 
 from pydantic import BaseModel
 from typing import List
+
+
+class SystemFont(BaseModel):
+    """One face the font picker offers."""
+
+    id: str
+    name: str
+    styles: List[str]
+
+
+class SystemFonts(BaseModel):
+    """The font picker's catalog."""
+
+    fonts: List[SystemFont]
 
 
 class AppLink(BaseModel):

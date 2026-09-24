@@ -7,20 +7,10 @@
 
 from typing import List, Tuple
 
-from pydantic import BaseModel
+from .model import SystemFont, SystemFonts
 
 
 WEIGHTS: Tuple[str, ...] = ("regular", "bold", "italic", "boldItalic")
-
-
-class SystemFont(BaseModel):
-    id: str
-    name: str
-    styles: List[str]
-
-
-class SystemFonts(BaseModel):
-    fonts: List[SystemFont]
 
 
 _FONTS = (

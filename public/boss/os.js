@@ -307,14 +307,14 @@ function OS() {
     async function loadWorkspace() {
         try {
             if (isGuestUser(user)) {
-                workspace = await os.network.get(
+                workspace = adoptWorkspace(await os.network.get(
                     `/api/io.bithead.boss/workspace/guest`
-                );
+                ));
             }
             else {
-                workspace = await os.network.get(
+                workspace = adoptWorkspace(await os.network.get(
                     `/api/io.bithead.boss/workspace/${user.id}`
-                );
+                ));
             }
         }
         catch (exc) {
@@ -327,6 +327,39 @@ function OS() {
         }
 
         paintWorkspace();
+    }
+
+    /**
+     * Copies a workspace response into AppLinks.
+     *
+     * The server and the screen share one shape: `desktop` and `dock`, each
+     * an `AppLink` of `bundleId`, `name`, and `icon`.
+     *
+     * @param {Workspace} raw - The body a workspace route returned
+     * @returns {{desktop: AppLink[], dock: AppLink[]}}
+     */
+    function adoptWorkspace(raw) {
+        return {
+            desktop: linksFrom(isEmpty(raw) ? null : raw.desktop),
+            dock: linksFrom(isEmpty(raw) ? null : raw.dock)
+        };
+    }
+
+    /**
+     * Copies one surface into AppLinks.
+     *
+     * @param {AppLink[]} raw - The icons on one surface
+     * @returns {AppLink[]}
+     */
+    function linksFrom(raw) {
+        if (isEmpty(raw)) {
+            return [];
+        }
+        let links = [];
+        for (let i = 0; i < raw.length; i++) {
+            links.push(new AppLink(raw[i].bundleId, raw[i].name, raw[i].icon));
+        }
+        return links;
     }
 
     /**
@@ -356,7 +389,7 @@ function OS() {
      */
     async function storeWorkspace(request) {
         try {
-            workspace = await request();
+            workspace = adoptWorkspace(await request());
             paintWorkspace();
             return workspace;
         }

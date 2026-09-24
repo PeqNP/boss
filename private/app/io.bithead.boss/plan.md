@@ -11,7 +11,7 @@
 - **What this plan covers:** the desktop and the dock. Fonts, heartbeat, defaults, and the account controllers stay as they are.
 - **Client surfaces:** `UIContextMenu` in `public/boss/ui.js`, `public/boss/os.js`, `public/boss/ui-desktop.js`, the dock in `public/boss/ui.js`, and `public/boss/app/io.bithead.applications/controller/Applications.html`. No new controller is registered on `io.bithead.boss`.
 
-Plan confirmed. Stage 5 is in review. Stage 6 is next. Stop after each stage.
+Plan confirmed. Stage 7 is in review. Stage 8 is next. Stop after each stage.
 
 ## Roles & Access
 
