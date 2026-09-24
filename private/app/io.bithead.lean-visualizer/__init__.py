@@ -127,7 +127,7 @@ async def sync_jira(boss_user: User, request: Request) -> JiraSyncResponse:
 
 
 @router.get("/metrics", response_model=MetricsSummaryResponse)
-@require_acl("board.r", roles=[Role.ADMIN])
+@require_acl("board.r", roles=[Role.ADMIN, Role.EMPLOYEE])
 async def get_metrics(
     metric_year: int | None = None,
     metric_week_number: int | None = None,
@@ -169,7 +169,7 @@ async def get_metrics_window(
 
 
 @router.get("/metrics-tasks", response_model=MetricsTasksResponse)
-@require_acl("board.r", roles=[Role.ADMIN])
+@require_acl("board.r", roles=[Role.ADMIN, Role.EMPLOYEE])
 async def get_metrics_tasks(
     metric_year: int | None = None,
     metric_week_number: int | None = None,
@@ -302,7 +302,7 @@ async def get_finished_work(
 
 
 @router.get("/model", response_model=ModelResponse)
-@require_acl("board.r", roles=[Role.ADMIN])
+@require_acl("board.r", roles=[Role.ADMIN, Role.EMPLOYEE])
 async def get_model(boss_user: User, request: Request) -> ModelResponse:
     jira_root = ""
     try:
@@ -314,6 +314,7 @@ async def get_model(boss_user: User, request: Request) -> ModelResponse:
 
     conn = get_model_db_connection()
     try:
+        ensure_model_table(conn)
         row = read_model_row(conn)
         if row is None:
             return ModelResponse(

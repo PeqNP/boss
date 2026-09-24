@@ -27,6 +27,10 @@
       this.openReleases = openReleases;
 
       async function viewDidLoad() {
+        const me = await os.network.get("/api/io.bithead.lean-visualizer/me");
+        if (me.role !== "Admin") {
+          view.ui.button("releases").hidden = true;
+        }
         schedule = await os.network.get("/api/io.bithead.lean-visualizer/schedule");
         render();
       }
@@ -169,7 +173,7 @@
 
   <div class="container vbox gap-20 resizable" style="width: 1100px; height: 720px;">
     <div class="hbox gap-10">
-      <button class="primary" onclick="$(this.controller).openReleases();">Manage Releases</button>
+      <button name="releases" class="primary" onclick="$(this.controller).openReleases();">Manage Releases</button>
     </div>
     <div class="gantt-wrap">
       <div name="gantt" class="gantt"></div>

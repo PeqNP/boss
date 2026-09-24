@@ -697,10 +697,10 @@ def test_access(monkeypatch):
         assert status_of(lv.get_me) == 403, "it: GET /me is refused"
         assert status_of(lv.get_model) == 403, "it: GET /model is refused"
 
-        grants.update(["schedule.r", "report.r"])
+        grants.update(["schedule.r", "report.r", "board.r"])
         # describe: caller is an Employee
         assert status_of(lv.put_model, body=body) == 403, "it: PUT /model is refused"
-        assert status_of(lv.get_model) == 403, "it: GET /model is refused"
+        assert status_of(lv.get_model) == 200, "it: GET /model is allowed"
         assert status_of(lv.put_checkpoint, release_id="rel") == 403, "it: PUT /checkpoints/{releaseId} is refused"
         assert status_of(lv.get_schedule) == 200, "it: GET /schedule returns the forecast"
         assert status_of(lv.get_report) == 200, "it: GET /report returns the report"

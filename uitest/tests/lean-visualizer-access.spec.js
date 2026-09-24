@@ -10,7 +10,7 @@
 
 import { test, expect } from "@playwright/test";
 import { signInAsAdmin, signInAs, bootBOSS, openApplication, windowByTitle,
-         account, ensureAccount, closeAll } from "../lib/boss.js";
+         clickMenuItem, account, ensureAccount, closeAll } from "../lib/boss.js";
 
 const BUNDLE = "io.bithead.lean-visualizer";
 const EMPLOYEE = account("lean-employee");
@@ -104,17 +104,29 @@ test.describe("who opens what @window", () => {
     await bootBOSS(page);
     await openApplication(page, BUNDLE);
 
-    await expect(windowByTitle(page, "Capacity report")).toBeVisible();
+    const report = windowByTitle(page, "Capacity report");
+    await expect(report).toBeVisible();
     await expect(windowByTitle(page, "Board")).toHaveCount(0);
+    await expect(report.locator("button[name='checkpoint']")).toBeHidden();
     await expect(menuLabels(page, "go-menu")).resolves.toEqual([
+      "Board",
       "Capacity report",
       "Schedule"
     ]);
 
-    await page.evaluate(async (bundleId) => {
-      await os.application(bundleId).proxy.openDeepLink({ path: "/board" });
-    }, BUNDLE);
-    await expect(windowByTitle(page, "Board")).toBeVisible();
+    await clickMenuItem(page, "go-menu", "Board");
+    const board = windowByTitle(page, "Board");
+    await expect(board).toBeVisible();
+    await expect(board.locator("[data-write]").filter({ visible: true })).toHaveCount(0);
+    await expect(menuLabels(page, "file-menu")).resolves.toEqual([
+      "Finished work",
+      "Schedule"
+    ]);
+
+    await clickMenuItem(page, "go-menu", "Schedule");
+    const schedule = windowByTitle(page, "Schedule");
+    await expect(schedule).toBeVisible();
+    await expect(schedule.locator("button[name='releases']")).toBeHidden();
   });
 
   test("a guest is refused", async ({ page }) => {

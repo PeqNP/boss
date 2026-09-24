@@ -20,6 +20,7 @@
       let backlog = [];
       const dragLines = [];
       let releases = [];
+      let readOnly = false;
 
       function addOperator() {
         const id = uid("op");
@@ -199,8 +200,29 @@
         };
       }
 
+      function applyReadOnly() {
+        view.querySelectorAll("[data-write]").forEach(function(el) {
+          el.hidden = true;
+        });
+        // The File menu has already been lifted into the OS bar.
+        const file = view.ui.menu("file-menu");
+        file.removeOption("sync-features");
+        file.removeOption("releases");
+        file.removeOption("checkpoint");
+        view.ui.select("actions").ui.addNewOptions([
+          { id: "copy-query", name: "Copy Jira Query" },
+          { id: "view-metrics", name: "View Task Metrics" },
+          { id: "view-tasks", name: "View Tasks" }
+        ]);
+      }
+
       async function viewDidLoad() {
         wireActions();
+        const me = await os.network.get(API + "/me");
+        readOnly = me.role !== "Admin";
+        if (readOnly) {
+          applyReadOnly();
+        }
         const root = view.querySelector(".container");
         root.addEventListener("click", onClick);
         root.addEventListener("change", onChange);
@@ -337,7 +359,7 @@
           tr.innerHTML = "<td draggable=\"true\" data-drag=\"" + index + "\" style=\"cursor:grab\">⠿</td>"
             + "<td>" + editLabel("track-name", track.id, track.name) + "</td>"
             + "<td>" + operatorInitials(track.id) + "</td>"
-            + "<td><label class=\"checkbox\"><input type=\"checkbox\" data-role=\"track-enabled\" data-id=\"" + track.id + "\"" + (track.enabled ? " checked" : "") + "> " + (track.enabled ? "Enabled" : "Disabled") + "</label></td>"
+            + "<td><label class=\"checkbox\"><input type=\"checkbox\" data-role=\"track-enabled\" data-id=\"" + track.id + "\"" + (track.enabled ? " checked" : "") + (readOnly ? " disabled" : "") + "> " + (track.enabled ? "Enabled" : "Disabled") + "</label></td>"
             + featureCells
             + "<td><span class=\"row-actions\"><button type=\"button\" class=\"primary\" data-action=\"move-to-backlog\" data-id=\"" + track.id + "\"" + (isEmpty(feature) ? " disabled" : "") + ">Backlog →</button>"
             + "<button type=\"button\" class=\"primary delete\" aria-label=\"Delete\" data-action=\"delete-feature\" data-id=\"" + track.id + "\"" + (isEmpty(feature) ? " disabled" : "") + "></button></span></td>";
@@ -379,12 +401,17 @@
             + "<td data-cell=\"move\"></td>"
             + "<td><button type=\"button\" class=\"primary delete\" aria-label=\"Delete\" data-action=\"delete-backlog\" data-id=\"" + item.id + "\"></button></td>";
           body.appendChild(tr);
-          tr.querySelector("[data-cell='pin']").appendChild(pinMenu(item));
-          tr.querySelector("[data-cell='move']").appendChild(moveMenu(item, enabled));
+          if (!readOnly) {
+            tr.querySelector("[data-cell='pin']").appendChild(pinMenu(item));
+            tr.querySelector("[data-cell='move']").appendChild(moveMenu(item, enabled));
+          }
         });
       }
 
       function onClick(event) {
+        if (readOnly) {
+          return;
+        }
         const label = event.target.closest(".edit-label");
         if (!isEmpty(label)) {
           beginEdit(label);
@@ -433,6 +460,9 @@
       }
 
       function onChange(event) {
+        if (readOnly) {
+          return;
+        }
         const input = event.target;
         const role = input.dataset.role;
         const id = input.dataset.id;
@@ -488,6 +518,10 @@
         }
 
         table.addEventListener("dragstart", function(event) {
+          if (readOnly) {
+            event.preventDefault();
+            return;
+          }
           const handle = event.target.closest("[data-drag]");
           if (isEmpty(handle)) {
             event.preventDefault();
@@ -876,6 +910,9 @@
         const value = feature.manualEstWeeks > 0 ? String(feature.manualEstWeeks) : "";
         const danger = feature.manualEstWeeks > 0 && feature.units > 0 ? " danger" : "";
         const shown = isEmpty(value) ? "—" : escapeHtml(value);
+        if (readOnly) {
+          return shown;
+        }
         return "<span class=\"edit-label" + danger + "\" data-role=\"feature-weeks\" data-owner=\""
           + owner + "\" data-id=\"" + feature.id + "\" data-value=\"" + escapeHtml(value) + "\">"
           + shown + "</span>";
@@ -911,7 +948,7 @@
         }
         const key = featureLink(feature);
         const label = isEmpty(key) ? name : key + ": " + name;
-        const query = feature.kind === "virtual" || feature.kind === "virtual-feature"
+        const query = !readOnly && (feature.kind === "virtual" || feature.kind === "virtual-feature")
           ? " <button type=\"button\" class=\"primary\" data-action=\"edit-virtual\" data-id=\""
             + feature.id + "\">JQL</button>"
           : "";
@@ -919,6 +956,9 @@
       }
 
       function editLabel(role, id, value) {
+        if (readOnly) {
+          return escapeHtml(value);
+        }
         return "<span class=\"edit-label\" data-role=\"" + role + "\" data-id=\"" + id + "\">" + escapeHtml(value) + "</span>";
       }
 
@@ -1031,11 +1071,11 @@
     <div class="ui-menu" style="width: 220px;">
       <select name="file-menu">
         <option>File</option>
-        <option onclick="$(this.controller).syncFeatures();">Sync Feature Requests</option>
-        <option onclick="$(this.controller).openFinishedWork();">Finished work</option>
-        <option onclick="$(this.controller).openReleases();">Releases</option>
-        <option onclick="$(this.controller).openCheckpoint();">Save Checkpoint</option>
-        <option onclick="$(this.controller).openSchedule();">Schedule</option>
+        <option value="sync-features" onclick="$(this.controller).syncFeatures();">Sync Feature Requests</option>
+        <option value="finished-work" onclick="$(this.controller).openFinishedWork();">Finished work</option>
+        <option value="releases" onclick="$(this.controller).openReleases();">Releases</option>
+        <option value="checkpoint" onclick="$(this.controller).openCheckpoint();">Save Checkpoint</option>
+        <option value="schedule" onclick="$(this.controller).openSchedule();">Schedule</option>
       </select>
     </div>
   </div>
@@ -1059,8 +1099,8 @@
           <button name="next-week" class="primary" onclick="$(this.controller).nextWeek();">Next Week</button>
         </div>
         <div class="hbox gap-10" style="padding-top: 10px;">
-          <button class="primary" onclick="$(this.controller).addOperator();">Add Operator</button>
-          <button class="primary" onclick="$(this.controller).openNotes();">Add Notes</button>
+          <button class="primary" data-write="true" onclick="$(this.controller).addOperator();">Add Operator</button>
+          <button class="primary" data-write="true" onclick="$(this.controller).openNotes();">Add Notes</button>
           <div class="ui-popup-menu" style="--popup-width: 180px;">
             <select name="actions">
               <option value="">Actions</option>
@@ -1087,7 +1127,7 @@
       <legend>Tracks</legend>
       <div class="vbox gap-10">
         <div class="hbox gap-10">
-          <button class="primary" onclick="$(this.controller).addTrack();">Add Track</button>
+          <button class="primary" data-write="true" onclick="$(this.controller).addTrack();">Add Track</button>
         </div>
         <table name="tracks">
           <thead>
@@ -1105,7 +1145,7 @@
       <div class="vbox gap-10">
         <p>A virtual work unit is a JQL query tracked like a feature.</p>
         <div class="hbox gap-10">
-          <button class="primary" onclick="$(this.controller).openVirtual();">Add virtual work unit</button>
+          <button class="primary" data-write="true" onclick="$(this.controller).openVirtual();">Add virtual work unit</button>
         </div>
       </div>
     </fieldset>
@@ -1115,7 +1155,7 @@
       <div class="vbox gap-10">
         <p>Grab a row by the handle to reprioritize.</p>
         <div class="hbox gap-10">
-          <button class="primary" onclick="$(this.controller).addDivider();">Add divider</button>
+          <button class="primary" data-write="true" onclick="$(this.controller).addDivider();">Add divider</button>
         </div>
         <table name="backlog">
           <thead>

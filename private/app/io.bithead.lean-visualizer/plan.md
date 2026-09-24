@@ -48,7 +48,7 @@ One board. The scope is that board, and it is not a segment of the path. The tok
 | Actor | Told by | Scope | Reaches | Narrowed by |
 |---|---|---|---|---|
 | Admin | BOSS role `Admin` | the one board | the editor, the syncs, the checkpoint, the schedule, the report | — |
-| Employee | BOSS role `Employee` | the one board | the schedule and the report | read only |
+| Employee | BOSS role `Employee` | the one board | the board, the schedule, and the report | read only on the board |
 
 Roles are registered by `require_acl` and granted in BOSS Settings. This app does not grant them itself. There is no row in this database that links a BOSS account to an operator.
 
@@ -74,17 +74,19 @@ class Role(str, Enum):
 
 | Page | Reached by |
 |---|---|
+| `Board` | Dashboards |
 | `Report` | the app opening on `Employee` |
-| `Schedule` | the report |
+| `Schedule` | Dashboards |
 
 **Shared** — one page, one read, both roles.
 
 | Page | Audiences | The caller may reach |
 |---|---|---|
+| `Board` | Admin, Employee | the one board. An Employee may read it. `PUT /model` and the syncs stay with Admin |
 | `Schedule` | Admin, Employee | the forecast of the one board |
 | `Report` | Admin, Employee | the capacity report of the one board |
 
-A menu item or a deep link opens the controller it names. An Employee does not see Board on Dashboards. `GET /model` answers 403 for that role. See [`process.md`](../../../docs/prompt/process.md) § Say who reaches each page.
+A menu item or a deep link opens the controller it names. An Employee sees Board on Dashboards. `GET /model` is allowed. `PUT /model` answers 403. See [`process.md`](../../../docs/prompt/process.md) § Say who reaches each page.
 
 ## Deep-link routing
 
@@ -105,12 +107,12 @@ Prefix: `/api/io.bithead.lean-visualizer`.
 
 | Method | Path | ACL | Who |
 |---|---|---|---|
-| `GET` | `/model` | `board.r` | Admin |
+| `GET` | `/model` | `board.r` | Admin, Employee |
 | `PUT` | `/model` | `board.w` | Admin |
 | `GET` | `/sync-jira` | `board.w` | Admin |
 | `POST` | `/sync-task-metrics` | `board.w` | Admin |
-| `GET` | `/metrics` | `board.r` | Admin |
-| `GET` | `/metrics-tasks` | `board.r` | Admin |
+| `GET` | `/metrics` | `board.r` | Admin, Employee |
+| `GET` | `/metrics-tasks` | `board.r` | Admin, Employee |
 | `GET` | `/metrics-window` | `report.r` | Admin, Employee |
 | `GET` | `/finished-work` | `report.r` | Admin, Employee |
 | `GET` | `/me` | the role list | Admin, Employee |
@@ -124,7 +126,7 @@ BOSS chrome. A feature's dot and its bar on the schedule use `feature.color`. A 
 
 The forecast comes from `GET /schedule`. Schedule draws it. The board opens that window from the File menu.
 
-Menu, Admin: **Board**, then **Report**. Board is the model the report hangs off. Menu, Employee: **Report**, then **Schedule**.
+Menu, Admin: **Board**, then **Report**. Board is the model the report hangs off. Menu, Employee: **Board**, **Report**, then **Schedule**.
 
 ### `Application`
 
@@ -479,7 +481,7 @@ File: `private/tests/test_lean_visualizer.py`. Each group builds through `lib` a
 `test_access`
 
 - describe: caller has no role. it: `GET /me` is refused. it: `GET /model` is refused.
-- describe: caller is an Employee. it: `PUT /model` is refused. it: `GET /model` is refused. it: `PUT /checkpoints/{releaseId}` is refused. it: `GET /schedule` returns the forecast. it: `GET /report` returns the report.
+- describe: caller is an Employee. it: `PUT /model` is refused. it: `GET /model` is allowed. it: `PUT /checkpoints/{releaseId}` is refused. it: `GET /schedule` returns the forecast. it: `GET /report` returns the report.
 - describe: caller is an Admin. it: `PUT /model` is allowed.
 
 `test_board`
