@@ -380,6 +380,26 @@ async def get_report(boss_user: User, request: Request) -> ReportResponse:
         conn.close()
 
 
+@router.post("/snapshots", response_model=MaterialLog)
+@require_acl("checkpoint.w", roles=[Role.ADMIN])
+async def post_snapshots(boss_user: User, request: Request) -> MaterialLog:
+    conn = get_model_db_connection()
+    try:
+        return take_snapshot(conn, "snapshot")
+    finally:
+        conn.close()
+
+
+@router.get("/material-log", response_model=MaterialLog)
+@require_acl("report.r", roles=[Role.ADMIN, Role.EMPLOYEE])
+async def get_material_log(boss_user: User, request: Request) -> MaterialLog:
+    conn = get_model_db_connection()
+    try:
+        return latest_log(conn)
+    finally:
+        conn.close()
+
+
 @router.put("/checkpoints/{release_id}", response_model=CheckpointResponse)
 @require_acl("checkpoint.w", roles=[Role.ADMIN])
 async def put_checkpoint(release_id: str, boss_user: User, request: Request) -> CheckpointResponse:

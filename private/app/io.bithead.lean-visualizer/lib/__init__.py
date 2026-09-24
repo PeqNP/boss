@@ -12,3 +12,4 @@ from .schedule import *
 from .pillar import *
 from .checkpoint import *
 from .report import *
+from .snapshot import *

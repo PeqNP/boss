@@ -710,3 +710,199 @@ def test_access(monkeypatch):
         assert status_of(lv.put_model, body=body) == 200, "it: PUT /model is allowed"
     finally:
         config.login_enabled = previous_login
+
+
+def divider():
+    return {
+        "kind": "system-divider",
+        "id": "system-sync-divider",
+        "name": "Any task below this line will not have its work unit counts queried.",
+        "color": "#ffe7c2",
+    }
+
+
+def board(backlog, held=None, operators=None):
+    state = lv.default_visualizer_state()
+    state["tracks"] = [track("track_a", "Platform", held=held)]
+    state["backlog"] = backlog
+    state["operators"] = operators or []
+    state["releases"] = [release("rel", "1.0.0", date.today())]
+    return state
+
+
+def entries(log, feature_id):
+    found = [item for item in log.features if item.featureId == feature_id]
+    if len(found) == 0:
+        return []
+    return found[0].entries
+
+
+def kind(log, feature_id, name):
+    return next(item for item in entries(log, feature_id) if item.kind == name)
+
+
+def test_snapshot(monkeypatch):
+    alpha = feature("alpha", "Alpha", issueKey="AL-1", units=10, color="#111111")
+    beta = feature("beta", "Beta", issueKey="BE-2", units=10, color="#222222")
+    conn, saved = open_board(board([alpha, beta, divider(), feature("parked", "Parked")]))
+    try:
+        # describe: no snapshot exists
+        first = lv.take_snapshot(conn, "snapshot")
+        assert first.savedAt != "", "it: the photograph is stored"
+        assert first.features == [], "it: the log is empty"
+        assert first.finished == [], "it: the finished list is empty"
+        assert first.previousSavedAt == "", "it: there is no earlier photograph"
+
+        # describe: a second snapshot finds no difference
+        same = lv.take_snapshot(conn, "snapshot")
+        assert same.features == [], "it: the log is empty"
+        assert same.finished == [], "it: the finished list is empty"
+
+        # describe: a feature stays below the sync line
+        parked = feature("parked", "Parked renamed")
+        saved = lv.upsert_model_row(conn, board([alpha, beta, divider(), parked]), saved.revision)
+        stayed = lv.take_snapshot(conn, "snapshot")
+        assert entries(stayed, "parked") == [], "it: it has no log entry"
+
+        # describe: a feature was below the line and is now above it
+        saved = lv.upsert_model_row(conn, board([parked, alpha, beta, divider()]), saved.revision)
+        entered = lv.take_snapshot(conn, "snapshot")
+        assert [item.kind for item in entries(entered, "parked")] == ["entered"], "it: one entered entry, and no sequence entry"
+    finally:
+        conn.close()
+
+    conn, saved = open_board(board([divider(), beta]))
+    try:
+        lv.take_snapshot(conn, "snapshot")
+        saved = lv.upsert_model_row(conn, board([divider()], held=beta), saved.revision)
+        moved = lv.take_snapshot(conn, "snapshot")
+        # describe: a feature was below the line and is now on a lane
+        assert [item.kind for item in entries(moved, "beta")] == ["entered"], "it: one entered entry"
+
+        # describe: the feature in front changed
+        saved = lv.upsert_model_row(conn, board([alpha, beta, divider()]), saved.revision)
+        lv.take_snapshot(conn, "snapshot")
+        saved = lv.upsert_model_row(conn, board([beta, alpha, divider()]), saved.revision)
+        order = lv.take_snapshot(conn, "snapshot")
+        sequence = kind(order, "alpha", "sequence")
+        assert sequence.aheadName == "Beta", "it: a sequence entry names that feature"
+        assert sequence.days == 0, "it: a reprioritization adds no days"
+
+        # describe: remaining units grew
+        grown = feature("alpha", "Alpha", units=15, color="#111111")
+        saved = lv.upsert_model_row(conn, board([beta, grown, divider()]), saved.revision)
+        units = lv.take_snapshot(conn, "snapshot")
+        assert kind(units, "alpha", "units").unitsAdded == 5, "it: a units entry carries the growth"
+
+        # describe: remaining units fell
+        shrunk = feature("alpha", "Alpha", units=8, color="#111111")
+        saved = lv.upsert_model_row(conn, board([beta, shrunk, divider()]), saved.revision)
+        fell = lv.take_snapshot(conn, "snapshot")
+        assert [item.kind for item in entries(fell, "alpha")] == [], "it: no units entry"
+
+        # describe: a blockage span is new
+        began = date.today().isoformat()
+        blocked = feature("alpha", "Alpha", units=8, color="#111111", blockages=[{
+            "id": "block-1",
+            "beganOn": began,
+            "endedOn": "",
+            "note": "Waiting on the vendor beta.",
+        }])
+        saved = lv.upsert_model_row(conn, board([beta, blocked, divider()]), saved.revision)
+        opened = lv.take_snapshot(conn, "snapshot")
+        blockage = kind(opened, "alpha", "blockage")
+        assert blockage.blockageId == "block-1", "it: one blockage entry"
+        assert blockage.endedOn == "", "it: the end is still open"
+        again = lv.take_snapshot(conn, "snapshot")
+        assert entries(again, "alpha") == [], "it: the next snapshot does not write a second entry for that span"
+
+        # describe: the span was open and now has an end date
+        ended = date.today().isoformat()
+        closed = feature("alpha", "Alpha", units=8, color="#111111", blockages=[{
+            "id": "block-1",
+            "beganOn": began,
+            "endedOn": ended,
+            "note": "Waiting on the vendor beta.",
+        }])
+        saved = lv.upsert_model_row(conn, board([beta, closed, divider()]), saved.revision)
+        finished_span = lv.take_snapshot(conn, "snapshot")
+        updated = kind(finished_span, "alpha", "blockage")
+        assert updated.endedOn == ended, "it: the existing entry gains the end date"
+        assert updated.days == 0, "it: the days are the length of the span"
+
+        # describe: the finish date moved and the order, the units, and the spans did not
+        sunday = week_sunday(date.today()) - timedelta(days=7)
+        paced = feature("paced", "Paced", units=14, color="#333333")
+        lane = board([divider()], held=paced, operators=[operator("Ada", "track_a")])
+        saved = lv.upsert_model_row(conn, lane, saved.revision)
+        lv.record_operator_week(conn, "Ada", sunday, 7, 0)
+        lv.take_snapshot(conn, "snapshot")
+        lv.record_operator_week(conn, "Ada", sunday, 14, 0)
+        rated = lv.take_snapshot(conn, "snapshot")
+        rate_entry = kind(rated, "paced", "rate")
+        assert rate_entry.days != 0, "it: a rate entry"
+        assert rate_entry.previousRate != rate_entry.rate, "it: the weekly rate changed"
+
+        # describe: the finish date moved and the order also changed
+        saved = lv.upsert_model_row(
+            conn,
+            board([paced, feature("other", "Other", units=7)], held=None, operators=[operator("Ada", "track_a")]),
+            saved.revision,
+        )
+        lv.take_snapshot(conn, "snapshot")
+        saved = lv.upsert_model_row(
+            conn,
+            board([feature("other", "Other", units=7), paced], held=None, operators=[operator("Ada", "track_a")]),
+            saved.revision,
+        )
+        both = lv.take_snapshot(conn, "snapshot")
+        assert kind(both, "paced", "sequence").days == 0, "it: a sequence entry"
+        assert [item.kind for item in entries(both, "paced")].count("rate") == 0, "it: no rate entry"
+
+        # describe: a tracked feature is gone from the board
+        saved = lv.upsert_model_row(conn, board([feature("kept", "Kept")], held=None), saved.revision)
+        lv.take_snapshot(conn, "snapshot")
+        saved = lv.upsert_model_row(conn, board([], held=None), saved.revision)
+        gone = lv.take_snapshot(conn, "snapshot")
+        assert [item.featureId for item in gone.finished] == ["kept"], "it: it is in the finished list"
+        assert entries(gone, "kept") == [], "it: it is not in the log"
+
+        # describe: a tracked feature moved below the sync line
+        saved = lv.upsert_model_row(conn, board([feature("drop", "Drop"), divider()]), saved.revision)
+        lv.take_snapshot(conn, "snapshot")
+        saved = lv.upsert_model_row(conn, board([divider(), feature("drop", "Drop")]), saved.revision)
+        dropped = lv.take_snapshot(conn, "snapshot")
+        assert entries(dropped, "drop") == [], "it: it is in neither list"
+        assert [item.featureId for item in dropped.finished] == [], "it: it is not finished"
+
+        # describe: a checkpoint is saved
+        marked = lv.save_checkpoint(conn, "rel", issues=[])
+        assert marked.savedAt != "", "it: the checkpoint is stored"
+        assert lv.latest_log(conn).savedAt != "", "it: a priority snapshot is stored"
+    finally:
+        conn.close()
+
+    config = get_config()
+    previous_login = config.login_enabled
+    config.login_enabled = True
+    grants = set()
+
+    async def verify(request, bundle_id, feature):
+        if feature not in grants:
+            raise HTTPException(status_code=403, detail="refused")
+        return User(
+            id=2,
+            system=0,
+            fullName="Pat",
+            email="pat@example.com",
+            verified=True,
+            enabled=True,
+        )
+
+    monkeypatch.setattr("lib.server.verify_user", verify)
+    try:
+        grants.update(["report.r", "board.r", "schedule.r"])
+        # describe: the caller is an Employee
+        assert status_of(lv.post_snapshots) == 403, "it: POST /snapshots is refused"
+    finally:
+        config.login_enabled = previous_login

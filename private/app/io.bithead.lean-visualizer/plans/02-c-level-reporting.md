@@ -1,6 +1,6 @@
 # 02 — C-level reporting
 
-Status: confirmed. Stage 2 is done. Next is Stage 3.
+Status: confirmed. Stage 3 is done. Next is Stage 4.
 
 This plan tells a reader why a tracked feature's place in the pipeline changed. It does not amend [01-plan.md](01-plan.md). The built app stays as that plan describes it, including the fourteen-day material change, until this plan ships.
 

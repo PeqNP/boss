@@ -231,6 +231,132 @@ def start() -> None:
 def shutdown() -> None:
     pass
 
+def insert_priority_snapshot(conn: sqlite3.Connection, saved_at: str, source: str) -> int:
+    cursor = conn.execute(
+        "INSERT INTO priority_snapshots (saved_at, source) VALUES (?, ?)",
+        (saved_at, source),
+    )
+    return int(cursor.lastrowid)
+
+def insert_priority_snapshot_feature(conn: sqlite3.Connection, snapshot_id: int, row: Dict[str, Any]) -> None:
+    conn.execute(
+        """
+        INSERT INTO priority_snapshot_features (
+            snapshot_id, feature_id, issue_key, name, color, placement,
+            track_id, track_name, position, ahead_feature_id, ahead_name,
+            remaining_units, finish_on, weekly_rate
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            snapshot_id,
+            row["feature_id"],
+            row["issue_key"],
+            row["name"],
+            row["color"],
+            row["placement"],
+            row["track_id"],
+            row["track_name"],
+            row["position"],
+            row["ahead_feature_id"],
+            row["ahead_name"],
+            row["remaining_units"],
+            row["finish_on"],
+            row["weekly_rate"],
+        ),
+    )
+
+def insert_priority_log_entry(conn: sqlite3.Connection, snapshot_id: int, entry: Dict[str, Any]) -> None:
+    conn.execute(
+        """
+        INSERT INTO priority_log_entries (
+            snapshot_id, feature_id, name, color, kind, ahead_feature_id,
+            ahead_name, units_added, blockage_id, began_on, ended_on, note,
+            days, previous_rate, rate
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            snapshot_id,
+            entry["feature_id"],
+            entry["name"],
+            entry["color"],
+            entry["kind"],
+            entry["ahead_feature_id"],
+            entry["ahead_name"],
+            entry["units_added"],
+            entry["blockage_id"],
+            entry["began_on"],
+            entry["ended_on"],
+            entry["note"],
+            entry["days"],
+            entry["previous_rate"],
+            entry["rate"],
+        ),
+    )
+
+def update_priority_blockage_entry(
+    conn: sqlite3.Connection,
+    blockage_id: str,
+    ended_on: str,
+    days: int,
+    snapshot_id: int,
+) -> None:
+    conn.execute(
+        """
+        UPDATE priority_log_entries
+        SET ended_on = ?, days = ?, snapshot_id = ?
+        WHERE kind = 'blockage' AND blockage_id = ?
+        """,
+        (ended_on, days, snapshot_id, blockage_id),
+    )
+
+def read_latest_priority_snapshot(conn: sqlite3.Connection):
+    return conn.execute(
+        "SELECT id, saved_at, source FROM priority_snapshots ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+
+def read_priority_snapshot_features(conn: sqlite3.Connection, snapshot_id: int) -> List[sqlite3.Row]:
+    return conn.execute(
+        "SELECT * FROM priority_snapshot_features WHERE snapshot_id = ? ORDER BY position, feature_id",
+        (snapshot_id,),
+    ).fetchall()
+
+def read_priority_log_entries(conn: sqlite3.Connection, snapshot_id: int) -> List[sqlite3.Row]:
+    return conn.execute(
+        "SELECT * FROM priority_log_entries WHERE snapshot_id = ? ORDER BY feature_id, id",
+        (snapshot_id,),
+    ).fetchall()
+
+def read_priority_snapshot_finished(conn: sqlite3.Connection, snapshot_id: int) -> List[sqlite3.Row]:
+    return conn.execute(
+        "SELECT * FROM priority_snapshot_finished WHERE snapshot_id = ? ORDER BY name",
+        (snapshot_id,),
+    ).fetchall()
+
+def read_priority_blockage_entry(conn: sqlite3.Connection, blockage_id: str):
+    return conn.execute(
+        """
+        SELECT * FROM priority_log_entries
+        WHERE kind = 'blockage' AND blockage_id = ?
+        ORDER BY id DESC LIMIT 1
+        """,
+        (blockage_id,),
+    ).fetchone()
+
+def insert_priority_snapshot_finished(
+    conn: sqlite3.Connection,
+    snapshot_id: int,
+    feature_id: str,
+    name: str,
+    color: str,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO priority_snapshot_finished (snapshot_id, feature_id, name, color)
+        VALUES (?, ?, ?, ?)
+        """,
+        (snapshot_id, feature_id, name, color),
+    )
+
 def get_model_db_connection() -> sqlite3.Connection:
     cfg = get_config()
     app = sys.modules.get(__package__ or "")

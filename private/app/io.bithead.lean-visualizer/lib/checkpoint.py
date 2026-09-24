@@ -173,6 +173,8 @@ def save_checkpoint(
                 bar.finishOn,
             )
     conn.commit()
+    from .snapshot import take_snapshot
+    take_snapshot(conn, "checkpoint")
     return CheckpointResponse(
         releaseId=release_id,
         releaseVersion=str(release.get("version") or ""),

@@ -245,3 +245,42 @@ class FinishedWorkResponse(BaseModel):
     year: int
     operatorName: str
     items: List[FinishedWorkItem]
+
+
+class MaterialLogEntry(BaseModel):
+    kind: str
+    featureId: str
+    name: str
+    color: str
+    issueKey: str = ""
+    aheadFeatureId: str = ""
+    aheadName: str = ""
+    unitsAdded: int = 0
+    blockageId: str = ""
+    createdOn: str = ""
+    endedOn: str = ""
+    note: str = ""
+    days: int = 0
+    previousRate: float = 0
+    rate: float = 0
+
+
+class MaterialLogFeature(BaseModel):
+    featureId: str
+    name: str
+    color: str
+    issueKey: str = ""
+    entries: List[MaterialLogEntry] = []
+
+
+class FinishedFeature(BaseModel):
+    featureId: str
+    name: str
+    color: str
+
+
+class MaterialLog(BaseModel):
+    savedAt: str = ""
+    previousSavedAt: str = ""
+    features: List[MaterialLogFeature] = []
+    finished: List[FinishedFeature] = []
